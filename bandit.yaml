@@ -1,0 +1,6 @@
+exclude_dirs:
+    - test
+
+# Custom args that bandit does not currently support, but is planning to in the future when ini configs are deprecated.
+# These must translate directly across to the CLI arg equivalents
+severity_level: medium
