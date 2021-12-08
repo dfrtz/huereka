@@ -1,0 +1,219 @@
+"""Utilities for storing and manipulating colors."""
+
+from __future__ import annotations
+
+import math
+
+from enum import Enum
+
+
+class Color(int):
+    """Extension of integer to add common RGB color related functionality."""
+
+    @property
+    def blue(self) -> int:
+        """Calculate the blue portion of the color.
+
+        Returns:
+            Last/rightmost 8 bit section of the color representing blue as 0-255.
+        """
+        return (0x0000ff & self) >> 0
+
+    @staticmethod
+    def from_rgb(red: int, green: int, blue: int) -> Color:
+        """Create an RGB color instance using separate RGB values.
+
+        Args:
+            red: Red portion of the raw RGB color value (first/leftmost 8 bit group).
+            green: Green portion of the raw RGB color value (second 8 bit group).
+            blue: Blue portion of the raw RGB color value (last/rightmost 8 bit group).
+
+        Returns:
+            New color with a single integer value representing all RGB portions combined.
+        """
+        value = (((red & 0xff) << 16) |
+                 ((green & 0xff) << 8) |
+                 ((blue & 0xff) << 0)) & 0xFFFFFFFF
+        return Color(value)
+
+    @property
+    def green(self) -> int:
+        """Calculate the green portion of the color.
+
+        Returns:
+            Second 8 bit section of the color representing green as 0-255.
+        """
+        return (0x00ff00 & self) >> 8
+
+    @property
+    def red(self) -> int:
+        """Calculate the red portion of the color.
+
+        Returns:
+            First/leftmost 8 bit section of the color representing red as 0-255.
+        """
+        return (0xff0000 & self) >> 16
+
+    def darken(self, amount: float = .1) -> Color:
+        """Decrease a color's lightness while maintaining RGB ratio.
+
+        Args:
+            amount: Percentage to darken the value.
+
+        Returns:
+            New RGB color with the lightness applied.
+        """
+        hsl = HSLColor.from_color(self)
+        hsl_dark = hsl.with_lightness(max(0.0, min(hsl.lightness - amount, 1.0)))
+        return hsl_dark.to_color()
+
+    def lighten(self, amount: float = .1) -> Color:
+        """Increase a color's lightness while maintaining RGB ratio.
+
+        Args:
+            amount: Percentage to darken the value.
+
+        Returns:
+            New RGB color with the lightness applied.
+        """
+        hsl = HSLColor.from_color(self)
+        hsl_light = hsl.with_lightness(max(0.0, min(hsl.lightness + amount, 1.0)))
+        return hsl_light.to_color()
+
+
+class HSLColor:
+    """Color extension to calculate Hue, Saturation, and Lightness from RGB colors."""
+
+    def __init__(self, hue: float, saturation: float, lightness: float) -> None:
+        """Setup the color extension based on HSL values.
+
+        Args:
+            hue: Degree on the color wheel as 0.0-360.0.
+            saturation: Percentage between grey and full color as 0.0-1.0.
+            lightness: Percentage between black and white as 0.0-1.0.
+        """
+        self.hue = hue
+        self.saturation = saturation
+        self.lightness = lightness
+
+    @staticmethod
+    def from_color(color: Color) -> HSLColor:
+        """Convert an RGB color to HSL color values.
+
+        Args:
+            color: Original color as RGB combined value.
+
+        Returns:
+            RGB value converted into HSL values.
+        """
+        red = color.red / 0xFF
+        green = color.green / 0xFF
+        blue = color.blue / 0xFF
+
+        max_rgb = max(red, green, blue)
+        min_rgb = min(red, green, blue)
+        delta = max_rgb - min_rgb
+
+        hue = rgb_to_hue(red, green, blue, max_rgb, delta)
+        lightness = (max_rgb + min_rgb) / 2.0
+        saturation = 0.0 if lightness == 1.0 else max(0.0, min(delta / (1.0 - abs(2.0 * lightness - 1.0)), 1.0))
+        return HSLColor(hue, saturation, lightness)
+
+    def to_color(self) -> Color:
+        """Convert HSL color values to RGB color value.
+
+        Returns:
+            HSL values converted into RGB value.
+        """
+        chroma = (1.0 - abs(2.0 * self.lightness - 1.0)) * self.saturation
+        secondary = chroma * (1.0 - abs(((self.hue / 60.0) % 2.0) - 1.0))
+        match = self.lightness - chroma / 2.0
+        return hue_to_rgb(self.hue, chroma, secondary, match)
+
+    def with_lightness(self, lightness: float) -> HSLColor:
+        """Create a new HSL color from the current with a new lightness level.
+
+        Args:
+            lightness: Percentage to swap the current lightness with.
+
+        Returns:
+            New HSL color with the previous hue/saturation values and new lightness level.
+        """
+        return HSLColor(self.hue, self.saturation, lightness)
+
+
+def rgb_to_hue(red: float, green: float, blue: float, max_rgb: float, delta: float) -> float:
+    """Convert RGB color values into a hue.
+
+    Args:
+        red: Red portion of the raw RGB color value.
+        green: Green portion of the raw RGB color value.
+        blue: Blue portion of the raw RGB color value.
+        max_rgb: Highest value from the RGB color value.
+        delta: Difference between lowest and highest RGB color value.
+
+    Returns:
+        Degree on a color wheel representing the color.
+    """
+    hue = float('nan')
+    if max_rgb == 0.0:
+        hue = 0.0
+    elif max_rgb == red:
+        hue = 60.0 * (((green - blue) / delta) % 6)
+    elif max_rgb == green:
+        hue = 60.0 * (((blue - red) / delta) + 2)
+    elif max_rgb == blue:
+        hue = 60.0 * (((red - green) / delta) + 4)
+    return 0.0 if math.isnan(hue) else hue
+
+
+def hue_to_rgb(hue: float, chroma: float, secondary: float, match: float) -> Color:
+    """Convert a hue into an RGB color.
+
+    Args:
+        hue: Degree on a color wheel representing the color.
+        chroma: Intensity as the departure degree of a color from the neutral color of the same value.
+        secondary: Second largest RGB value of the color.
+        match: Lightness to apply to all RGB portions of the color.
+
+    Returns:
+        Final RGB color value equivalent to combined HSL values.
+    """
+    if hue < 60.0:
+        red = chroma
+        green = secondary
+        blue = 0.0
+    elif hue < 120.0:
+        red = secondary
+        green = chroma
+        blue = 0.0
+    elif hue < 180.0:
+        red = 0.0
+        green = chroma
+        blue = secondary
+    elif hue < 240.0:
+        red = 0.0
+        green = secondary
+        blue = chroma
+    elif hue < 300.0:
+        red = secondary
+        green = 0.0
+        blue = chroma
+    else:
+        red = chroma
+        green = 0.0
+        blue = secondary
+    return Color.from_rgb(round((red + match) * 0xFF), round((green + match) * 0xFF), round((blue + match) * 0xFF))
+
+
+class Colors(Enum):
+    """Collection of predefined colors."""
+
+    OFF = Color(0x000000)
+    RED = Color(0xFF0000)
+    YELLOW = Color(0xff9600)
+    GREEN = Color(0x00ff00)
+    CYAN = Color(0x00ffff)
+    BLUE = Color(0x0000ff)
+    PURPLE = Color(0xb400ff)
+    WHITE = Color(0xffffff)

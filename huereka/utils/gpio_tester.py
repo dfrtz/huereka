@@ -27,7 +27,7 @@ def main() -> None:
     pin = args.pin
     GPIO.setmode(GPIO.BCM)
     GPIO.setup([pin], GPIO.OUT)
-    print(f'Testing GPIO pin {pin}')
+    print(f'Testing GPIO pin {pin}. Press CTRL+C to stop...')
     try:
         while True:
             GPIO.output(pin, GPIO.HIGH)
