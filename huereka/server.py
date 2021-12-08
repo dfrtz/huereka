@@ -10,9 +10,11 @@ from flask import jsonify
 from flask import logging
 
 from huereka.lib import config_utils
+from huereka.api.v1 import api as v1_api
 
 app = Flask(__name__)
 app.secret_key = config_utils.SECRET_KEY
+app.register_blueprint(v1_api, url_prefix='/api/v1')
 logger = logging.create_logger(app)  # Use create_logger directly instead of app.logger to prevent pylint warnings.
 
 
@@ -21,6 +23,16 @@ def health() -> Response:
     """Basic health check to ensure server is online and responding."""
     return jsonify({
         'result': 'ok'
+    })
+
+
+@app.route('/api', methods=['GET'])
+def versions() -> Response:
+    """Provide the API versions available."""
+    return jsonify({
+        'result': [
+            'v1',
+        ]
     })
 
 
