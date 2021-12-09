@@ -5,9 +5,7 @@
 import argparse
 import time
 
-from huereka.lib import led_manager
-
-_default_colors = (0xffffff, 0xff0000, 0x00ff00, 0x0000ff)
+from huereka.lib.led_manager import LEDManagers
 
 
 def _int_helper(value: str) -> int:
@@ -26,7 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Perform basic LED color test.')
     parser.add_argument('length', type=int,
                         help='Length of the LED strand.')
-    parser.add_argument('-c', '--colors', type=_int_helper, nargs='+', default=_default_colors,
+    parser.add_argument('-c', '--colors', type=_int_helper, nargs='+', default=(0xffffff, 0xff0000, 0x00ff00, 0x0000ff),
                         help='Colors to display. One color per LED in strand.')
     args = parser.parse_args()
     return args
@@ -47,16 +45,18 @@ def main() -> None:
     if len(colors) < 1:
         return
 
+    LEDManagers.create_manager(led_count=len(colors))
     print(f'Testing {len(colors)} LEDs. Press CTRL+C to stop...')
-    with led_manager.LEDManager(len(colors)) as manager:
-        try:
-            for index, color in enumerate(colors):
-                manager.update_led(index, color, show=False)
-            manager.show()
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print()
+    try:
+        for index, color in enumerate(colors):
+            LEDManagers.set_color(index, color, show=False)
+        LEDManagers.show()
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print()
+    finally:
+        LEDManagers.teardown()
 
 
 if __name__ == '__main__':

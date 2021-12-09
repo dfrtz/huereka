@@ -10,6 +10,7 @@ from flask import logging
 from huereka.lib import config_utils
 from huereka.api.v1 import api as v1_api
 from huereka.lib import response_utils as responses
+from huereka.lib.led_manager import LEDManagers
 
 app = Flask(__name__)
 app.secret_key = config_utils.SECRET_KEY
@@ -46,6 +47,8 @@ def parse_args() -> argparse.Namespace:
                         help=f'Path to HTTPS cert. Defaults to {config_utils.HUEREKA_CERT} ENV variable.')
     parser.add_argument('-k', '--key', default=config_utils.KEY,
                         help=f'Path to HTTPS key. Defaults to {config_utils.HUEREKA_KEY} ENV variable.')
+    parser.add_argument('--manager-presets',
+                        help='Path to configuration URI, or JSON configuration text, describing LED managers.')
     args = parser.parse_args()
     return args
 
@@ -57,7 +60,11 @@ def main() -> None:
         raise SystemExit('Operating server without HTTPS is not supported. Please create a key and cert and supply the configuration.')
     if app.secret_key == config_utils.DEFAULT_SECRET_KEY:
         logger.warning(f'Using default secret key. Recommended to set {config_utils.HUEREKA_SECRET_KEY} to override.')
-    app.run(host=args.host, port=args.port, debug=config_utils.DEBUG, ssl_context=(args.cert, args.key))
+    try:
+        LEDManagers.load(args.manager_presets)
+        app.run(host=args.host, port=args.port, debug=config_utils.DEBUG, ssl_context=(args.cert, args.key))
+    finally:
+        LEDManagers.teardown()
 
 
 if __name__ == '__main__':
