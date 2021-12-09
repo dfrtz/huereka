@@ -3,20 +3,17 @@
 import os
 
 from flask import Blueprint
-from flask import Response
-from flask import jsonify
 
 from huereka.lib import import_utils
+from huereka.lib import response_utils as responses
 
 api = Blueprint('v1_api', __name__)
 
 
 @api.route('/health', methods=['GET'])
-def health() -> Response:
+def health() -> tuple:
     """Basic health check to ensure API version is responding."""
-    return jsonify({
-        'result': 'ok'
-    })
+    return responses.ok()
 
 
 # Load all routes on initialization to populate the layouts and callbacks.

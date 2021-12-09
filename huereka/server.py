@@ -5,12 +5,11 @@
 import argparse
 
 from flask import Flask
-from flask import Response
-from flask import jsonify
 from flask import logging
 
 from huereka.lib import config_utils
 from huereka.api.v1 import api as v1_api
+from huereka.lib import response_utils as responses
 
 app = Flask(__name__)
 app.secret_key = config_utils.SECRET_KEY
@@ -19,21 +18,17 @@ logger = logging.create_logger(app)  # Use create_logger directly instead of app
 
 
 @app.route('/health', methods=['GET'])
-def health() -> Response:
+def health() -> tuple:
     """Basic health check to ensure server is online and responding."""
-    return jsonify({
-        'result': 'ok'
-    })
+    return responses.ok()
 
 
 @app.route('/api', methods=['GET'])
-def versions() -> Response:
+def versions() -> tuple:
     """Provide the API versions available."""
-    return jsonify({
-        'result': [
-            'v1',
-        ]
-    })
+    return responses.ok([
+        'v1',
+    ])
 
 
 def parse_args() -> argparse.Namespace:
