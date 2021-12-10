@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import math
+import random
 
 from enum import Enum
+from typing import Union
 
 
 class Color(int):
@@ -81,6 +83,19 @@ class Color(int):
         return hsl_light.to_color()
 
 
+class Colors(Enum):
+    """Collection of predefined colors."""
+
+    OFF = Color(0x000000)
+    RED = Color(0xFF0000)
+    YELLOW = Color(0xff9600)
+    GREEN = Color(0x00ff00)
+    CYAN = Color(0x00ffff)
+    BLUE = Color(0x0000ff)
+    PURPLE = Color(0xb400ff)
+    WHITE = Color(0xffffff)
+
+
 class HSLColor:
     """Color extension to calculate Hue, Saturation, and Lightness from RGB colors."""
 
@@ -142,29 +157,49 @@ class HSLColor:
         return HSLColor(self.hue, self.saturation, lightness)
 
 
-def rgb_to_hue(red: float, green: float, blue: float, max_rgb: float, delta: float) -> float:
-    """Convert RGB color values into a hue.
+def generate_pattern(
+        colors: list,
+        length: int,
+        mirror: bool = False,
+        randomize: bool = False,
+) -> list[int]:
+    """Inflate a list of colors using a small selection of possible colors to create patterns.
 
     Args:
-        red: Red portion of the raw RGB color value.
-        green: Green portion of the raw RGB color value.
-        blue: Blue portion of the raw RGB color value.
-        max_rgb: Highest value from the RGB color value.
-        delta: Difference between lowest and highest RGB color value.
+        colors: Colors to use in pattern.
+        length: Total length of the combined pattern.
+        mirror: Reverse the colors when the last color is used. Exclusive with other patterns.
+        randomize: Randomly choose colors from the color list. Exclusive with other patterns.
 
     Returns:
-        Degree on a color wheel representing the color.
+        Full list patterned to the requested length.
     """
-    hue = float('nan')
-    if max_rgb == 0.0:
-        hue = 0.0
-    elif max_rgb == red:
-        hue = 60.0 * (((green - blue) / delta) % 6)
-    elif max_rgb == green:
-        hue = 60.0 * (((blue - red) / delta) + 2)
-    elif max_rgb == blue:
-        hue = 60.0 * (((red - green) / delta) + 4)
-    return 0.0 if math.isnan(hue) else hue
+    colors = colors or [Colors.WHITE]
+    pattern = []
+    if randomize:
+        if len(colors) > 1:
+            for _ in range(length):
+                pattern.append(random.choice(colors))
+        else:
+            pattern = colors * length
+    elif mirror:
+        # Mirror (reverse) colors after all are used.
+        current = 0
+        for _ in range(length):
+            pattern.append(colors[current])
+            current += 1
+            if current >= len(colors):
+                current = 0
+                colors = colors[::-1]
+    else:
+        # Repeat (start over) colors after all are used.
+        current = 0
+        for _ in range(length):
+            pattern.append(colors[current])
+            current += 1
+            if current >= len(colors):
+                current = 0
+    return pattern
 
 
 def hue_to_rgb(hue: float, chroma: float, secondary: float, match: float) -> Color:
@@ -206,14 +241,45 @@ def hue_to_rgb(hue: float, chroma: float, secondary: float, match: float) -> Col
     return Color.from_rgb(round((red + match) * 0xFF), round((green + match) * 0xFF), round((blue + match) * 0xFF))
 
 
-class Colors(Enum):
-    """Collection of predefined colors."""
+def rgb_to_hue(red: float, green: float, blue: float, max_rgb: float, delta: float) -> float:
+    """Convert RGB color values into a hue.
 
-    OFF = Color(0x000000)
-    RED = Color(0xFF0000)
-    YELLOW = Color(0xff9600)
-    GREEN = Color(0x00ff00)
-    CYAN = Color(0x00ffff)
-    BLUE = Color(0x0000ff)
-    PURPLE = Color(0xb400ff)
-    WHITE = Color(0xffffff)
+    Args:
+        red: Red portion of the raw RGB color value.
+        green: Green portion of the raw RGB color value.
+        blue: Blue portion of the raw RGB color value.
+        max_rgb: Highest value from the RGB color value.
+        delta: Difference between lowest and highest RGB color value.
+
+    Returns:
+        Degree on a color wheel representing the color.
+    """
+    hue = float('nan')
+    if max_rgb == 0.0:
+        hue = 0.0
+    elif max_rgb == red:
+        hue = 60.0 * (((green - blue) / delta) % 6)
+    elif max_rgb == green:
+        hue = 60.0 * (((blue - red) / delta) + 2)
+    elif max_rgb == blue:
+        hue = 60.0 * (((red - green) / delta) + 4)
+    return 0.0 if math.isnan(hue) else hue
+
+
+def parse_color(value: Union[str, int, float]) -> Color:
+    """Helper to translate numerical values into a raw color int.
+
+    Args:
+        value: Numerical value, or string numerical value, representing a raw color. e.g. 0xff0000, '#ff0000', 16711680
+
+    Returns:
+        Translated value wrapped in Color int.
+    """
+    if isinstance(value, (int, float)):
+        value = Color(value)
+    elif isinstance(value, str):
+        raw_color = value.replace('#', '0x')
+        value = Color(raw_color, base=16)
+    else:
+        raise ValueError(f'{value} is not a valid color/int value')
+    return value
