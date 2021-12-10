@@ -3,9 +3,9 @@
 """Primary Huereka web service."""
 
 import argparse
+import logging
 
 from flask import Flask
-from flask import logging
 
 from huereka.lib import config_utils
 from huereka.api.v1 import api as v1_api
@@ -15,7 +15,7 @@ from huereka.lib.led_manager import LEDManagers
 app = Flask(__name__)
 app.secret_key = config_utils.SECRET_KEY
 app.register_blueprint(v1_api, url_prefix='/api/v1')
-logger = logging.create_logger(app)  # Use create_logger directly instead of app.logger to prevent pylint warnings.
+logger = logging.getLogger(__name__)
 
 
 @app.route('/health', methods=['GET'])
