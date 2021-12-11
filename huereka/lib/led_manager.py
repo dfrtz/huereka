@@ -95,7 +95,7 @@ class LEDManager(neopixel.NeoPixel):
         if not led_count or not isinstance(led_count, int):
             raise LEDManagerValueError('invalid-led-manager-led-count')
         pin = data.get(KEY_PIN)
-        if not pin or not isinstance(pin, int):
+        if not isinstance(pin, int):
             raise LEDManagerValueError('invalid-led-manager-pin')
 
         # Optional arguments.
@@ -399,7 +399,7 @@ class LEDManagers:
         """Convert all the managers into JSON compatible types.
 
         Returns:
-            List of basic manager configurations.
+            List of manager configurations.
         """
         with cls.__led_managers_lock__:
-            return [profile.to_json() for profile in cls.__led_managers__.values()]
+            return [manager.to_json() for manager in cls.__led_managers__.values()]

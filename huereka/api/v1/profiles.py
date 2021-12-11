@@ -9,6 +9,7 @@ from huereka.lib import color_profile
 from huereka.lib import response_utils as responses
 from huereka.lib.color_profile import ColorProfile
 from huereka.lib.color_profile import ColorProfiles
+from huereka.lib.lighting_schedule import LightingSchedules
 
 logger = logging.getLogger(__name__)
 
@@ -58,4 +59,8 @@ def profiles_put(name: str) -> tuple:
     body = request.get_json(force=True)
     profile = ColorProfiles.update(name, body)
     ColorProfiles.save()
+    if name != profile.name:
+        # The name of the profile changed, all lighting schedule routines should be updated as well.
+        LightingSchedules.update_profile(name, profile.name)
+        LightingSchedules.save()
     return responses.ok(profile.to_json())

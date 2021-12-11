@@ -50,6 +50,13 @@ class ColorProfile:
         self.colors = [color_utils.parse_color(color) for color in colors or []]
         self._mode = mode
 
+    def __eq__(self, other: Any) -> bool:
+        """Make the profile comparable for equality using unique attributes."""
+        return isinstance(other, ColorProfile) \
+            and self.name == other.name \
+            and self.colors == other.colors \
+            and self._mode == other._mode
+
     def _set_mode(self, mode: int) -> None:
         """Toggle combination flag for a mode on."""
         self._mode |= mode
