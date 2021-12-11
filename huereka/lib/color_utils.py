@@ -38,24 +38,6 @@ class Color(int):
                  ((blue & 0xff) << 0)) & 0xFFFFFFFF
         return Color(value)
 
-    @property
-    def green(self) -> int:
-        """Calculate the green portion of the color.
-
-        Returns:
-            Second 8 bit section of the color representing green as 0-255.
-        """
-        return (0x00ff00 & self) >> 8
-
-    @property
-    def red(self) -> int:
-        """Calculate the red portion of the color.
-
-        Returns:
-            First/leftmost 8 bit section of the color representing red as 0-255.
-        """
-        return (0xff0000 & self) >> 16
-
     def darken(self, amount: float = .1) -> Color:
         """Decrease a color's lightness while maintaining RGB ratio.
 
@@ -69,6 +51,15 @@ class Color(int):
         hsl_dark = hsl.with_lightness(max(0.0, min(hsl.lightness - amount, 1.0)))
         return hsl_dark.to_color()
 
+    @property
+    def green(self) -> int:
+        """Calculate the green portion of the color.
+
+        Returns:
+            Second 8 bit section of the color representing green as 0-255.
+        """
+        return (0x00ff00 & self) >> 8
+
     def lighten(self, amount: float = .1) -> Color:
         """Increase a color's lightness while maintaining RGB ratio.
 
@@ -81,6 +72,23 @@ class Color(int):
         hsl = HSLColor.from_color(self)
         hsl_light = hsl.with_lightness(max(0.0, min(hsl.lightness + amount, 1.0)))
         return hsl_light.to_color()
+
+    @property
+    def red(self) -> int:
+        """Calculate the red portion of the color.
+
+        Returns:
+            First/leftmost 8 bit section of the color representing red as 0-255.
+        """
+        return (0xff0000 & self) >> 16
+
+    def to_rgb(self) -> str:
+        """Convert the raw color value into RGB hex string.
+
+        Returns:
+            Hex string representing color.
+        """
+        return f'#{self.red:02}{self.green:02}{self.blue:02}'
 
 
 class Colors(Enum):
