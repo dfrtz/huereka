@@ -93,18 +93,18 @@ class LEDManager(neopixel.NeoPixel):
         # Required arguments.
         led_count = data.get(KEY_LED_COUNT)
         if not led_count or not isinstance(led_count, int):
-            raise ValueError('invalid-manager-led-count')
+            raise LEDManagerValueError('invalid-led-manager-led-count')
         pin = data.get(KEY_PIN)
         if not pin or not isinstance(pin, int):
-            raise ValueError('invalid-manager-pin')
+            raise LEDManagerValueError('invalid-led-manager-pin')
 
         # Optional arguments.
         brightness = data.get(KEY_BRIGHTNESS, 1.0)
         if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
-            raise ValueError('invalid-manager-brightness')
+            raise LEDManagerValueError('invalid-led-manager-brightness')
         pixel_order = data.get(KEY_PIXEL_ORDER, 'RGB')
         if not isinstance(pixel_order, str) or pixel_order not in ('RGB', 'RGBW'):
-            raise ValueError('invalid-manager-pixel-order')
+            raise LEDManagerValueError('invalid-led-manager-pixel-order')
 
         return LEDManager(
             led_count=led_count,
@@ -166,7 +166,15 @@ class LEDManager(neopixel.NeoPixel):
                 self.show()
 
 
-class LEDManagerDuplicate(response_utils.APIError):
+class LEDManagerValueError(response_utils.APIError, ValueError):
+    """Exception subclass to help identify failures that indicate an LED manager value was invalid."""
+
+    def __init__(self, error: str, data: Any = None, code: int = 422) -> None:
+        """Setup the user details of the error."""
+        super().__init__(error, data, code=code)
+
+
+class LEDManagerDuplicate(LEDManagerValueError):
     """Exception subclass to help identify failures that indicate a manager already exists."""
 
     def __init__(self, pin_id: int) -> None:
@@ -178,7 +186,7 @@ class LEDManagerDuplicate(response_utils.APIError):
         super().__init__('duplicate-led-manager', pin_id)
 
 
-class LEDManagerNotFound(response_utils.APIError):
+class LEDManagerNotFound(LEDManagerValueError):
     """Exception subclass to help identify failures that indicate a manager needs to be setup."""
 
     def __init__(self, pin_id: int) -> None:
@@ -195,22 +203,10 @@ class LEDManagers:
 
     __led_managers__: Dict[Pin, LEDManager] = {}
     __led_managers_lock__ = threading.Condition()
+    __led_managers_uri__: str = None
 
     @classmethod
-    def register(cls, manager: LEDManager) -> None:
-        """Store a manager for concurrent access.
-
-        Args:
-            manager: Previously setup LED manager to be stored in the cache and used during concurrent calls.
-        """
-        with cls.__led_managers_lock__:
-            pin_id = manager.led_pin.id
-            if pin_id in cls.__led_managers__:
-                raise LEDManagerDuplicate(pin_id)
-            cls.__led_managers__[pin_id] = manager
-
-    @classmethod
-    def create_manager(
+    def create(
             cls,
             pin: Pin = board.D18,
             led_count: int = 100,
@@ -226,7 +222,10 @@ class LEDManagers:
             pixel_order: RGB/RGBW/etc ordering of the LEDs on each microcontroller.
 
         Returns:
-            New LED manager for the given pin if not already created, otherwise cached LED manager for the pin.
+            New LED manager for the given pin if not already created.
+
+        Raises:
+            LEDManagerDuplicate if the manager is already setup, indicating it should updated instead.
         """
         with cls.__led_managers_lock__:
             if pin.id in cls.__led_managers__:
@@ -273,11 +272,16 @@ class LEDManagers:
                     logger.exception('Failed to load LED managers from text')
             elif manager_data.startswith(('/', 'file://')):
                 manager_data = manager_data.removeprefix('file://')
-                with open(manager_data, 'rt', encoding='utf-8') as file_in:
-                    try:
-                        loaded_data = json.load(file_in)
-                    except Exception:  # pylint: disable=broad-except
-                        logger.exception(f'Failed to load LED managers from local file {manager_data}')
+                cls.__led_managers_uri__ = manager_data
+                try:
+                    with open(manager_data, 'rt', encoding='utf-8') as file_in:
+                        try:
+                            loaded_data = json.load(file_in)
+                            logger.info(f'Loaded color profiles from {cls.__led_managers_uri__}')
+                        except Exception:  # pylint: disable=broad-except
+                            logger.exception(f'Failed to load LED managers from local file {manager_data}')
+                except FileNotFoundError:
+                    logger.warning(f'Skipping LED managers load, file not found {manager_data}')
         elif isinstance(manager_data, list):
             loaded_data = manager_data
         for index, manager_config in enumerate(loaded_data):
@@ -292,16 +296,33 @@ class LEDManagers:
                 logger.exception(f'Skipping invalid manager setup at index {index}')
 
     @classmethod
+    def register(cls, manager: LEDManager) -> None:
+        """Store a manager for concurrent access.
+
+        Args:
+            manager: Previously setup LED manager to be stored in the cache and used during concurrent calls.
+        """
+        with cls.__led_managers_lock__:
+            pin_id = manager.led_pin.id
+            if pin_id in cls.__led_managers__:
+                raise LEDManagerDuplicate(pin_id)
+            cls.__led_managers__[pin_id] = manager
+
+    @classmethod
     def remove(cls, pin: Pin = board.D18) -> None:
         """Remove a single LED chain/strip and release its resources.
 
         Args:
             pin: GPIO pin to use to send the signal.
+
+        Raises:
+            LEDManagerNotFound if the manager does not exist and cannot be removed.
         """
         with cls.__led_managers_lock__:
-            if pin.id in cls.__led_managers__:
-                manager = cls.__led_managers__.pop(pin.id)
-                manager.teardown()
+            if pin.id not in cls.__led_managers__:
+                raise LEDManagerNotFound(pin.id)
+            manager = cls.__led_managers__.pop(pin.id)
+            manager.teardown()
 
     @classmethod
     def set_color(
@@ -372,3 +393,13 @@ class LEDManagers:
         with cls.__led_managers_lock__:
             for pin_id in list(cls.__led_managers__.keys()):
                 cls.remove(Pin(pin_id))
+
+    @classmethod
+    def to_json(cls) -> list[dict]:
+        """Convert all the managers into JSON compatible types.
+
+        Returns:
+            List of basic manager configurations.
+        """
+        with cls.__led_managers_lock__:
+            return [profile.to_json() for profile in cls.__led_managers__.values()]

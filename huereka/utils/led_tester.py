@@ -33,7 +33,7 @@ def main() -> None:
     if len(colors) < 1:
         return
 
-    LEDManagers.create_manager(led_count=len(colors))
+    LEDManagers.create(led_count=len(colors))
     print(f'Testing {len(colors)} LEDs. Press CTRL+C to stop...')
     try:
         for index, color in enumerate(colors):

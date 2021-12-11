@@ -32,16 +32,23 @@ KEY_RESULT = 'result'
 class APIError(Exception, metaclass=abc.ABCMeta):
     """Base class used to create standardized JSON API responses via error handlers."""
 
-    def __init__(self, error: str, data: Any = None) -> None:
+    def __init__(self, error: str, data: Any = None, code: int = 500) -> None:
         """Setup the base error values.
 
         Args:
             error: User facing error message to show in the response body.
             data: Optional data to return in the response body.
+            code: HTTP return code to provide with this error.
         """
         super().__init__()
         self._error = error
         self._data = data
+        self._code = code
+
+    @property
+    def code(self) -> int:
+        """HTTP return code."""
+        return self._code
 
     @property
     def data(self) -> Any:
