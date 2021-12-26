@@ -37,6 +37,12 @@ def handle_not_found(unused_error: Exception) -> tuple:
     return responses.not_found()
 
 
+@app.errorhandler(405)
+def handle_not_allowed(unused_error: Exception) -> tuple:
+    """Default handler for 405 Not Allowed."""
+    return responses.not_allowed()
+
+
 @app.route('/health', methods=['GET'])
 def health() -> tuple:
     """Basic health check to ensure server is online and responding."""

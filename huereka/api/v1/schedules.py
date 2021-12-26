@@ -6,10 +6,16 @@ from flask import request
 
 from huereka.api.v1 import api
 from huereka.lib import response_utils as responses
+from huereka.lib import lighting_schedule
 from huereka.lib.lighting_schedule import LightingSchedule
 from huereka.lib.lighting_schedule import LightingSchedules
 
 logger = logging.getLogger(__name__)
+
+RESERVED_NAMES = (
+    lighting_schedule.DEFAULT_SCHEDULE_ON,
+    lighting_schedule.DEFAULT_SCHEDULE_OFF,
+)
 
 
 @api.route('/schedules', methods=['GET'])
@@ -23,6 +29,8 @@ def schedules_post() -> tuple:
     """Create a new lighting schedule."""
     body = request.get_json(force=True)
     schedule = LightingSchedule.from_json(body)
+    if schedule.name in RESERVED_NAMES:
+        raise lighting_schedule.LightingScheduleValueError('reserved-name')
     LightingSchedules.register(schedule)
     LightingSchedules.save()
     return responses.ok(schedule.to_json())
@@ -31,6 +39,8 @@ def schedules_post() -> tuple:
 @api.route('/schedules/<string:name>', methods=['DELETE'])
 def schedules_delete(name: str) -> tuple:
     """Remove a lighting schedule based on name attribute."""
+    if name in RESERVED_NAMES:
+        return responses.not_allowed()
     schedule = LightingSchedules.remove(name)
     LightingSchedules.save()
     return responses.ok(schedule.to_json())
@@ -39,12 +49,20 @@ def schedules_delete(name: str) -> tuple:
 @api.route('/schedules/<string:name>', methods=['GET'])
 def schedules_get_entry(name: str) -> tuple:
     """Find a lighting schedule based on name attribute."""
+    if name in RESERVED_NAMES:
+        return responses.not_allowed()
     return responses.ok(LightingSchedules.get(name).to_json())
 
 
 @api.route('/schedules/<string:name>', methods=['PUT'])
 def schedules_put(name: str) -> tuple:
     """Update a lighting schedules' values based on the current name."""
+    if name == lighting_schedule.DEFAULT_SCHEDULE_ON:
+        lighting_schedule.start_schedule_watchdog()
+        return responses.ok()
+    if name == lighting_schedule.DEFAULT_SCHEDULE_OFF:
+        lighting_schedule.stop_schedule_watchdog()
+        return responses.ok()
     body = request.get_json(force=True)
     schedule = LightingSchedules.update(name, body)
     LightingSchedules.save()
