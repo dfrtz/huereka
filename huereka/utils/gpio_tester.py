@@ -17,6 +17,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Perform basic GPIO power on and off tests.')
     parser.add_argument('-p', '--pin', type=int, default=18,
                         help='Test a specific GPIO pin. Defaults to GPIO18.')
+    parser.add_argument('--off', type=float, default=1.0,
+                        help='Delay between on to off state changes. Default: 1 second')
+    parser.add_argument('--on', type=float, default=1.0,
+                        help='Delay between off to on state changes. Default: 1 second')
     args = parser.parse_args()
     return args
 
@@ -31,9 +35,9 @@ def main() -> None:
     try:
         while True:
             GPIO.output(pin, GPIO.HIGH)
-            time.sleep(1)
+            time.sleep(args.off)
             GPIO.output(pin, GPIO.LOW)
-            time.sleep(1)
+            time.sleep(args.on)
     except KeyboardInterrupt:
         print()
     finally:
