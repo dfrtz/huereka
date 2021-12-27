@@ -320,7 +320,7 @@ class LightingSchedule:
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
             raise LightingScheduleValueError('invalid-lighting-schedule-name')
-        manager = data.get(KEY_MANAGER, board.D18.value)
+        manager = data.get(KEY_MANAGER, board.D18.id)
         if not isinstance(manager, int):
             raise LightingScheduleValueError('invalid-lighting-schedule-manager')
 

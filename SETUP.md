@@ -1,12 +1,15 @@
 # READ THIS NOTICE
 
+**CAUTION: Improper grounding, voltage, and other interactions with electricity, can cause personal injury or
+damage to your surroundings. By using this guide you agree to take proper precautions and assume full responsibility.**
+
+**CAUTION: Improper use of 'dd' can overwrite any partition on your system. Do not proceed with any
+commands without absolute certainty they are targeting the correct partition.**
+
 This guide was written and tested on Raspberry Pi OS Lite (2021-10-30), however
 the same steps (should) work in any Debian based environment with minimal to no modification. Other
 Linux distros will require medium to heavy modification of the commands such as installing
 dependencies. Your mileage may vary.
-
-**CAUTION: Improper use of 'dd' can overwrite any partition on your system. Do not proceed with any
-commands without absolute certainty they are targeting the correct partition.**
 
 
 #### Table Of Contents
