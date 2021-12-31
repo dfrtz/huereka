@@ -88,7 +88,7 @@ class Color(int):
         Returns:
             Hex string representing color.
         """
-        return f'#{self.red:02}{self.green:02}{self.blue:02}'
+        return f'#{self.red:02x}{self.green:02x}{self.blue:02x}'
 
 
 class Colors(Enum):
@@ -182,7 +182,7 @@ def generate_pattern(
     Returns:
         Full list patterned to the requested length.
     """
-    colors = colors or [Colors.WHITE]
+    colors = colors or [Colors.OFF]
     pattern = []
     if randomize:
         if len(colors) > 1:

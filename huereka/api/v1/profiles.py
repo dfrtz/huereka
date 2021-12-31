@@ -57,10 +57,14 @@ def profiles_put(name: str) -> tuple:
         # Do not allow the default "off" profile to be modified.
         return responses.not_allowed()
     body = request.get_json(force=True)
+    old_profile = ColorProfiles.get(name).copy()
     profile = ColorProfiles.update(name, body)
     ColorProfiles.save()
     if name != profile.name:
         # The name of the profile changed, all lighting schedule routines should be updated as well.
         LightingSchedules.update_profile(name, profile.name)
         LightingSchedules.save()
+    if old_profile.colors != profile.colors:
+        # Colors were updated, do not wait the watchdog interval and apply immediately.
+        LightingSchedules.verify_active_schedules()
     return responses.ok(profile.to_json())

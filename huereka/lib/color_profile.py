@@ -65,6 +65,18 @@ class ColorProfile:
         """Toggle combination flag for a mode off."""
         self._mode &= ~mode
 
+    def copy(self) -> ColorProfile:
+        """Duplicate the Color profile to prevent modifications to the original.
+
+        Returns:
+            Deep copy of the profile.
+        """
+        return ColorProfile(
+            name=self.name,
+            colors=self.colors.copy(),
+            mode=self._mode,
+        )
+
     @staticmethod
     def from_json(data: dict) -> ColorProfile:
         """Convert JSON type into profile instance.
@@ -220,7 +232,7 @@ class ColorProfiles:
             return cls.__profiles__[name]
 
     @classmethod
-    def get(cls, name: str) -> Any:
+    def get(cls, name: str) -> ColorProfile:
         """Find the profile associated with a given name, or raise an error message for handling downstream.
 
         Args:
@@ -267,6 +279,8 @@ class ColorProfiles:
             loaded_data = profile_data
         for index, profile_config in enumerate(loaded_data):
             name = profile_config.get(KEY_NAME)
+            if name == DEFAULT_PROFILE_OFF:
+                logger.warning(f'Skipping stored color profile for "{DEFAULT_PROFILE_OFF}", not allowed to be overridden')
             if name in cls.__profiles__:
                 logger.warning(f'Skipping duplicate color profile setup at index {index}')
                 continue
@@ -276,7 +290,7 @@ class ColorProfiles:
             except Exception:  # pylint: disable=broad-except
                 logger.exception(f'Skipping invalid color profile setup at index {index}')
         # Always register the default "off" profile.
-        cls.register(ColorProfile(DEFAULT_PROFILE_OFF, colors=[color_utils.Colors.OFF.value]))
+        cls.register(ColorProfile(DEFAULT_PROFILE_OFF, colors=[]))
 
     @classmethod
     def register(cls, profile: ColorProfile) -> None:

@@ -13,8 +13,10 @@ from huereka.lib.lighting_schedule import LightingSchedules
 logger = logging.getLogger(__name__)
 
 RESERVED_NAMES = (
-    lighting_schedule.DEFAULT_SCHEDULE_ON,
+    lighting_schedule.DEFAULT_SCHEDULE_DISABLE,
+    lighting_schedule.DEFAULT_SCHEDULE_ENABLE,
     lighting_schedule.DEFAULT_SCHEDULE_OFF,
+    lighting_schedule.DEFAULT_SCHEDULE_ON,
 )
 
 
@@ -57,13 +59,24 @@ def schedules_get_entry(name: str) -> tuple:
 @api.route('/schedules/<string:name>', methods=['PUT'])
 def schedules_put(name: str) -> tuple:
     """Update a lighting schedules' values based on the current name."""
-    if name == lighting_schedule.DEFAULT_SCHEDULE_ON:
+    if name == lighting_schedule.DEFAULT_SCHEDULE_ENABLE:
         lighting_schedule.start_schedule_watchdog()
         return responses.ok()
-    if name == lighting_schedule.DEFAULT_SCHEDULE_OFF:
+    if name == lighting_schedule.DEFAULT_SCHEDULE_DISABLE:
         lighting_schedule.stop_schedule_watchdog()
+        return responses.ok()
+    if name == lighting_schedule.DEFAULT_SCHEDULE_OFF:
+        LightingSchedules.disable_all()
+        LightingSchedules.save()
+        LightingSchedules.verify_active_schedules()
+        return responses.ok()
+    if name == lighting_schedule.DEFAULT_SCHEDULE_ON:
+        LightingSchedules.enable_all()
+        LightingSchedules.save()
+        LightingSchedules.verify_active_schedules()
         return responses.ok()
     body = request.get_json(force=True)
     schedule = LightingSchedules.update(name, body)
     LightingSchedules.save()
+    LightingSchedules.verify_active_schedules()
     return responses.ok(schedule.to_json())

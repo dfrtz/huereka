@@ -39,7 +39,6 @@ KEY_MANAGER = 'manager'
 KEY_START = 'start'
 KEY_PROFILE = 'profile'
 
-DAY_OFF = 0
 DAY_SUNDAY = 1
 DAY_MONDAY = 2
 DAY_TUESDAY = 4
@@ -49,6 +48,8 @@ DAY_FRIDAY = 32
 DAY_SATURDAY = 64
 DAY_ALL = DAY_SUNDAY | DAY_MONDAY | DAY_TUESDAY | DAY_WEDNESDAY | DAY_THURSDAY | DAY_FRIDAY | DAY_SATURDAY
 
+DEFAULT_SCHEDULE_DISABLE = 'disable'
+DEFAULT_SCHEDULE_ENABLE = 'enable'
 DEFAULT_SCHEDULE_OFF = 'off'
 DEFAULT_SCHEDULE_ON = 'on'
 
@@ -69,7 +70,7 @@ class LightingRoutine:
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
             self,
             profile: str = None,
-            days: Union[int, list[int]] = DAY_OFF,
+            days: Union[int, list[int]] = DAY_ALL,
             start: Union[int, str] = 0,
             end: Union[int, str] = 86400,
             enabled: bool = True,
@@ -186,7 +187,7 @@ class LightingRoutine:
         profile = data.get(KEY_PROFILE)
         if not profile or not isinstance(profile, str):
             raise LightingScheduleValueError('invalid-lighting-routine-profile')
-        days = data.get(KEY_DAYS, DAY_OFF)
+        days = data.get(KEY_DAYS, DAY_ALL)
         if not isinstance(days, int):
             raise LightingScheduleValueError('invalid-lighting-routine-days')
         start = data.get(KEY_START, 0)
@@ -298,7 +299,7 @@ class LightingSchedule:
     @property
     def active(self) -> Optional[LightingRoutine]:
         """Get the currently active routine from this schedule if one is available."""
-        active_routine = None
+        active_routine = OffLightingRoutine
         if self.enabled:
             for routine in self.routines:
                 if routine.active:
@@ -354,6 +355,9 @@ class LightingSchedule:
         }
 
 
+OffLightingRoutine = LightingRoutine(DEFAULT_SCHEDULE_OFF)
+
+
 class LightingScheduleValueError(response_utils.APIError, ValueError):
     """Exception subclass to help identify failures that indicate a lighting schedule value was invalid."""
 
@@ -391,7 +395,7 @@ class LightingSchedules:
 
     __schedules__: Dict[str, LightingSchedule] = {}
     __schedules_lock__ = threading.Condition()
-    __schedules_applied__: dict[int, tuple[LightingSchedule, LightingRoutine]] = {}
+    __schedules_applied__: dict[int, color_profile.ColorProfile] = {}
     __schedules_uri__: str = None
 
     @classmethod
@@ -426,6 +430,20 @@ class LightingSchedules:
                 enabled=enabled,
             )
             return cls.__schedules__[name]
+
+    @classmethod
+    def disable_all(cls) -> None:
+        """Disable all schedules."""
+        with cls.__schedules_lock__:
+            for schedule in cls.__schedules__.values():
+                schedule.enabled = False
+
+    @classmethod
+    def enable_all(cls) -> None:
+        """Enable all schedules."""
+        with cls.__schedules_lock__:
+            for schedule in cls.__schedules__.values():
+                schedule.enabled = True
 
     @classmethod
     def get(cls, name: str) -> Any:
@@ -595,14 +613,18 @@ class LightingSchedules:
         with cls.__schedules_lock__:
             pending = {}
             for schedule in sorted(cls.__schedules__.values()):
-                routine = schedule.active
-                if routine:
-                    pending[schedule.manager.id] = (schedule, routine)
+                pending.setdefault(schedule.manager.id, (schedule, OffLightingRoutine))
+                if pending.get(schedule.manager.id) == OffLightingRoutine:
+                    # First non-off routine takes priority, rest are skipped.
+                    continue
+                active = schedule.active
+                if active != OffLightingRoutine:
+                    pending[schedule.manager.id] = (schedule, active)
             for schedule, routine in sorted(pending.values()):
                 try:
                     profile = color_profile.ColorProfiles.get(routine.profile)
                 except color_profile.ColorProfileNotFound:
-                    continue
+                    profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
                 if cls.__schedules_applied__.get(schedule.manager.id) != profile:
                     try:
                         led_count = len(led_manager.LEDManagers.get(schedule.manager))
@@ -610,8 +632,12 @@ class LightingSchedules:
                         led_manager.LEDManagers.set_colors(colors, pin=schedule.manager)
                     except led_manager.LEDManagerNotFound:
                         continue
-                    cls.__schedules_applied__[schedule.manager.id] = profile
-                    logger.info(f'Applied {schedule.name} schedule using {routine.profile} profile to manager {schedule.manager.id} due to matching {routine.days_human} {routine.start_time} - {routine.end_time} routine')
+                    # Copy the profile so that changes will be detected instead of comparing to self.
+                    cls.__schedules_applied__[schedule.manager.id] = profile.copy()
+                    if profile.name == color_profile.DEFAULT_PROFILE_OFF:
+                        logger.info(f'Turned off LEDs on manager {schedule.manager.id} due to no enabled routines')
+                    else:
+                        logger.info(f'Applied {schedule.name} schedule using {routine.profile} profile to manager {schedule.manager.id} due to matching {routine.days_human} {routine.start_time} - {routine.end_time} routine')
 
 
 def start_schedule_watchdog() -> None:
@@ -628,7 +654,10 @@ def start_schedule_watchdog() -> None:
                     global __WATCHDOG__  # pylint: disable=global-statement
                     __WATCHDOG__ = None
                     break
-                LightingSchedules.verify_active_schedules()
+                try:
+                    LightingSchedules.verify_active_schedules()
+                except:  # pylint: disable=bare-except
+                    logger.exception('Failed to verify lighting schedules')
                 time.sleep(interval)
             logger.info('Schedule watchdog is sleeping')
 
