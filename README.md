@@ -54,3 +54,29 @@ Decorative lighting management software.
 
 7. The lights should all turn red if the setup is complete. If no lights turn on, ensure the full setup has been
    performed and attempt the basic LED/GPIO tests.
+
+
+### Design Overview
+
+Huereka has a few components used to control the lighting hardware. The following is a high level overview of each
+core component, but each component may also contain smaller components not listed here. The overall flow can be
+summarized as: schedules wrap around routines, and routines wrap around profiles, and profiles wrap around LEDs.
+
+**ColorProfile**: Saved collection of colors which can be used by lighting routines to make patterns
+- Colors: RGB colors to use when creating patterns
+- Mode: Flag used to control how colors are converted into patterns. e.g. mirror, repeat, etc.
+
+**LEDManager**: Primary controller for enabling, disabling, and updating active LEDs
+- LED count: Total number of LEDs controlled by the pin
+- Pin: GPIO pin on the system to send control signals
+- Active colors/LEDs: Current colors set on each LED
+
+**LightingRoutine**: Conditions used to trigger color profiles
+- Profile: Which color profile to use when conditions are met
+- Days: Which days of the week the routine can be turned on
+- Start: First moment of each day the routine would turn on
+- End: Last moment of each day the routine will be on before turning off
+
+**LightingSchedule**: Collection of lighting routines and the LED managers
+- Manager: Which LED manager to send lighting routine updates to
+- Routines: Collection of lighting routines which can trigger LED updates
