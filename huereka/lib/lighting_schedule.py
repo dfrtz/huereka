@@ -628,7 +628,7 @@ class LightingSchedules:
                 if cls.__schedules_applied__.get(schedule.manager.id) != profile:
                     try:
                         led_count = len(led_manager.LEDManagers.get(schedule.manager))
-                        colors = color_utils.generate_pattern(profile.colors, led_count)
+                        colors = color_utils.generate_pattern(profile.corrected_colors, led_count)
                         led_manager.LEDManagers.set_colors(colors, pin=schedule.manager)
                     except led_manager.LEDManagerNotFound:
                         continue

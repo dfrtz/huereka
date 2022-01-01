@@ -6,6 +6,7 @@ import math
 import random
 
 from enum import Enum
+from typing import Iterable
 from typing import Union
 
 
@@ -166,7 +167,7 @@ class HSLColor:
 
 
 def generate_pattern(
-        colors: list,
+        colors: Iterable[int],
         length: int,
         mirror: bool = False,
         randomize: bool = False,
@@ -182,7 +183,7 @@ def generate_pattern(
     Returns:
         Full list patterned to the requested length.
     """
-    colors = colors or [Colors.OFF]
+    colors = colors or [Colors.OFF.value]
     pattern = []
     if randomize:
         if len(colors) > 1:
