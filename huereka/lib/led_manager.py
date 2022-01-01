@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 
 from typing import Any
 from typing import Dict
@@ -22,6 +23,7 @@ from huereka.lib.color_utils import Colors
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_LED_UPDATE_DELAY = 0.01
 KEY_LED_COUNT = 'led_count'
 KEY_BRIGHTNESS = 'brightness'
 KEY_PIXEL_ORDER = 'pixel_order'
@@ -113,21 +115,83 @@ class LEDManager(neopixel.NeoPixel):
             pin=Pin(pin),
         )
 
-    def set_color(self, color: Union[Colors, ColorUnion], index: int = -1, show: bool = True) -> None:
-        """Helper to set color and immediately show change.
+    def set_color(
+            self,
+            color: Union[Colors, ColorUnion],
+            index: int = -1,
+            delay: float = DEFAULT_LED_UPDATE_DELAY,
+            show: bool = True,
+    ) -> None:
+        """Set LED color and immediately show change.
 
         Args:
             color: New color to set.
             index: Position of the LED in the chain. Defaults to -1 to fill all.
+                Disables delay.
+            delay: Time to wait between each LED update in seconds.
+                Ignored if index >= 0.
             show: Whether to show the change immediately, or delay until the next show() is called.
+                Ignored if delay > 0.
         """
-        with self.synchronized_lock:
-            if index < 0:
-                self.fill(color)
-            else:
+        if index >= 0:
+            with self.synchronized_lock:
                 self[index] = color
-            if show:
-                self.show()
+                if show:
+                    self.show()
+        else:
+            if delay:
+                def _set_color() -> None:
+                    delay_until = time.time()
+                    for led, _ in enumerate(self):
+                        delay_until += delay
+                        self.synchronized_lock.acquire()
+                        self[led] = color
+                        self.show()
+                        self.synchronized_lock.release()
+                        delta = delay_until - time.time()
+                        if delta > 0:
+                            time.sleep(delta)
+                threading.Thread(target=_set_color, daemon=True).start()
+            else:
+                with self.synchronized_lock:
+                    self.fill(color)
+                    if show:
+                        self.show()
+
+    def set_colors(
+            self,
+            colors: list[Union[Colors, ColorUnion]],
+            delay: float = DEFAULT_LED_UPDATE_DELAY,
+            show: bool = True,
+    ) -> None:
+        """Set multiple LED colors simultaneously and show change.
+
+        Args:
+            colors: New colors to set, one per LED
+            delay: Time to wait between each LED update in seconds.
+                Ignored if index >= 0.
+            show: Whether to show the change immediately, or delay until the next show() is called.
+                Ignored if delay > 0.
+        """
+        if delay:
+            def _set_color() -> None:
+                delay_until = time.time()
+                for led, led_color in enumerate(colors):
+                    delay_until += delay
+                    self.synchronized_lock.acquire()
+                    self[led] = led_color
+                    self.show()
+                    self.synchronized_lock.release()
+                    delta = delay_until - time.time()
+                    if delta > 0:
+                        time.sleep(delta)
+            threading.Thread(target=_set_color, daemon=True).start()
+        else:
+            with self.synchronized_lock:
+                for index, color in enumerate(colors):
+                    self[index] = color
+                if show:
+                    self.show()
 
     def teardown(self) -> None:
         """Clear LED states, and release resources.
@@ -239,7 +303,7 @@ class LEDManagers:
             return cls.__led_managers__[pin.id]
 
     @classmethod
-    def get(cls, pin: Pin = board.D18) -> Any:
+    def get(cls, pin: Pin = board.D18) -> LEDManager:
         """Find the manager associated with a given pin, or raise a specific error message for handling downstream.
 
         Args:
@@ -347,6 +411,7 @@ class LEDManagers:
     def set_colors(
             cls,
             colors: list[Union[Colors, ColorUnion]],
+            delay: float = DEFAULT_LED_UPDATE_DELAY,
             show: bool = True,
             pin: Pin = board.D18,
     ) -> None:
@@ -354,15 +419,13 @@ class LEDManagers:
 
         Args:
             colors: New colors to set, one per pin.
+            delay: Time to wait between each LED update in seconds.
             show: Whether to show the change immediately, or delay until the next show() is called.
             pin: GPIO pin/index of the manager to use to send the signal.
         """
         with cls.__led_managers_lock__:
             manager = cls.get(pin)
-            for index, color in enumerate(colors):
-                manager.set_color(color, index=index, show=False)
-            if show:
-                manager.show()
+            manager.set_colors(colors, delay=delay, show=show)
 
     @classmethod
     def shutoff(cls, pin: Pin = board.D18) -> None:
@@ -372,7 +435,7 @@ class LEDManagers:
             pin: GPIO pin/index of the manager to use to send the signal.
         """
         with cls.__led_managers_lock__:
-            cls.get(pin).shutoff()
+            cls.get(pin).turn_off()
 
     @classmethod
     def show(cls, pin: Pin = board.D18) -> None:
