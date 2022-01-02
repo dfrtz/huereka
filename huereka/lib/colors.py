@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import os
-import shutil
 import threading
 
 from typing import Any
 from typing import Dict
 
-from huereka.lib import response_utils
 from huereka.lib import color_utils
+from huereka.lib.collections import Collection
+from huereka.lib.collections import CollectionEntry
+from huereka.lib.collections import CollectionValueError
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ DEFAULT_COLOR_BLACK = 'black'
 DEFAULT_COLOR_WHITE = 'white'
 
 
-class Color:
+class Color(CollectionEntry):
     """User color preference."""
 
     def __init__(
@@ -46,8 +45,8 @@ class Color:
             and self.name == other.name \
             and self.value == other.value
 
-    @staticmethod
-    def from_json(data: dict) -> Color:
+    @classmethod
+    def from_json(cls, data: dict) -> Color:
         """Convert JSON type into color instance.
 
         Args:
@@ -58,10 +57,10 @@ class Color:
         """
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
-            raise ColorValueError('invalid-color-name')
+            raise CollectionValueError('invalid-color-name')
         value = data.get(KEY_VALUE)
         if value is None or not isinstance(value, (str, int, float)):
-            raise ColorValueError('invalid-color-value')
+            raise CollectionValueError('invalid-color-value')
         return Color(name, value)
 
     def to_json(self) -> dict:
@@ -86,184 +85,30 @@ class Color:
         self._color = color_utils.parse_color(value)
 
 
-class ColorValueError(response_utils.APIError, ValueError):
-    """Exception subclass to help identify failures that indicate a color value was invalid."""
-
-    def __init__(self, error: str, data: Any = None, code: int = 422) -> None:
-        """Setup the user details of the error."""
-        super().__init__(error, data, code=code)
-
-
-class ColorDuplicate(ColorValueError):
-    """Exception subclass to help identify failures that indicate a color already exists."""
-
-    def __init__(self, color_name: str) -> None:
-        """Setup the user details of the error.
-
-        Args:
-            color_name: Name of the color that already exists.
-        """
-        super().__init__('duplicate-color', color_name, code=422)
-
-
-class ColorNotFound(ColorValueError):
-    """Exception subclass to help identify failures that indicate a color needs to be created first."""
-
-    def __init__(self, color_name: str) -> None:
-        """Setup the user details of the error.
-
-        Args:
-            color_name: Name of the color that was not found.
-        """
-        super().__init__('missing-color', color_name, code=404)
-
-
-class Colors:
+class Colors(Collection):
     """Singleton for managing reusable colors."""
 
-    __colors__: Dict[str, Color] = {}
-    __colors_lock__ = threading.Condition()
-    __colors_uri__: str = None
+    _collection: Dict[str, Color] = {}
+    _collection_lock: threading.Condition = threading.Condition()
+    _collection_uri: str = None
+
+    collection_help: str = 'color'
+    entry_cls: str = Color
 
     @classmethod
-    def create(
-            cls,
-            name: str,
-            value: str | int | float,
-    ) -> Color:
-        """Setup a color for reuse and concurrent access.
+    def get(cls, key: str) -> Color:
+        """Find the color associated with a given key.
 
-        Args:
-            name: Human readable name used to store/reference in collections.
-            value: Numerical value, or string numerical value, representing raw color.
-
-        Returns:
-            New color if not already created.
-
-        Raises:
-            ColorDuplicate if the color is already found, indicating it should updated instead.
+        Override to update typehint and simplify caller typechecks.
         """
-        with cls.__colors_lock__:
-            if name in cls.__colors__:
-                raise ColorDuplicate(name)
-            cls.__colors__[name] = Color(name, value=value)
-            return cls.__colors__[name]
+        return super().get(key)
 
     @classmethod
-    def get(cls, name: str) -> Color:
-        """Find the color associated with a given name, or raise an error message for handling downstream.
-
-        Args:
-            name: Name of the saved color.
-
-        Returns:
-            Instance of the color matching the name.
-
-        Raises:
-            ColorNotFound if the color is not found in persistent storage.
-        """
-        color = cls.__colors__.get(name)
-        if not color:
-            raise ColorNotFound(name)
-        return color
-
-    @classmethod
-    def load(cls, color_data: str | list[dict]) -> None:
-        """Initialize the color cache by loading saved configurations.
-
-        Args:
-            color_data: Color data to load as JSON string, JSON file path, or pre-structured python objects.
-        """
-        loaded_data = []
-        if isinstance(color_data, str):
-            if color_data.startswith('['):
-                try:
-                    loaded_data = json.loads(color_data)
-                except Exception:  # pylint: disable=broad-except
-                    logger.exception('Failed to load colors from text')
-            elif color_data.startswith(('/', 'file://')):
-                color_data = color_data.removeprefix('file://')
-                cls.__colors_uri__ = color_data
-                try:
-                    with open(color_data, 'rt', encoding='utf-8') as file_in:
-                        try:
-                            loaded_data = json.load(file_in)
-                            logger.info(f'Loaded colors from {cls.__colors_uri__}')
-                        except Exception:  # pylint: disable=broad-except
-                            logger.exception(f'Failed to load colors from local file {color_data}')
-                except FileNotFoundError:
-                    logger.warning(f'Skipping colors load, file not found {color_data}')
-        elif isinstance(color_data, list):
-            loaded_data = color_data
-        for index, color_config in enumerate(loaded_data):
-            name = color_config.get(KEY_NAME)
-            if name == DEFAULT_COLOR_BLACK:
-                logger.warning(f'Skipping stored color for "{DEFAULT_COLOR_BLACK}", not allowed to be overridden')
-            if name == DEFAULT_COLOR_WHITE:
-                logger.warning(f'Skipping stored color for "{DEFAULT_COLOR_WHITE}", not allowed to be overridden')
-            if name in cls.__colors__:
-                logger.warning(f'Skipping duplicate color setup at index {index}')
-                continue
-            try:
-                manager = Color.from_json(color_config)
-                cls.register(manager)
-            except Exception:  # pylint: disable=broad-except
-                logger.exception(f'Skipping invalid color setup at index {index}')
+    def post_load(cls) -> None:
+        """Actions to perform after load completes."""
         # Always register the default colors.
         cls.register(Color(DEFAULT_COLOR_BLACK, value=color_utils.Colors.BLACK.value))
         cls.register(Color(DEFAULT_COLOR_WHITE, value=color_utils.Colors.WHITE.value))
-
-    @classmethod
-    def register(cls, color: Color) -> None:
-        """Store a color for concurrent access.
-
-        Args:
-            color: Previously setup color to be stored in the cache and used during concurrent calls.
-        """
-        with cls.__colors_lock__:
-            name = color.name
-            if name in cls.__colors__:
-                raise ColorDuplicate(name)
-            cls.__colors__[name] = color
-
-    @classmethod
-    def remove(cls, name: str) -> Color:
-        """Remove a color from persistent storage.
-
-        Args:
-            name: Name of the saved color.
-
-        Raises:
-            ColorNotFound if the color does not exist and cannot be removed.
-        """
-        with cls.__colors_lock__:
-            if name not in cls.__colors__:
-                raise ColorNotFound(name)
-            return cls.__colors__.pop(name)
-
-    @classmethod
-    def save(cls) -> None:
-        """Persist the current colors to storage."""
-        if cls.__colors_uri__ is not None:
-            os.makedirs(os.path.dirname(cls.__colors_uri__), exist_ok=True)
-            with cls.__colors_lock__:
-                # Write to a temporary file, and then move to expected file, so that if for any reason
-                # it is interrupted, the original remains intact and the user can decide which to load.
-                tmp_path = f'{cls.__colors_uri__}.tmp'
-                with open(tmp_path, 'w+', encoding='utf-8') as file_out:
-                    json.dump(cls.to_json(), file_out, indent=2)
-                shutil.move(tmp_path, cls.__colors_uri__)
-                logger.info(f'Saved color to {cls.__colors_uri__}')
-
-    @classmethod
-    def to_json(cls) -> list[dict]:
-        """Convert all the colors into JSON compatible types.
-
-        Returns:
-            List of color configurations.
-        """
-        with cls.__colors_lock__:
-            return [color.to_json() for color in cls.__colors__.values()]
 
     @classmethod
     def update(
@@ -280,17 +125,30 @@ class Colors:
         Returns:
             Final color with the updated values.
         """
-        with cls.__colors_lock__:
+        with cls._collection_lock:
             color = cls.get(old_color)
             name = new_values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):
-                    raise ColorValueError('invalid-color-name')
+                    raise CollectionValueError('invalid-color-name')
                 original_name = color.name
                 color.name = name
-                cls.__colors__[name] = cls.__colors__.pop(original_name)
+                cls._collection[name] = cls._collection.pop(original_name)
             value = new_values.get(KEY_VALUE)
             if value is None or not isinstance(value, (str, int, float)):
-                raise ColorValueError('invalid-color-value')
+                raise CollectionValueError('invalid-color-value')
             color.value = value
         return color
+
+    @classmethod
+    def validate_entry(cls, data: dict, index: int) -> bool:
+        """Additional confirmation of entry values before load."""
+        name = data.get(KEY_NAME)
+        if name == DEFAULT_COLOR_BLACK:
+            logger.warning(f'Skipping stored color for "{DEFAULT_COLOR_BLACK}", not allowed to be overridden')
+        if name == DEFAULT_COLOR_WHITE:
+            logger.warning(f'Skipping stored color for "{DEFAULT_COLOR_WHITE}", not allowed to be overridden')
+        if name in cls._collection:
+            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using name {name}')
+            return False
+        return True

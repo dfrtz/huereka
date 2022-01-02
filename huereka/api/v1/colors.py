@@ -27,7 +27,7 @@ def colors_post() -> tuple:
     body = request.get_json(force=True)
     profile = Color.from_json(body)
     if profile.name in RESERVED_NAMES:
-        raise colors.ColorValueError('reserved-name')
+        raise colors.CollectionValueError('reserved-name')
     Colors.register(profile)
     Colors.save()
     return responses.ok(profile.to_json())

@@ -32,7 +32,7 @@ def schedules_post() -> tuple:
     body = request.get_json(force=True)
     schedule = LightingSchedule.from_json(body)
     if schedule.name in RESERVED_NAMES:
-        raise lighting_schedule.LightingScheduleValueError('reserved-name')
+        raise lighting_schedule.CollectionValueError('reserved-name')
     LightingSchedules.register(schedule)
     LightingSchedules.save()
     return responses.ok(schedule.to_json())

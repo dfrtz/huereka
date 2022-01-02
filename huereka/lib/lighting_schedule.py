@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import os
-import shutil
 import threading
 import time
 
@@ -22,6 +19,9 @@ from huereka.lib import color_profile
 from huereka.lib import color_utils
 from huereka.lib import led_manager
 from huereka.lib import response_utils
+from huereka.lib.collections import Collection
+from huereka.lib.collections import CollectionEntry
+from huereka.lib.collections import CollectionValueError
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ _iso_days = {
 }
 
 
-class LightingRoutine:
+class LightingRoutine(CollectionEntry):
     """Details for running a specific color/lighting profile during a timeframe."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
@@ -156,15 +156,16 @@ class LightingRoutine:
         """
         if isinstance(end, int):
             if end < 0 or end > 86400:
-                raise LightingScheduleValueError('End time must be between 0 and 86400 seconds.')
+                raise CollectionValueError('End time must be between 0 and 86400 seconds.')
+            self._end = end
         elif isinstance(end, str):
             if ':' not in end or end.count(':') > 1:
-                raise LightingScheduleValueError('End time must be in format HH:MM')
+                raise CollectionValueError('End time must be in format HH:MM')
             hour, minute = end.split(':')
             if hour < 0 or hour > 23:
-                raise LightingScheduleValueError('End hour must be between 0 and 23')
+                raise CollectionValueError('End hour must be between 0 and 23')
             if minute < 0 or minute > 59:
-                raise LightingScheduleValueError('End minute must be between 0 and 59')
+                raise CollectionValueError('End minute must be between 0 and 59')
             self._end = hour * 60 * 60 + minute * 60
 
     @property
@@ -172,8 +173,8 @@ class LightingRoutine:
         """Provide human readable value for end."""
         return f'{int(self.end / 3600):02}:{int(self.end % 3600 / 60):02}'
 
-    @staticmethod
-    def from_json(data: dict) -> LightingRoutine:
+    @classmethod
+    def from_json(cls, data: dict) -> LightingRoutine:
         """Convert JSON type into schedule instance.
 
         Args:
@@ -185,19 +186,19 @@ class LightingRoutine:
         # Optional arguments.
         profile = data.get(KEY_PROFILE)
         if not profile or not isinstance(profile, str):
-            raise LightingScheduleValueError('invalid-lighting-routine-profile')
+            raise CollectionValueError('invalid-lighting-routine-profile')
         days = data.get(KEY_DAYS, DAY_ALL)
         if not isinstance(days, int):
-            raise LightingScheduleValueError('invalid-lighting-routine-days')
+            raise CollectionValueError('invalid-lighting-routine-days')
         start = data.get(KEY_START, 0)
         if not isinstance(start, (int, str)):
-            raise LightingScheduleValueError('invalid-lighting-routine-start')
+            raise CollectionValueError('invalid-lighting-routine-start')
         end = data.get(KEY_END, 86400)
         if not isinstance(end, (int, str)):
-            raise LightingScheduleValueError('invalid-lighting-routine-end')
+            raise CollectionValueError('invalid-lighting-routine-end')
         enabled = data.get(KEY_ENABLED, True)
         if not isinstance(enabled, bool):
-            raise LightingScheduleValueError('invalid-lighting-routine-enabled')
+            raise CollectionValueError('invalid-lighting-routine-enabled')
 
         return LightingRoutine(
             profile=profile,
@@ -221,16 +222,16 @@ class LightingRoutine:
         """
         if isinstance(start, int):
             if start < 0 or start > 86400:
-                raise LightingScheduleValueError('Start time must be between 0 and 86400 seconds.')
+                raise CollectionValueError('Start time must be between 0 and 86400 seconds.')
             self._start = start
         elif isinstance(start, str):
             if ':' not in start or start.count(':') > 1:
-                raise LightingScheduleValueError('Start time must be in format HH:MM')
+                raise CollectionValueError('Start time must be in format HH:MM')
             hour, minute = start.split(':')
             if hour < 0 or hour > 23:
-                raise LightingScheduleValueError('Start hour must be between 0 and 23')
+                raise CollectionValueError('Start hour must be between 0 and 23')
             if minute < 0 or minute > 59:
-                raise LightingScheduleValueError('Start minute must be between 0 and 59')
+                raise CollectionValueError('Start minute must be between 0 and 59')
             self._start = hour * 60 * 60 + minute * 60
 
     @property
@@ -253,7 +254,7 @@ class LightingRoutine:
         }
 
 
-class LightingSchedule:
+class LightingSchedule(CollectionEntry):
     """Schedule used to control active color profile on an LED strip."""
 
     def __init__(
@@ -306,8 +307,8 @@ class LightingSchedule:
                     break
         return active_routine
 
-    @staticmethod
-    def from_json(data: dict) -> LightingSchedule:
+    @classmethod
+    def from_json(cls, data: dict) -> LightingSchedule:
         """Convert JSON type into schedule instance.
 
         Args:
@@ -319,19 +320,19 @@ class LightingSchedule:
         # Required arguments.
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
-            raise LightingScheduleValueError('invalid-lighting-schedule-name')
+            raise CollectionValueError('invalid-lighting-schedule-name')
         manager = data.get(KEY_MANAGER, board.D18.id)
         if not isinstance(manager, int):
-            raise LightingScheduleValueError('invalid-lighting-schedule-manager')
+            raise CollectionValueError('invalid-lighting-schedule-manager')
 
         # Optional arguments.
         routines = data.get(KEY_ROUTINES, [])
         if not isinstance(routines, list):
-            raise LightingScheduleValueError('invalid-lighting-schedule-routines')
+            raise CollectionValueError('invalid-lighting-schedule-routines')
         routines = [LightingRoutine.from_json(routine) for routine in routines]
         enabled = data.get(KEY_ENABLED, True)
         if not isinstance(enabled, bool):
-            raise LightingScheduleValueError('invalid-lighting-schedule-enabled')
+            raise CollectionValueError('invalid-lighting-schedule-enabled')
 
         return LightingSchedule(
             name,
@@ -354,204 +355,48 @@ class LightingSchedule:
         }
 
 
-OffLightingRoutine = LightingRoutine(DEFAULT_SCHEDULE_OFF)
+OffLightingRoutine = LightingRoutine(
+    DEFAULT_SCHEDULE_OFF,
+    days=DAY_ALL,
+    start=0,
+    end=86400,
+    enabled=True,
+)
 
 
-class LightingScheduleValueError(response_utils.APIError, ValueError):
-    """Exception subclass to help identify failures that indicate a lighting schedule value was invalid."""
-
-    def __init__(self, error: str, data: Any = None, code: int = 422) -> None:
-        """Setup the user details of the error."""
-        super().__init__(error, data, code=code)
-
-
-class LightingScheduleDuplicate(LightingScheduleValueError):
-    """Exception subclass to help identify failures that indicate a lighting schedule already exists."""
-
-    def __init__(self, name: str) -> None:
-        """Setup the user details of the error.
-
-        Args:
-            name: Name of the schedule that already exists.
-        """
-        super().__init__('duplicate-lighting-schedule', name, code=422)
-
-
-class LightingScheduleNotFound(LightingScheduleValueError):
-    """Exception subclass to help identify failures that indicate a lighting schedule needs to be created first."""
-
-    def __init__(self, name: str) -> None:
-        """Setup the user details of the error.
-
-        Args:
-            name: Name of the schedule that was not found.
-        """
-        super().__init__('missing-lighting-schedule', name, code=404)
-
-
-class LightingSchedules:
+class LightingSchedules(Collection):
     """Singleton for managing reusable lighting schedules."""
 
-    __schedules__: Dict[str, LightingSchedule] = {}
-    __schedules_lock__ = threading.Condition()
     __schedules_applied__: dict[int, color_profile.ColorProfile] = {}
-    __schedules_uri__: str = None
 
-    @classmethod
-    def create(
-            cls,
-            name: str,
-            manager: Pin = board.D18,
-            routines: list[LightingRoutine] = None,
-            enabled: bool = True,
-    ) -> LightingSchedule:
-        """Setup a lighting schedule for reuse and concurrent access.
+    _collection: Dict[str, LightingSchedule] = {}
+    _collection_lock: threading.Condition = threading.Condition()
+    _collection_uri: str = None
 
-        Args:
-            name: Human readable name used to store/reference in collections.
-            manager: ID of the LED manager that will be controlled by this schedule.
-            routines: Timeframes to trigger specific color profiles.
-            enabled: Whether the schedule is currently enabled.
-
-        Returns:
-            New lighting schedule if not already created.
-
-        Raises:
-            LightingScheduleDuplicate if the schedule is already found, indicating it should updated instead.
-        """
-        with cls.__schedules_lock__:
-            if name in cls.__schedules__:
-                raise LightingScheduleDuplicate(name)
-            cls.__schedules__[name] = LightingSchedule(
-                name,
-                manager=manager,
-                routines=routines,
-                enabled=enabled,
-            )
-            return cls.__schedules__[name]
+    collection_help: str = 'lighting schedule'
+    entry_cls: str = LightingSchedule
 
     @classmethod
     def disable_all(cls) -> None:
         """Disable all schedules."""
-        with cls.__schedules_lock__:
-            for schedule in cls.__schedules__.values():
+        with cls._collection_lock:
+            for schedule in cls._collection.values():
                 schedule.enabled = False
 
     @classmethod
     def enable_all(cls) -> None:
         """Enable all schedules."""
-        with cls.__schedules_lock__:
-            for schedule in cls.__schedules__.values():
+        with cls._collection_lock:
+            for schedule in cls._collection.values():
                 schedule.enabled = True
 
     @classmethod
-    def get(cls, name: str) -> Any:
-        """Find the schedule associated with a given name, or raise an error message for handling downstream.
+    def get(cls, key: str) -> LightingSchedule:
+        """Find the lighting schedule associated with a given key.
 
-        Args:
-            name: Name of the saved schedule.
-
-        Returns:
-            Instance of the schedule matching the name.
-
-        Raises:
-            LightingScheduleNotFound if the scheulde is not found in persistent storage.
+        Override to update typehint and simplify caller typechecks.
         """
-        schedule = cls.__schedules__.get(name)
-        if not schedule:
-            raise LightingScheduleNotFound(name)
-        return schedule
-
-    @classmethod
-    def load(cls, schedule_data: str | list[dict]) -> None:
-        """Initialize the schedule cache by loading saved configurations.
-
-        Args:
-            schedule_data: Scheduling data to load as JSON string, JSON file path, or pre-structured python objects.
-        """
-        loaded_data = []
-        if isinstance(schedule_data, str):
-            if schedule_data.startswith('['):
-                try:
-                    loaded_data = json.loads(schedule_data)
-                except Exception:  # pylint: disable=broad-except
-                    logger.exception('Failed to load lighting schedules from text')
-            elif schedule_data.startswith(('/', 'file://')):
-                schedule_data = schedule_data.removeprefix('file://')
-                cls.__schedules_uri__ = schedule_data
-                try:
-                    with open(schedule_data, 'rt', encoding='utf-8') as file_in:
-                        try:
-                            loaded_data = json.load(file_in)
-                            logger.info(f'Loaded lighting schedules from {cls.__schedules_uri__}')
-                        except Exception:  # pylint: disable=broad-except
-                            logger.exception(f'Failed to load lighting schedules from local file {schedule_data}')
-                except FileNotFoundError:
-                    logger.warning(f'Skipping lighting schedules load, file not found {schedule_data}')
-        elif isinstance(schedule_data, list):
-            loaded_data = schedule_data
-        for index, schedule_config in enumerate(loaded_data):
-            name = schedule_config.get(KEY_NAME)
-            if name in cls.__schedules__:
-                logger.warning(f'Skipping duplicate lighting schedule setup at index {index} using name {name}')
-                continue
-            try:
-                manager = LightingSchedule.from_json(schedule_config)
-                cls.register(manager)
-            except Exception:  # pylint: disable=broad-except
-                logger.exception(f'Skipping invalid lighting schedule setup at index {index}')
-
-    @classmethod
-    def register(cls, schedule: LightingSchedule) -> None:
-        """Store a schedule for concurrent access.
-
-        Args:
-            schedule: Previously setup lighting schedule to be stored in the cache and used during concurrent calls.
-        """
-        with cls.__schedules_lock__:
-            name = schedule.name
-            if name in cls.__schedules__:
-                raise LightingScheduleDuplicate(name)
-            cls.__schedules__[name] = schedule
-
-    @classmethod
-    def remove(cls, name: str) -> LightingSchedule:
-        """Remove a schedule from persistent storage.
-
-        Args:
-            name: Name of the saved schedule.
-
-        Raises:
-            LightingScheduleNotFound if the schedule does not exist and cannot be removed.
-        """
-        with cls.__schedules_lock__:
-            if name not in cls.__schedules__:
-                raise LightingScheduleNotFound(name)
-            return cls.__schedules__.pop(name)
-
-    @classmethod
-    def save(cls) -> None:
-        """Persist the current schedules to storage."""
-        if cls.__schedules_uri__ is not None:
-            os.makedirs(os.path.dirname(cls.__schedules_uri__), exist_ok=True)
-            with cls.__schedules_lock__:
-                # Write to a temporary file, and then move to expected file, so that if for any reason
-                # it is interrupted, the original remains intact and the user can decide which to load.
-                tmp_path = f'{cls.__schedules_uri__}.tmp'
-                with open(tmp_path, 'w+', encoding='utf-8') as file_out:
-                    json.dump(cls.to_json(), file_out, indent=2)
-                shutil.move(tmp_path, cls.__schedules_uri__)
-                logger.info(f'Saved lighting schedule to {cls.__schedules_uri__}')
-
-    @classmethod
-    def to_json(cls) -> list[dict]:
-        """Convert all the schedules into JSON compatible types.
-
-        Returns:
-            List of schedule configurations.
-        """
-        with cls.__schedules_lock__:
-            return [schedule.to_json() for schedule in cls.__schedules__.values()]
+        return super().get(key)
 
     @classmethod
     def update(
@@ -568,27 +413,27 @@ class LightingSchedules:
         Returns:
             Final schedule with the updated values.
         """
-        with cls.__schedules_lock__:
+        with cls._collection_lock:
             schedule = cls.get(old_schedule)
             name = new_values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):
-                    raise LightingScheduleValueError('invalid-lighting-schedule-name')
+                    raise CollectionValueError('invalid-lighting-schedule-name')
                 original_name = schedule.name
                 schedule.name = name
-                cls.__schedules__[name] = cls.__schedules__.pop(original_name)
+                cls._collection[name] = cls._collection.pop(original_name)
             routines = new_values.get(KEY_ROUTINES)
             if routines is not None:
                 if not isinstance(routines, list):
-                    raise LightingScheduleValueError('invalid-lighting-schedule-routines')
+                    raise CollectionValueError('invalid-lighting-schedule-routines')
                 try:
                     schedule.routines = [LightingRoutine.from_json(routine) for routine in routines]
                 except Exception as error:  # pylint: disable=broad-except
-                    raise LightingScheduleValueError('invalid-lighting-schedule-routines') from error
+                    raise CollectionValueError('invalid-lighting-schedule-routines') from error
             enabled = new_values.get(KEY_ENABLED)
             if enabled is not None:
                 if not isinstance(enabled, bool):
-                    raise LightingScheduleValueError('invalid-lighting-schedule-enabled')
+                    raise CollectionValueError('invalid-lighting-schedule-enabled')
                 schedule.enabled = enabled
         return schedule
 
@@ -600,18 +445,27 @@ class LightingSchedules:
             old_profile_name: Original color profile name to search for in routines.
             new_profile_name: New color profile name to replace matches with in routines.
         """
-        with cls.__schedules_lock__:
-            for schedule in cls.__schedules__.values():
+        with cls._collection_lock:
+            for schedule in cls._collection.values():
                 for routine in schedule.routines:
                     if routine.profile == old_profile_name:
                         routine.profile = new_profile_name
 
     @classmethod
+    def validate_entry(cls, data: dict, index: int) -> bool:
+        """Actions to perform on every collection entry load."""
+        name = data.get(KEY_NAME)
+        if name in cls._collection:
+            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using name {name}')
+            return False
+        return True
+
+    @classmethod
     def verify_active_schedules(cls) -> None:
         """Monitor schedules and enable/disable routines based on timing."""
-        with cls.__schedules_lock__:
+        with cls._collection_lock:
             pending = {}
-            for schedule in sorted(cls.__schedules__.values()):
+            for schedule in sorted(cls._collection.values()):
                 pending.setdefault(schedule.manager.id, (schedule, OffLightingRoutine))
                 if pending.get(schedule.manager.id) == OffLightingRoutine:
                     # First non-off routine takes priority, rest are skipped.
@@ -622,14 +476,19 @@ class LightingSchedules:
             for schedule, routine in sorted(pending.values()):
                 try:
                     profile = color_profile.ColorProfiles.get(routine.profile)
-                except color_profile.ColorProfileNotFound:
+                except response_utils.APIError as error:
+                    if error.code != 404:
+                        raise error
+                    # Fallback to off, the profile was not found.
                     profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
                 if cls.__schedules_applied__.get(schedule.manager.id) != profile:
                     try:
                         led_count = len(led_manager.LEDManagers.get(schedule.manager))
                         colors = color_utils.generate_pattern(profile.corrected_colors, led_count)
                         led_manager.LEDManagers.set_colors(colors, pin=schedule.manager)
-                    except led_manager.LEDManagerNotFound:
+                    except response_utils.APIError as error:
+                        if error.code != 404:
+                            raise error
                         continue
                     # Copy the profile so that changes will be detected instead of comparing to self.
                     cls.__schedules_applied__[schedule.manager.id] = profile.copy()

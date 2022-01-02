@@ -9,6 +9,7 @@ import board
 import microcontroller
 
 from huereka.lib import color_utils
+from huereka.lib.led_manager import LEDManager
 from huereka.lib.led_manager import LEDManagers
 
 
@@ -39,7 +40,7 @@ def main() -> None:
         return
 
     pin = microcontroller.Pin(args.pin)
-    LEDManagers.create(led_count=len(colors), pin=pin)
+    LEDManagers.register(LEDManager(led_count=len(colors), pin=pin))
     print(f'Testing {len(colors)} LEDs. Press CTRL+C to stop...')
     try:
         for index, color in enumerate(colors):
