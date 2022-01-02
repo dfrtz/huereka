@@ -10,7 +10,6 @@ import threading
 
 from typing import Any
 from typing import Dict
-from typing import Union
 
 from huereka.lib import response_utils
 from huereka.lib import color_utils
@@ -304,7 +303,7 @@ class ColorProfiles:
         return profile
 
     @classmethod
-    def load(cls, profile_data: Union[str, list[dict]]) -> None:
+    def load(cls, profile_data: str | list[dict]) -> None:
         """Initialize the profile cache by loading saved configurations.
 
         Args:

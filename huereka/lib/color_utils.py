@@ -7,7 +7,6 @@ import random
 
 from enum import Enum
 from typing import Iterable
-from typing import Union
 
 
 class Color(int):
@@ -275,7 +274,7 @@ def rgb_to_hue(red: float, green: float, blue: float, max_rgb: float, delta: flo
     return 0.0 if math.isnan(hue) else hue
 
 
-def parse_color(value: Union[str, int, float]) -> Color:
+def parse_color(value: str | int | float) -> Color:
     """Helper to translate numerical values into a raw color int.
 
     Args:

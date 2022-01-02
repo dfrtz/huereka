@@ -10,7 +10,6 @@ import time
 from typing import Any
 from typing import Dict
 from typing import Sequence
-from typing import Union
 
 import neopixel
 import board
@@ -66,8 +65,8 @@ class LEDManager(neopixel.NeoPixel):
 
     def __setitem__(
             self,
-            index: Union[int, slice],
-            color: Union[Colors, ColorUnion, Sequence[ColorUnion]],
+            index: int | slice,
+            color: Colors | ColorUnion | Sequence[ColorUnion],
     ) -> None:
         """Overridden setter to handle additional color types."""
         if isinstance(color, Colors):
@@ -75,7 +74,7 @@ class LEDManager(neopixel.NeoPixel):
         with self.synchronized_lock:
             super().__setitem__(index, color)
 
-    def fill(self, color: Union[Colors, ColorUnion]) -> None:
+    def fill(self, color: Colors | ColorUnion) -> None:
         """Overridden fill to handle additional color types."""
         if isinstance(color, Colors):
             color = color.value
@@ -117,7 +116,7 @@ class LEDManager(neopixel.NeoPixel):
 
     def set_color(
             self,
-            color: Union[Colors, ColorUnion],
+            color: Colors | ColorUnion,
             index: int = -1,
             delay: float = DEFAULT_LED_UPDATE_DELAY,
             show: bool = True,
@@ -160,7 +159,7 @@ class LEDManager(neopixel.NeoPixel):
 
     def set_colors(
             self,
-            colors: list[Union[Colors, ColorUnion]],
+            colors: list[Colors | ColorUnion],
             delay: float = DEFAULT_LED_UPDATE_DELAY,
             show: bool = True,
     ) -> None:
@@ -321,7 +320,7 @@ class LEDManagers:
         return manager
 
     @classmethod
-    def load(cls, manager_data: Union[str, list[dict]]) -> None:
+    def load(cls, manager_data: str | list[dict]) -> None:
         """Initialize the manager cache by loading saved configurations.
 
         Args:
@@ -391,7 +390,7 @@ class LEDManagers:
     @classmethod
     def set_color(
             cls,
-            color: Union[Colors, ColorUnion],
+            color: Colors | ColorUnion,
             index: int = -1,
             show: bool = True,
             pin: Pin = board.D18,
@@ -410,7 +409,7 @@ class LEDManagers:
     @classmethod
     def set_colors(
             cls,
-            colors: list[Union[Colors, ColorUnion]],
+            colors: list[Colors | ColorUnion],
             delay: float = DEFAULT_LED_UPDATE_DELAY,
             show: bool = True,
             pin: Pin = board.D18,

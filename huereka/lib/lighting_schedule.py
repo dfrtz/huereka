@@ -13,7 +13,6 @@ from datetime import datetime
 from typing import Any
 from typing import Dict
 from typing import Optional
-from typing import Union
 
 import board
 
@@ -70,9 +69,9 @@ class LightingRoutine:
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
             self,
             profile: str = None,
-            days: Union[int, list[int]] = DAY_ALL,
-            start: Union[int, str] = 0,
-            end: Union[int, str] = 86400,
+            days: int | list[int] = DAY_ALL,
+            start: int | str = 0,
+            end: int | str = 86400,
             enabled: bool = True,
     ) -> None:
         """Setup the routine to run a profile at specific times.
@@ -149,7 +148,7 @@ class LightingRoutine:
         return self._end
 
     @end.setter
-    def end(self, end: Union[str, int]) -> None:
+    def end(self, end: str | int) -> None:
         """Update time when routine stops within a day.
 
         Args:
@@ -214,7 +213,7 @@ class LightingRoutine:
         return self._start
 
     @start.setter
-    def start(self, start: Union[str, int]) -> None:
+    def start(self, start: str | int) -> None:
         """Update time when routine starts within a day.
 
         Args:
@@ -464,7 +463,7 @@ class LightingSchedules:
         return schedule
 
     @classmethod
-    def load(cls, schedule_data: Union[str, list[dict]]) -> None:
+    def load(cls, schedule_data: str | list[dict]) -> None:
         """Initialize the schedule cache by loading saved configurations.
 
         Args:
