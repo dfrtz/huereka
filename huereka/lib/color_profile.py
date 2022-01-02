@@ -336,7 +336,7 @@ class ColorProfiles:
             if name == DEFAULT_PROFILE_OFF:
                 logger.warning(f'Skipping stored color profile for "{DEFAULT_PROFILE_OFF}", not allowed to be overridden')
             if name in cls.__profiles__:
-                logger.warning(f'Skipping duplicate color profile setup at index {index}')
+                logger.warning(f'Skipping duplicate color profile setup at index {index} using name {name}')
                 continue
             try:
                 manager = ColorProfile.from_json(profile_config)

@@ -34,7 +34,7 @@ def profiles_post() -> tuple:
 
 
 @api.route('/profiles/<string:name>', methods=['DELETE'])
-def profiles_delete(name: str) -> tuple:
+def profiles_delete_entry(name: str) -> tuple:
     """Remove a color profile based on name attribute."""
     if name == color_profile.DEFAULT_PROFILE_OFF:
         # Do not allow the default "off" profile to be deleted.
@@ -51,7 +51,7 @@ def profiles_get_entry(name: str) -> tuple:
 
 
 @api.route('/profiles/<string:name>', methods=['PUT'])
-def profiles_put(name: str) -> tuple:
+def profiles_put_entry(name: str) -> tuple:
     """Update a color profile's values based on the current name."""
     if name == color_profile.DEFAULT_PROFILE_OFF:
         # Do not allow the default "off" profile to be modified.

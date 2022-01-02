@@ -494,7 +494,7 @@ class LightingSchedules:
         for index, schedule_config in enumerate(loaded_data):
             name = schedule_config.get(KEY_NAME)
             if name in cls.__schedules__:
-                logger.warning(f'Skipping duplicate lighting schedule setup at index {index}')
+                logger.warning(f'Skipping duplicate lighting schedule setup at index {index} using name {name}')
                 continue
             try:
                 manager = LightingSchedule.from_json(schedule_config)

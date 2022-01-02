@@ -39,7 +39,7 @@ def schedules_post() -> tuple:
 
 
 @api.route('/schedules/<string:name>', methods=['DELETE'])
-def schedules_delete(name: str) -> tuple:
+def schedules_delete_entry(name: str) -> tuple:
     """Remove a lighting schedule based on name attribute."""
     if name in RESERVED_NAMES:
         return responses.not_allowed()
@@ -57,7 +57,7 @@ def schedules_get_entry(name: str) -> tuple:
 
 
 @api.route('/schedules/<string:name>', methods=['PUT'])
-def schedules_put(name: str) -> tuple:
+def schedules_put_entry(name: str) -> tuple:
     """Update a lighting schedules' values based on the current name."""
     if name == lighting_schedule.DEFAULT_SCHEDULE_ENABLE:
         lighting_schedule.start_schedule_watchdog()
@@ -75,6 +75,9 @@ def schedules_put(name: str) -> tuple:
         LightingSchedules.save()
         LightingSchedules.verify_active_schedules()
         return responses.ok()
+    if name in RESERVED_NAMES:
+        # Safety catch-all in case one is added to reserved list but no custom logic.
+        return responses.not_allowed()
     body = request.get_json(force=True)
     schedule = LightingSchedules.update(name, body)
     LightingSchedules.save()

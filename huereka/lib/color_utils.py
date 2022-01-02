@@ -95,7 +95,7 @@ class Color(int):
 class Colors(Enum):
     """Collection of predefined colors."""
 
-    OFF = Color(0x000000)
+    BLACK = Color(0x000000)
     RED = Color(0xFF0000)
     YELLOW = Color(0xff9600)
     GREEN = Color(0x00ff00)
@@ -183,7 +183,7 @@ def generate_pattern(
     Returns:
         Full list patterned to the requested length.
     """
-    colors = colors or [Colors.OFF.value]
+    colors = colors or [Colors.BLACK.value]
     pattern = []
     if randomize:
         if len(colors) > 1:

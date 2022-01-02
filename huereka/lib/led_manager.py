@@ -223,9 +223,9 @@ class LEDManager(neopixel.NeoPixel):
         """
         with self.synchronized_lock:
             if index < 0:
-                self.fill(Colors.OFF)
+                self.fill(Colors.BLACK)
             else:
-                self[index] = Colors.OFF
+                self[index] = Colors.BLACK
             if show:
                 self.show()
 

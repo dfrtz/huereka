@@ -13,6 +13,7 @@ from flask import Flask
 from huereka.lib import config_utils
 from huereka.api.v1 import api as v1_api
 from huereka.lib import response_utils as responses
+from huereka.lib.colors import Colors
 from huereka.lib.color_profile import ColorProfiles
 from huereka.lib.led_manager import LEDManagers
 from huereka.lib.lighting_schedule import LightingSchedules
@@ -58,6 +59,7 @@ def versions() -> tuple:
 
 
 def init_app(
+        color_presets: str,
         manager_presets: str,
         profile_presets: str,
         schedule_presets: str,
@@ -65,6 +67,7 @@ def init_app(
     """Setup app singletons for managing concurrent access to persistent data.
 
     Args:
+        color_presets: Path to configuration URI, or JSON configuration text, describing user colors.
         manager_presets: Path to configuration URI, or JSON configuration text, describing LED managers.
         profile_presets: Path to configuration URI, or JSON configuration text, describing color profiles.
         schedule_presets: Path to configuration URI, or JSON configuration text, describing lighting schedules.
@@ -73,6 +76,9 @@ def init_app(
     if not manager_presets:
         manager_presets = os.path.join(home, '.huereka', 'led_managers.json')
     LEDManagers.load(manager_presets)
+    if not color_presets:
+        color_presets = os.path.join(home, '.huereka', 'user_colors.json')
+    Colors.load(color_presets)
     if not profile_presets:
         profile_presets = os.path.join(home, '.huereka', 'color_profiles.json')
     ColorProfiles.load(profile_presets)
@@ -97,6 +103,8 @@ def parse_args() -> argparse.Namespace:
                         help=f'Path to HTTPS cert. Defaults to {config_utils.HUEREKA_CERT} ENV variable.')
     parser.add_argument('-k', '--key', default=config_utils.KEY,
                         help=f'Path to HTTPS key. Defaults to {config_utils.HUEREKA_KEY} ENV variable.')
+    parser.add_argument('--color-presets',
+                        help='Path to configuration URI, or JSON configuration text, describing user colors.')
     parser.add_argument('--manager-presets',
                         help='Path to configuration URI, or JSON configuration text, describing LED managers.')
     parser.add_argument('--profile-presets',
@@ -115,7 +123,12 @@ def main() -> None:
     if app.secret_key == config_utils.DEFAULT_SECRET_KEY:
         logger.warning(f'Using default secret key. Recommended to set {config_utils.HUEREKA_SECRET_KEY} to override.')
     try:
-        init_app(args.manager_presets, args.profile_presets, args.schedule_presets)
+        init_app(
+            args.color_presets,
+            args.manager_presets,
+            args.profile_presets,
+            args.schedule_presets,
+        )
         app.run(host=args.host, port=args.port, debug=config_utils.DEBUG, ssl_context=(args.cert, args.key))
     finally:
         LEDManagers.teardown()
