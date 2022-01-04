@@ -6,7 +6,6 @@ import logging
 import threading
 
 from typing import Any
-from typing import Dict
 
 from huereka.lib import color_utils
 from huereka.lib.collections import Collection
@@ -217,7 +216,7 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
 class ColorProfiles(Collection):
     """Singleton for managing reusable color profiles."""
 
-    _collection: Dict[str, ColorProfile] = {}
+    _collection: dict[str, ColorProfile] = {}
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 

@@ -8,8 +8,6 @@ import time
 
 from datetime import datetime
 from typing import Any
-from typing import Dict
-from typing import Optional
 
 import board
 
@@ -297,7 +295,7 @@ class LightingSchedule(CollectionEntry):
         return isinstance(other, LightingSchedule) and self.name < other.name
 
     @property
-    def active(self) -> Optional[LightingRoutine]:
+    def active(self) -> LightingRoutine | None:
         """Get the currently active routine from this schedule if one is available."""
         active_routine = OffLightingRoutine
         if self.enabled:
@@ -369,7 +367,7 @@ class LightingSchedules(Collection):
 
     __schedules_applied__: dict[int, color_profile.ColorProfile] = {}
 
-    _collection: Dict[str, LightingSchedule] = {}
+    _collection: dict[str, LightingSchedule] = {}
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 

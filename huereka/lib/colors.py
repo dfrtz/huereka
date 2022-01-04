@@ -6,7 +6,6 @@ import logging
 import threading
 
 from typing import Any
-from typing import Dict
 
 from huereka.lib import color_utils
 from huereka.lib.collections import Collection
@@ -88,7 +87,7 @@ class Color(CollectionEntry):
 class Colors(Collection):
     """Singleton for managing reusable colors."""
 
-    _collection: Dict[str, Color] = {}
+    _collection: dict[str, Color] = {}
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 

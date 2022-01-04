@@ -1,10 +1,11 @@
 """Functions and classes for providing consistent JSON responses from an API."""
 
+from __future__ import annotations
+
 import abc
 
 from http import HTTPStatus
 from typing import Any
-from typing import Union
 
 StatusOK = HTTPStatus.OK
 StatusInternalError = HTTPStatus.INTERNAL_SERVER_ERROR
@@ -61,7 +62,7 @@ class APIError(Exception, metaclass=abc.ABCMeta):
         return self._error
 
 
-def json_error(error: Union[str, int, APIError, Exception], data: Any = None) -> dict:
+def json_error(error: str | int | APIError | Exception, data: Any = None) -> dict:
     """Create a JSON error with a standardized format.
 
     Args:

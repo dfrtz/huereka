@@ -6,7 +6,6 @@ import logging
 import threading
 import time
 
-from typing import Dict
 from typing import Sequence
 
 import neopixel
@@ -233,7 +232,7 @@ class LEDManager(neopixel.NeoPixel, CollectionEntry):
 class LEDManagers(Collection):
     """Singleton for managing concurrent access to LEDs connected to GPIO pins."""
 
-    _collection: Dict[int, LEDManager] = {}
+    _collection: dict[int, LEDManager] = {}
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
