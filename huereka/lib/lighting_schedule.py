@@ -68,8 +68,8 @@ class LightingRoutine(CollectionEntry):
             self,
             profile: str = None,
             days: int | list[int] = DAY_ALL,
-            start: int | str = 0,
-            end: int | str = 86400,
+            start: int | float | str = 0,
+            end: int | float | str = 86400,
             enabled: bool = True,
     ) -> None:
         """Setup the routine to run a profile at specific times.
@@ -146,13 +146,13 @@ class LightingRoutine(CollectionEntry):
         return self._end
 
     @end.setter
-    def end(self, end: str | int) -> None:
+    def end(self, end: int | float | str) -> None:
         """Update time when routine stops within a day.
 
         Args:
             end: End time in seconds as 0 < value < 86400 or HH:MM.
         """
-        if isinstance(end, int):
+        if isinstance(end, (int, float)):
             if end < 0 or end > 86400:
                 raise CollectionValueError('End time must be between 0 and 86400 seconds.')
             self._end = end
@@ -160,8 +160,12 @@ class LightingRoutine(CollectionEntry):
             if ':' not in end or end.count(':') > 1:
                 raise CollectionValueError('End time must be in format HH:MM')
             hour, minute = end.split(':')
-            if hour < 0 or hour > 23:
-                raise CollectionValueError('End hour must be between 0 and 23')
+            hour = int(hour)
+            minute = int(minute)
+            if hour < 0 or hour > 24:
+                raise CollectionValueError('End hour must be between 0 and 24')
+            if hour == 24 and minute > 0:
+                raise CollectionValueError('End minute must be 0 if hour is 24')
             if minute < 0 or minute > 59:
                 raise CollectionValueError('End minute must be between 0 and 59')
             self._end = hour * 60 * 60 + minute * 60
@@ -189,10 +193,10 @@ class LightingRoutine(CollectionEntry):
         if not isinstance(days, int):
             raise CollectionValueError('invalid-lighting-routine-days')
         start = data.get(KEY_START, 0)
-        if not isinstance(start, (int, str)):
+        if not isinstance(start, (int, float, str)):
             raise CollectionValueError('invalid-lighting-routine-start')
         end = data.get(KEY_END, 86400)
-        if not isinstance(end, (int, str)):
+        if not isinstance(end, (int, float, str)):
             raise CollectionValueError('invalid-lighting-routine-end')
         enabled = data.get(KEY_ENABLED, True)
         if not isinstance(enabled, bool):
@@ -212,20 +216,22 @@ class LightingRoutine(CollectionEntry):
         return self._start
 
     @start.setter
-    def start(self, start: str | int) -> None:
+    def start(self, start: int | float | str) -> None:
         """Update time when routine starts within a day.
 
         Args:
             start: Start time in seconds as 0 < value < 86400 or HH:MM.
         """
-        if isinstance(start, int):
+        if isinstance(start, (int, float)):
             if start < 0 or start > 86400:
                 raise CollectionValueError('Start time must be between 0 and 86400 seconds.')
-            self._start = start
+            self._start = int(start)
         elif isinstance(start, str):
             if ':' not in start or start.count(':') > 1:
                 raise CollectionValueError('Start time must be in format HH:MM')
             hour, minute = start.split(':')
+            hour = int(hour)
+            minute = int(minute)
             if hour < 0 or hour > 23:
                 raise CollectionValueError('Start hour must be between 0 and 23')
             if minute < 0 or minute > 59:

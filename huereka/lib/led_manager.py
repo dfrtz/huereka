@@ -341,7 +341,8 @@ class LEDManagers(Collection):
         """
         with cls._collection_lock:
             for pin_id in list(cls._collection.keys()):
-                cls.remove(pin_id)
+                manager = cls.remove(pin_id)
+                manager.teardown()
 
     @classmethod
     def to_json(cls) -> list[dict]:
