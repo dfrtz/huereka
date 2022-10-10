@@ -81,5 +81,5 @@ def schedules_put_entry(name: str) -> tuple:
     body = request.get_json(force=True)
     schedule = LightingSchedules.update(name, body)
     LightingSchedules.save()
-    LightingSchedules.verify_active_schedules()
+    LightingSchedules.verify_active_schedules(force=True)
     return responses.ok(schedule.to_json())

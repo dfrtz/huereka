@@ -29,6 +29,7 @@ __WATCHDOG_SLEEP__ = True
 KEY_ROUTINES = 'routines'
 KEY_NAME = 'name'
 
+KEY_BRIGHTNESS = 'brightness'
 KEY_DAYS = 'days'
 KEY_ENABLED = 'enabled'
 KEY_END = 'end'
@@ -37,6 +38,8 @@ KEY_LED_DELAY = 'led_delay'
 KEY_MANAGER = 'manager'
 KEY_PROFILE = 'profile'
 KEY_START = 'start'
+
+BRIGHTNESS_DISABLED = -1.0
 
 DAY_SUNDAY = 1
 DAY_MONDAY = 2
@@ -73,8 +76,9 @@ class LightingRoutine(CollectionEntry):
             start: int | float | str = 0,
             end: int | float | str = 86400,
             enabled: bool = True,
+            brightness: float = BRIGHTNESS_DISABLED,
     ) -> None:
-        """Setup the routine to run a profile at specific times.
+        """Set up the routine to run a profile at specific times.
 
         Args:
             profile: Name of the color profile to use while this routine is active.
@@ -83,6 +87,8 @@ class LightingRoutine(CollectionEntry):
             start: Start time in seconds as 0 < value < 86400 or HH:MM.
             end: End time in seconds as 0 < value < 86400 or HH:MM.
             enabled: Whether the routine is currently enabled.
+            brightness: Brightness as a percent between 0.0 and 1.0.
+                Overrides schedule brightness. Defaults to -1 to indicate override being disabled.
         """
         self._start = 0
         self._end = 86400
@@ -95,6 +101,7 @@ class LightingRoutine(CollectionEntry):
             for day in days:
                 self._set_day(day)
         self.enabled = enabled
+        self.brightness = brightness
 
     def __eq__(self, other: Any) -> bool:
         """Make the routine comparable for equality using unique attributes."""
@@ -102,7 +109,8 @@ class LightingRoutine(CollectionEntry):
             and self.profile == other.profile \
             and self.days == other.days \
             and self.start == other.start \
-            and self.end == other.end
+            and self.end == other.end \
+            and self.brightness == other.brightness
 
     def _set_day(self, day: int) -> None:
         """Toggle combination flag for a day on."""
@@ -203,6 +211,9 @@ class LightingRoutine(CollectionEntry):
         enabled = data.get(KEY_ENABLED, True)
         if not isinstance(enabled, bool):
             raise CollectionValueError('invalid-lighting-routine-enabled')
+        brightness = data.get(KEY_BRIGHTNESS, BRIGHTNESS_DISABLED)
+        if not isinstance(brightness, float):
+            raise CollectionValueError('invalid-lighting-routine-brightness')
 
         return LightingRoutine(
             profile=profile,
@@ -257,6 +268,7 @@ class LightingRoutine(CollectionEntry):
             KEY_START: self.start_time,
             KEY_END: self.end_time,
             KEY_ENABLED: self.enabled,
+            KEY_BRIGHTNESS: self.brightness,
         }
 
 
@@ -271,6 +283,7 @@ class LightingSchedule(CollectionEntry):
             enabled: bool = True,
             led_delay: float = led_manager.DEFAULT_LED_UPDATE_DELAY,
             force: bool = False,
+            brightness: float = BRIGHTNESS_DISABLED,
     ) -> None:
         """Set up a schedule for managing active color profile.
 
@@ -281,6 +294,8 @@ class LightingSchedule(CollectionEntry):
             enabled: Whether the schedule is currently enabled for automatic on/off scheduling.
             led_delay: Time in seconds to delay updates between individual LEDs.
             force: Whether the schedule is forced to be active.
+            brightness: Brightness as a percent between 0.0 and 1.0.
+                Overrides LED manager brightness. Defaults to -1 to indicate override being disabled.
         """
         self.name = name
         self.manager = manager
@@ -288,13 +303,17 @@ class LightingSchedule(CollectionEntry):
         self.enabled = enabled
         self.led_delay = led_delay
         self.force = force
+        self.brightness = brightness
 
     def __eq__(self, other: Any) -> bool:
         """Make the schedule comparable for equality using unique attributes."""
         return isinstance(other, LightingSchedule) \
             and self.name == other.name \
             and self.manager.id == other.manager.id \
-            and self.routines == other.routines
+            and self.routines == other.routines \
+            and self.led_delay == other.led_delay \
+            and self.force == other.force \
+            and self.brightness == other.brightness
 
     def __hash__(self) -> int:
         """Make the schedule hashable."""
@@ -312,11 +331,13 @@ class LightingSchedule(CollectionEntry):
     def active(self) -> LightingRoutine | None:
         """Get the currently active routine from this schedule if one is available."""
         active_routine = OffLightingRoutine
-        if self.enabled:
+        if self.force or self.enabled:
             for routine in self.routines:
                 if routine.active:
                     active_routine = routine
                     break
+            if active_routine is OffLightingRoutine and len(self.routines):
+                active_routine = self.routines[0]
         return active_routine
 
     @classmethod
@@ -351,6 +372,9 @@ class LightingSchedule(CollectionEntry):
         led_delay = data.get(KEY_LED_DELAY, led_manager.DEFAULT_LED_UPDATE_DELAY)
         if not isinstance(led_delay, float):
             raise CollectionValueError('invalid-lighting-schedule-led-delay')
+        brightness = data.get(KEY_BRIGHTNESS, BRIGHTNESS_DISABLED)
+        if not isinstance(led_delay, float):
+            raise CollectionValueError('invalid-lighting-schedule-led-brightness')
 
         return LightingSchedule(
             name,
@@ -359,6 +383,7 @@ class LightingSchedule(CollectionEntry):
             enabled=enabled,
             led_delay=led_delay,
             force=force,
+            brightness=brightness,
         )
 
     def to_json(self) -> dict:
@@ -374,6 +399,7 @@ class LightingSchedule(CollectionEntry):
             KEY_ENABLED: self.enabled,
             KEY_FORCE: self.force,
             KEY_LED_DELAY: self.led_delay,
+            KEY_BRIGHTNESS: self.brightness,
         }
 
 
@@ -383,6 +409,7 @@ OffLightingRoutine = LightingRoutine(
     start=0,
     end=86400,
     enabled=True,
+    brightness=0.0,
 )
 
 
@@ -467,6 +494,11 @@ class LightingSchedules(Collection):
                 if not isinstance(led_delay, float):
                     raise CollectionValueError('invalid-lighting-schedule-led-delay')
                 schedule.led_delay = led_delay
+            brightness = new_values.get(KEY_BRIGHTNESS)
+            if brightness is not None:
+                if not isinstance(brightness, float):
+                    raise CollectionValueError('invalid-lighting-schedule-led-brightness')
+                schedule.brightness = brightness
         return schedule
 
     @classmethod
@@ -493,8 +525,12 @@ class LightingSchedules(Collection):
         return True
 
     @classmethod
-    def verify_active_schedules(cls) -> None:
-        """Monitor schedules and enable/disable routines based on timing."""
+    def verify_active_schedules(cls, force: bool = False) -> None:
+        """Monitor schedules and enable/disable routines based on timing.
+
+        Args:
+            force: Force the schedule to re-apply in case of changes, even if already active.
+        """
         with cls._collection_lock:
             pending = {}
             for schedule in sorted(cls._collection.values()):
@@ -513,12 +549,20 @@ class LightingSchedules(Collection):
                         raise error
                     # Fallback to off, the profile was not found.
                     profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
-                if cls.__schedules_applied__.get(schedule.manager.id) != profile:
+                if force or cls.__schedules_applied__.get(schedule.manager.id) != profile:
                     try:
                         led_count = len(led_manager.LEDManagers.get(schedule.manager))
-                        colors = color_utils.generate_pattern(profile.corrected_colors, led_count)
                         led_delay = schedule.led_delay if not schedule.force else 0
-                        led_manager.LEDManagers.set_colors(colors, pin=schedule.manager, delay=led_delay)
+                        colors = color_utils.generate_pattern(profile.corrected_colors, led_count)
+                        led_manager.LEDManagers.set_colors(colors, pin=schedule.manager, delay=led_delay, show=False)
+                        if routine.brightness != BRIGHTNESS_DISABLED:
+                            brightness = routine.brightness
+                        elif schedule.brightness != BRIGHTNESS_DISABLED:
+                            brightness = schedule.brightness
+                        else:
+                            brightness = led_manager.LEDManagers.get(schedule.manager).brightness
+                        led_manager.LEDManagers.set_brightness(brightness, pin=schedule.manager, show=False)
+                        led_manager.LEDManagers.show(pin=schedule.manager)
                     except response_utils.APIError as error:
                         if error.code != 404:
                             raise error

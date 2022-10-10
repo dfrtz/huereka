@@ -43,7 +43,7 @@ class LEDManager(neopixel.NeoPixel, CollectionEntry):
             pixel_order: str = 'RGB',
             pin: Pin = board.D18,
     ) -> None:
-        """Setup a single LED chain/strip.
+        """Set up a single LED chain/strip.
 
         Args:
             led_count: How many LEDs are on the strip of lights.
@@ -113,6 +113,24 @@ class LEDManager(neopixel.NeoPixel, CollectionEntry):
             pixel_order=pixel_order,
             pin=Pin(pin),
         )
+
+    def set_brightness(
+            self,
+            brightness: float = 1.0,
+            show: bool = True,
+    ) -> None:
+        """Set LED brightness and immediately show change.
+
+        Args:
+            brightness: New brightness as a percent between 0.0 and 1.0.
+            show: Whether to show the change immediately, or delay until the next show() is called.
+                Ignored if delay > 0.
+        """
+        brightness = min(max(0.0, brightness), 1.0)
+        with self.synchronized_lock:
+            self.brightness = brightness
+            if show:
+                self.show()
 
     def set_color(
             self,
@@ -275,6 +293,23 @@ class LEDManagers(Collection):
         return super().remove(key)
 
     @classmethod
+    def set_brightness(
+            cls,
+            brightness: float = 1.0,
+            show: bool = True,
+            pin: Pin = board.D18,
+    ) -> None:
+        """Set brightness on a single pin and immediately show change.
+
+        Args:
+            brightness: New brightness as a percent between 0.0 and 1.0.
+            show: Whether to show the change immediately, or delay until the next show() is called.
+            pin: GPIO pin/index of the manager to use to send the signal.
+        """
+        with cls._collection_lock:
+            cls.get(pin).set_brightness(brightness, show=show)
+
+    @classmethod
     def set_color(
             cls,
             color: Colors | ColorUnion,
@@ -282,7 +317,7 @@ class LEDManagers(Collection):
             show: bool = True,
             pin: Pin = board.D18,
     ) -> None:
-        """Set color on a single ping and immediately show change.
+        """Set color on a single pin and immediately show change.
 
         Args:
             color: New color to set.
@@ -359,6 +394,6 @@ class LEDManagers(Collection):
         """Additional confirmation of entry values before load."""
         pin_id = data.get(KEY_PIN)
         if pin_id in cls._collection:
-            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using ping {pin_id}')
+            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using pin {pin_id}')
             return False
         return True
