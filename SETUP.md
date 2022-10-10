@@ -284,20 +284,7 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
 
 1. Install 'pip' Python Package Manager and Development Library:
     ```
-    sudo apt install python3-pip python3-dev
-    ```
-
-2. Install virtual environment:
-    ```
-    sudo pip3 install virtualenv virtualenvwrapper
-    ```
-
-3. Update user profile with virtual environment wrapper for additional commands and to show
-currently active workspace:
-    ```
-    echo "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3" >> ~/.profile
-    echo "export WORKON_HOME=$HOME/.virtualenvs" >> ~/.profile
-    echo "source /usr/local/bin/virtualenvwrapper.sh" >> ~/.profile
+    sudo apt install python3-dev python3-pip python3-venv
     ```
 
 
@@ -317,20 +304,18 @@ currently active workspace:
     ```
     cd ~/Development
     git clone <remote repo location>
+    cd huereka
     ```
 
 4. Setup the hooks:
-   ```
-   hooks/setup_hooks.sh
-   ```
+    ```
+    hooks/setup_hooks.sh
+    ```
 
 5. Make virtual environment to isolate packages:
     ```
-    mkvirtualenv huereka -p $(which python3.9)
-    echo "export PYTHONPATH=~/Development/huereka" >> ~/.virtualenvs/huereka/bin/activate
-
-    # If the venv does not automatically activate (and used on future logins):
-    workon huereka
+    python3.9 -m venv .venv
+    source .venv/bin/activate
     ```
 
 6. Install python project:
@@ -342,12 +327,17 @@ currently active workspace:
     unset CFLAGS
     ```
 
-7. Generate HTTPS certificate:
+7. Add git path to virtual environment, so it can be found automatically while active:
+    ```
+    echo ~/Development/huereka > .venv/lib/python3.9/site-packages/huereka.pth
+    ```
+
+8. Generate HTTPS certificate:
     ```
     openssl req -newkey rsa:4096 -nodes -keyout huereka.key -x509 -days 365 -out huereka.crt
     ```
 
-8. Setup libgpiod per adafruit instructions:
+9. Setup libgpiod per adafruit instructions:
     ```
     cd ~
     wget https://raw.githubusercontent.com/adafruit/Raspberry-Pi-Installer-Scripts/master/libgpiod.sh
