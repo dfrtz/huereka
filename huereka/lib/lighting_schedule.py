@@ -32,9 +32,11 @@ KEY_NAME = 'name'
 KEY_DAYS = 'days'
 KEY_ENABLED = 'enabled'
 KEY_END = 'end'
+KEY_FORCE = 'force'
+KEY_LED_DELAY = 'led_delay'
 KEY_MANAGER = 'manager'
-KEY_START = 'start'
 KEY_PROFILE = 'profile'
+KEY_START = 'start'
 
 DAY_SUNDAY = 1
 DAY_MONDAY = 2
@@ -267,19 +269,25 @@ class LightingSchedule(CollectionEntry):
             manager: Pin = board.D18,
             routines: list[LightingRoutine] = None,
             enabled: bool = True,
+            led_delay: float = led_manager.DEFAULT_LED_UPDATE_DELAY,
+            force: bool = False,
     ) -> None:
-        """Setup a schedule for managing active color profile.
+        """Set up a schedule for managing active color profile.
 
         Args:
             name: Human readable name used to store/reference in collections.
             manager: ID of the LED manager that will be controlled by this schedule.
             routines: Timeframes to trigger specific color profiles.
-            enabled: Whether the schedule is currently enabled.
+            enabled: Whether the schedule is currently enabled for automatic on/off scheduling.
+            led_delay: Time in seconds to delay updates between individual LEDs.
+            force: Whether the schedule is forced to be active.
         """
         self.name = name
         self.manager = manager
         self.routines = routines or []
         self.enabled = enabled
+        self.led_delay = led_delay
+        self.force = force
 
     def __eq__(self, other: Any) -> bool:
         """Make the schedule comparable for equality using unique attributes."""
@@ -293,7 +301,7 @@ class LightingSchedule(CollectionEntry):
         return hash(self.name)
 
     def __gt__(self, other: Any) -> bool:
-        """Make the schedule comparable for less greater than operations by name."""
+        """Make the schedule comparable for greater than operations by name."""
         return isinstance(other, LightingSchedule) and self.name > other.name
 
     def __lt__(self, other: Any) -> bool:
@@ -337,12 +345,20 @@ class LightingSchedule(CollectionEntry):
         enabled = data.get(KEY_ENABLED, True)
         if not isinstance(enabled, bool):
             raise CollectionValueError('invalid-lighting-schedule-enabled')
+        force = data.get(KEY_FORCE, False)
+        if not isinstance(force, bool):
+            raise CollectionValueError('invalid-lighting-schedule-force')
+        led_delay = data.get(KEY_LED_DELAY, led_manager.DEFAULT_LED_UPDATE_DELAY)
+        if not isinstance(led_delay, float):
+            raise CollectionValueError('invalid-lighting-schedule-led-delay')
 
         return LightingSchedule(
             name,
             Pin(manager),
             routines=routines,
             enabled=enabled,
+            led_delay=led_delay,
+            force=force,
         )
 
     def to_json(self) -> dict:
@@ -356,6 +372,8 @@ class LightingSchedule(CollectionEntry):
             KEY_MANAGER: self.manager.id,
             KEY_ROUTINES: [routine.to_json() for routine in self.routines],
             KEY_ENABLED: self.enabled,
+            KEY_FORCE: self.force,
+            KEY_LED_DELAY: self.led_delay,
         }
 
 
@@ -439,6 +457,16 @@ class LightingSchedules(Collection):
                 if not isinstance(enabled, bool):
                     raise CollectionValueError('invalid-lighting-schedule-enabled')
                 schedule.enabled = enabled
+            force = new_values.get(KEY_FORCE)
+            if force is not None:
+                if not isinstance(force, bool):
+                    raise CollectionValueError('invalid-lighting-schedule-force')
+                schedule.force = force
+            led_delay = new_values.get(KEY_LED_DELAY)
+            if led_delay is not None:
+                if not isinstance(led_delay, float):
+                    raise CollectionValueError('invalid-lighting-schedule-led-delay')
+                schedule.led_delay = led_delay
         return schedule
 
     @classmethod
@@ -489,7 +517,8 @@ class LightingSchedules(Collection):
                     try:
                         led_count = len(led_manager.LEDManagers.get(schedule.manager))
                         colors = color_utils.generate_pattern(profile.corrected_colors, led_count)
-                        led_manager.LEDManagers.set_colors(colors, pin=schedule.manager)
+                        led_delay = schedule.led_delay if not schedule.force else 0
+                        led_manager.LEDManagers.set_colors(colors, pin=schedule.manager, delay=led_delay)
                     except response_utils.APIError as error:
                         if error.code != 404:
                             raise error
