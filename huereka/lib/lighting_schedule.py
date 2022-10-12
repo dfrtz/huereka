@@ -20,6 +20,7 @@ from huereka.lib import response_utils
 from huereka.lib.collections import Collection
 from huereka.lib.collections import CollectionEntry
 from huereka.lib.collections import CollectionValueError
+from huereka.lib.collections import get_and_validate
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ _iso_days = {
 }
 
 
-class LightingRoutine(CollectionEntry):
+class LightingRoutine(CollectionEntry):  # Approved override of default. pylint: disable=too-many-instance-attributes
     """Details for running a specific color/lighting profile during a timeframe."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
@@ -275,7 +276,7 @@ class LightingRoutine(CollectionEntry):
 class LightingSchedule(CollectionEntry):
     """Schedule used to control active color profile on an LED strip."""
 
-    def __init__(
+    def __init__(  # Approved override of default. pylint: disable=too-many-arguments
             self,
             name: str,
             manager: Pin = board.D18,
@@ -336,7 +337,7 @@ class LightingSchedule(CollectionEntry):
                 if routine.active:
                     active_routine = routine
                     break
-            if active_routine is OffLightingRoutine and len(self.routines):
+            if active_routine is OffLightingRoutine and len(self.routines) > 0:
                 active_routine = self.routines[0]
         return active_routine
 
@@ -448,6 +449,25 @@ class LightingSchedules(Collection):
         return super().get(key)
 
     @classmethod
+    def pending_routines(cls) -> dict[int, tuple[LightingSchedule, LightingRoutine]]:
+        """Find all scheduled lighting routines that should be active.
+
+        Returns:
+            Mapping of routines that should be active by manager ID.
+        """
+        with cls._collection_lock:
+            pending = {}
+            for schedule in sorted(cls._collection.values()):
+                pending.setdefault(schedule.manager.id, (schedule, OffLightingRoutine))
+                if pending.get(schedule.manager.id) == OffLightingRoutine:
+                    # First non-off routine takes priority, rest are skipped.
+                    continue
+                active = schedule.active
+                if active != OffLightingRoutine:
+                    pending[schedule.manager.id] = (schedule, active)
+        return pending
+
+    @classmethod
     def update(
             cls,
             old_schedule: str,
@@ -465,39 +485,30 @@ class LightingSchedules(Collection):
         with cls._collection_lock:
             schedule = cls.get(old_schedule)
             name = new_values.get(KEY_NAME)
+            invalid_prefix = 'invalid-lighting-schedule'
             if name is not None:
                 if not isinstance(name, str):
                     raise CollectionValueError('invalid-lighting-schedule-name')
                 original_name = schedule.name
                 schedule.name = name
                 cls._collection[name] = cls._collection.pop(original_name)
-            routines = new_values.get(KEY_ROUTINES)
+            routines = get_and_validate(new_values, KEY_ROUTINES, list, nullable=True, error_prefix=invalid_prefix)
             if routines is not None:
-                if not isinstance(routines, list):
-                    raise CollectionValueError('invalid-lighting-schedule-routines')
                 try:
                     schedule.routines = [LightingRoutine.from_json(routine) for routine in routines]
                 except Exception as error:  # pylint: disable=broad-except
-                    raise CollectionValueError('invalid-lighting-schedule-routines') from error
-            enabled = new_values.get(KEY_ENABLED)
+                    raise CollectionValueError(f'{invalid_prefix}-routines') from error
+            enabled = get_and_validate(new_values, KEY_ENABLED, bool, nullable=True, error_prefix=invalid_prefix)
             if enabled is not None:
-                if not isinstance(enabled, bool):
-                    raise CollectionValueError('invalid-lighting-schedule-enabled')
                 schedule.enabled = enabled
-            force = new_values.get(KEY_FORCE)
+            force = get_and_validate(new_values, KEY_FORCE, bool, nullable=True, error_prefix=invalid_prefix)
             if force is not None:
-                if not isinstance(force, bool):
-                    raise CollectionValueError('invalid-lighting-schedule-force')
                 schedule.force = force
-            led_delay = new_values.get(KEY_LED_DELAY)
+            led_delay = get_and_validate(new_values, KEY_LED_DELAY, float, nullable=True, error_prefix=invalid_prefix)
             if led_delay is not None:
-                if not isinstance(led_delay, float):
-                    raise CollectionValueError('invalid-lighting-schedule-led-delay')
                 schedule.led_delay = led_delay
-            brightness = new_values.get(KEY_BRIGHTNESS)
+            brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float, nullable=True, error_prefix=invalid_prefix)
             if brightness is not None:
-                if not isinstance(brightness, float):
-                    raise CollectionValueError('invalid-lighting-schedule-led-brightness')
                 schedule.brightness = brightness
         return schedule
 
@@ -531,16 +542,8 @@ class LightingSchedules(Collection):
         Args:
             force: Force the schedule to re-apply in case of changes, even if already active.
         """
+        pending = cls.pending_routines()
         with cls._collection_lock:
-            pending = {}
-            for schedule in sorted(cls._collection.values()):
-                pending.setdefault(schedule.manager.id, (schedule, OffLightingRoutine))
-                if pending.get(schedule.manager.id) == OffLightingRoutine:
-                    # First non-off routine takes priority, rest are skipped.
-                    continue
-                active = schedule.active
-                if active != OffLightingRoutine:
-                    pending[schedule.manager.id] = (schedule, active)
             for schedule, routine in sorted(pending.values()):
                 try:
                     profile = color_profile.ColorProfiles.get(routine.profile)

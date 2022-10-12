@@ -194,3 +194,31 @@ class CollectionValueError(response_utils.APIError, ValueError):
     def __init__(self, error: str, data: Any = None, code: int = 422) -> None:
         """Setup the user details of the error."""
         super().__init__(error, data, code=code)
+
+
+def get_and_validate(
+        data: dict,
+        key: str,
+        expected_type: Any,
+        nullable: bool = False,
+        error_prefix: str = 'invalid'
+) -> Any:
+    """Retrieve data and validate type.
+
+    Args:
+        data: Mapping of key value pairs available to a collection.
+        key: Name of the value to pull from the data.
+        expected_type: Instance type that the value should be, such as int or bool.
+        nullable: Whether the value is allowed to be null.
+        error_prefix: Prefix to add to the exception message if the value is invalid.
+
+    Returns:
+        Final value pulled from the data if valid.
+
+    Raises:
+        CollectionValueError if the data type is invalid.
+    """
+    value = data.get(key)
+    if (value is None and not nullable) or (value is not None and not isinstance(value, expected_type)):
+        raise CollectionValueError(f'{error_prefix}-{key}')
+    return value
