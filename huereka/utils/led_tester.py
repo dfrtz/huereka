@@ -27,6 +27,8 @@ def parse_args() -> argparse.Namespace:
                         help='Colors to display. One color per LED in strand.')
     parser.add_argument('-p', '--pin', type=int, default=board.D18.id,
                         help='Colors to display. One color per LED in strand.')
+    parser.add_argument('-f', '--fade', action='store_true',
+                        help='Fade of brightness down to 0, and then back to 1, repeatedly.')
     args = parser.parse_args()
     return args
 
@@ -46,8 +48,22 @@ def main() -> None:
         for index, color in enumerate(colors):
             LEDManagers.set_color(color, index=index, show=False, pin=pin)
         LEDManagers.show(pin=pin)
+        brightness = 1.0
+        decreasing = True
         while True:
-            time.sleep(1)
+            if args.fade:
+                time.sleep(.1)
+                LEDManagers.set_brightness(brightness, pin=pin)
+                LEDManagers.show(pin=pin)
+                brightness = brightness - (0.05 if decreasing else -0.05)
+                if brightness < 0:
+                    brightness = 0
+                    decreasing = False
+                elif brightness > 1:
+                    brightness = 1
+                    decreasing = True
+            else:
+                time.sleep(1)
     except KeyboardInterrupt:
         print()
     finally:
