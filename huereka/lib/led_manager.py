@@ -26,22 +26,24 @@ DEFAULT_LED_UPDATE_DELAY = 0.01
 KEY_LED_COUNT = 'led_count'
 KEY_BRIGHTNESS = 'brightness'
 KEY_PIXEL_ORDER = 'pixel_order'
+KEY_TYPE = 'type'
 KEY_PIN = 'pin'
 
 
-class LEDManager(neopixel.NeoPixel, CollectionEntry):
+class LEDManager(CollectionEntry):
     """Manage the colors and brightness of LEDs connected to a GPIO pin.
 
     When updating lights it is recommended to use one of the "synchronized" functions in this class,
     instead of function from the base class, to prevent race conditions from concurrent access.
     """
 
-    def __init__(
+    def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
             self,
             led_count: int = 100,
             brightness: float = 1.0,
             pixel_order: str = 'RGB',
             pin: Pin = board.D18,
+            manager_type: str = 'NeoPixel',
     ) -> None:
         """Set up a single LED chain/strip.
 
@@ -50,36 +52,49 @@ class LEDManager(neopixel.NeoPixel, CollectionEntry):
             brightness: Default brightness as a percent between 0.0 and 1.0.
             pixel_order: RGB/RGBW/etc ordering of the LEDs on each microcontroller.
             pin: GPIO pin to use to send the signal.
+            manager_type: Type of LED manager to use on the backend. e.g. "NeoPixel"
         """
-        super().__init__(
-            pin,
-            led_count,
-            brightness=brightness,
-            auto_write=False,
-            pixel_order=pixel_order,
-            bpp=len(pixel_order)
-        )
-        self.led_pin = pin  # Track the original pin for reference, it is dropped in parent.
+        if manager_type.lower() == 'neopixel':
+            self._led_manager = neopixel.NeoPixel(
+                pin,
+                led_count,
+                brightness=brightness,
+                auto_write=False,
+                pixel_order=pixel_order,
+                bpp=len(pixel_order)
+            )
+        self.brightness = brightness
+        self.led_pin = pin
+        self.manager_type = manager_type
         self.synchronized_lock = threading.Condition()
         logger.info(f'Initialized LED manager for pin {self.led_pin.id}')
+
+    def __getitem__(self, index: int | slice) -> int:
+        """Find LED color at a specific LED position."""
+        with self.synchronized_lock:
+            return self._led_manager[index]
+
+    def __len__(self) -> int:
+        """Number of controlled pixels."""
+        return len(self._led_manager)
 
     def __setitem__(
             self,
             index: int | slice,
             color: Colors | ColorUnion | Sequence[ColorUnion],
     ) -> None:
-        """Overridden setter to handle additional color types."""
+        """Set color at a specific LED position and immediately show change."""
         if isinstance(color, Colors):
             color = color.value
         with self.synchronized_lock:
-            super().__setitem__(index, color)
+            self._led_manager[index] = color
 
     def fill(self, color: Colors | ColorUnion) -> None:
         """Overridden fill to handle additional color types."""
         if isinstance(color, Colors):
             color = color.value
         with self.synchronized_lock:
-            super().fill(color)
+            self._led_manager.fill(color)
 
     @classmethod
     def from_json(cls, data: dict) -> LEDManager:
@@ -106,18 +121,23 @@ class LEDManager(neopixel.NeoPixel, CollectionEntry):
         pixel_order = data.get(KEY_PIXEL_ORDER, 'RGB')
         if not isinstance(pixel_order, str) or pixel_order not in ('RGB', 'RGBW'):
             raise CollectionValueError('invalid-led-manager-pixel-order')
+        manager_type = data.get(KEY_TYPE, 'NeoPixel')
+        if not isinstance(manager_type, str) or manager_type.lower() not in ('neopixel',):
+            raise CollectionValueError('invalid-led-manager-type')
 
         return LEDManager(
             led_count=led_count,
             brightness=brightness,
             pixel_order=pixel_order,
             pin=Pin(pin),
+            manager_type=manager_type
         )
 
     def set_brightness(
             self,
             brightness: float = 1.0,
             show: bool = True,
+            save: bool = False,
     ) -> None:
         """Set LED brightness and immediately show change.
 
@@ -125,10 +145,13 @@ class LEDManager(neopixel.NeoPixel, CollectionEntry):
             brightness: New brightness as a percent between 0.0 and 1.0.
             show: Whether to show the change immediately, or delay until the next show() is called.
                 Ignored if delay > 0.
+            save: Whether to save the value permanently, or only apply to the underlying manager.
         """
         brightness = min(max(0.0, brightness), 1.0)
         with self.synchronized_lock:
-            self.brightness = brightness
+            if save:
+                self.brightness = brightness
+            self._led_manager.brightness = brightness
             if show:
                 self.show()
 
@@ -210,13 +233,18 @@ class LEDManager(neopixel.NeoPixel, CollectionEntry):
                 if show:
                     self.show()
 
+    def show(self) -> None:
+        """Display all pending pixel changes since last show."""
+        with self.synchronized_lock:
+            self._led_manager.show()
+
     def teardown(self) -> None:
         """Clear LED states, and release resources.
 
         Manager should not be reused after teardown.
         """
         logger.info(f'Tearing down LED manager for pin {self.led_pin.id}')
-        self.deinit()
+        self._led_manager.deinit()
 
     def to_json(self) -> dict:
         """Convert the instance into a JSON compatible type.
@@ -225,10 +253,11 @@ class LEDManager(neopixel.NeoPixel, CollectionEntry):
             Mapping of the instance attributes.
         """
         return {
-            KEY_LED_COUNT: len(self),
+            KEY_LED_COUNT: len(self._led_manager),
             KEY_BRIGHTNESS: self.brightness,
-            KEY_PIXEL_ORDER: self.byteorder,
+            KEY_PIXEL_ORDER: self._led_manager.byteorder,
             KEY_PIN: self.led_pin.id,
+            KEY_TYPE: self.manager_type,
         }
 
     def turn_off(self, index: int = -1, show: bool = True) -> None:
@@ -298,6 +327,7 @@ class LEDManagers(Collection):
             brightness: float = 1.0,
             show: bool = True,
             pin: Pin = board.D18,
+            save: bool = False,
     ) -> None:
         """Set brightness on a single pin and immediately show change.
 
@@ -305,9 +335,10 @@ class LEDManagers(Collection):
             brightness: New brightness as a percent between 0.0 and 1.0.
             show: Whether to show the change immediately, or delay until the next show() is called.
             pin: GPIO pin/index of the manager to use to send the signal.
+            save: Whether to save the value permanently, or only set temporarily.
         """
         with cls._collection_lock:
-            cls.get(pin).set_brightness(brightness, show=show)
+            cls.get(pin).set_brightness(brightness, show=show, save=save)
 
     @classmethod
     def set_color(

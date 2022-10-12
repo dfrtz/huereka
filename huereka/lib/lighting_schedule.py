@@ -564,7 +564,7 @@ class LightingSchedules(Collection):
                             brightness = schedule.brightness
                         else:
                             brightness = led_manager.LEDManagers.get(schedule.manager).brightness
-                        led_manager.LEDManagers.set_brightness(brightness, pin=schedule.manager, show=False)
+                        led_manager.LEDManagers.set_brightness(brightness, pin=schedule.manager, show=False, save=False)
                         led_manager.LEDManagers.show(pin=schedule.manager)
                     except response_utils.APIError as error:
                         if error.code != 404:
