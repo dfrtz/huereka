@@ -332,13 +332,13 @@ class LightingSchedule(CollectionEntry):
     def active(self) -> LightingRoutine | None:
         """Get the currently active routine from this schedule if one is available."""
         active_routine = OffLightingRoutine
-        if self.force or self.enabled:
+        if self.enabled:
             for routine in self.routines:
                 if routine.active:
                     active_routine = routine
                     break
-            if active_routine is OffLightingRoutine and len(self.routines) > 0:
-                active_routine = self.routines[0]
+        if self.force and active_routine is OffLightingRoutine and len(self.routines) > 0:
+            active_routine = self.routines[0]
         return active_routine
 
     @classmethod
@@ -459,9 +459,6 @@ class LightingSchedules(Collection):
             pending = {}
             for schedule in sorted(cls._collection.values()):
                 pending.setdefault(schedule.manager.id, (schedule, OffLightingRoutine))
-                if pending.get(schedule.manager.id) == OffLightingRoutine:
-                    # First non-off routine takes priority, rest are skipped.
-                    continue
                 active = schedule.active
                 if active != OffLightingRoutine:
                     pending[schedule.manager.id] = (schedule, active)
