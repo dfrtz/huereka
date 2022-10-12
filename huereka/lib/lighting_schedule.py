@@ -126,10 +126,22 @@ class LightingRoutine(CollectionEntry):  # Approved override of default. pylint:
         """Determine if the current time is in the active window (inclusive start and end)."""
         if self.enabled and self.profile:
             now = datetime.now()
-            in_day = self._days = DAY_ALL or self._days & _iso_days[now.isoweekday()] != 0
-            if in_day:
+            if self.start < self.end:
+                # Start is before end, routine is active if between the two.
+                if self._days == DAY_ALL or self._days & _iso_days[now.isoweekday()] != 0:
+                    now_in_seconds = now.hour * 60 * 60 + now.minute * 60 + now.second
+                    if self.start <= now_in_seconds <= self.end:
+                        return True
+            else:
+                # End is before start, routine is active if falls into daily rollover window to next day.
+                today = now.isoweekday()
+                next_day = today - 1
+                if next_day == 8:
+                    next_day = 1
                 now_in_seconds = now.hour * 60 * 60 + now.minute * 60 + now.second
-                if self.start <= now_in_seconds <= self.end:
+                if now_in_seconds >= self.start and (self.days == DAY_ALL or self._days & _iso_days[today] != 0):
+                    return True
+                if now_in_seconds <= self.end and (self.days == DAY_ALL or self._days & _iso_days[next_day] != 0):
                     return True
         return False
 
