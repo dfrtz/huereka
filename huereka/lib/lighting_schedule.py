@@ -42,29 +42,19 @@ KEY_START = 'start'
 
 BRIGHTNESS_DISABLED = -1.0
 
-DAY_SUNDAY = 1
-DAY_MONDAY = 2
-DAY_TUESDAY = 4
-DAY_WEDNESDAY = 8
-DAY_THURSDAY = 16
-DAY_FRIDAY = 32
-DAY_SATURDAY = 64
-DAY_ALL = DAY_SUNDAY | DAY_MONDAY | DAY_TUESDAY | DAY_WEDNESDAY | DAY_THURSDAY | DAY_FRIDAY | DAY_SATURDAY
+DAY_MONDAY = 1
+DAY_TUESDAY = 2
+DAY_WEDNESDAY = 4
+DAY_THURSDAY = 8
+DAY_FRIDAY = 16
+DAY_SATURDAY = 32
+DAY_SUNDAY = 64
+DAYS_ALL = DAY_MONDAY | DAY_TUESDAY | DAY_WEDNESDAY | DAY_THURSDAY | DAY_FRIDAY | DAY_SATURDAY | DAY_SUNDAY
 
 DEFAULT_SCHEDULE_DISABLE = 'disable'
 DEFAULT_SCHEDULE_ENABLE = 'enable'
 DEFAULT_SCHEDULE_OFF = 'off'
 DEFAULT_SCHEDULE_ON = 'on'
-
-_iso_days = {
-    0: DAY_SUNDAY,
-    1: DAY_MONDAY,
-    2: DAY_TUESDAY,
-    3: DAY_WEDNESDAY,
-    4: DAY_THURSDAY,
-    5: DAY_FRIDAY,
-    6: DAY_SATURDAY,
-}
 
 
 class LightingRoutine(CollectionEntry):  # Approved override of default. pylint: disable=too-many-instance-attributes
@@ -73,7 +63,7 @@ class LightingRoutine(CollectionEntry):  # Approved override of default. pylint:
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
             self,
             profile: str = None,
-            days: int | list[int] = DAY_ALL,
+            days: int | list[int] = DAYS_ALL,
             start: int | float | str = 0,
             end: int | float | str = 86400,
             enabled: bool = True,
@@ -128,7 +118,7 @@ class LightingRoutine(CollectionEntry):  # Approved override of default. pylint:
             now = datetime.now()
             if self.start < self.end:
                 # Start is before end, routine is active if between the two.
-                if self._days == DAY_ALL or self._days & _iso_days[now.isoweekday()] != 0:
+                if self._days == DAYS_ALL or self._days & now.isoweekday() != 0:
                     now_in_seconds = now.hour * 60 * 60 + now.minute * 60 + now.second
                     if self.start <= now_in_seconds <= self.end:
                         return True
@@ -139,9 +129,9 @@ class LightingRoutine(CollectionEntry):  # Approved override of default. pylint:
                 if next_day == 8:
                     next_day = 1
                 now_in_seconds = now.hour * 60 * 60 + now.minute * 60 + now.second
-                if now_in_seconds >= self.start and (self.days == DAY_ALL or self._days & _iso_days[today] != 0):
+                if now_in_seconds >= self.start and (self.days == DAYS_ALL or self._days & today != 0):
                     return True
-                if now_in_seconds <= self.end and (self.days == DAY_ALL or self._days & _iso_days[next_day] != 0):
+                if now_in_seconds <= self.end and (self.days == DAYS_ALL or self._days & next_day != 0):
                     return True
         return False
 
@@ -212,7 +202,7 @@ class LightingRoutine(CollectionEntry):  # Approved override of default. pylint:
         profile = data.get(KEY_PROFILE)
         if not profile or not isinstance(profile, str):
             raise CollectionValueError('invalid-lighting-routine-profile')
-        days = data.get(KEY_DAYS, DAY_ALL)
+        days = data.get(KEY_DAYS, DAYS_ALL)
         if not isinstance(days, int):
             raise CollectionValueError('invalid-lighting-routine-days')
         start = data.get(KEY_START, 0)
@@ -418,7 +408,7 @@ class LightingSchedule(CollectionEntry):
 
 OffLightingRoutine = LightingRoutine(
     DEFAULT_SCHEDULE_OFF,
-    days=DAY_ALL,
+    days=DAYS_ALL,
     start=0,
     end=86400,
     enabled=True,
