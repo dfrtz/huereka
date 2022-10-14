@@ -54,7 +54,7 @@ commands without absolute certainty they are targeting the correct partition.**
 
 5. Copy the image to the SD card using 'dd':
     ```
-    dd if=2021-10-30-raspios-bullseye-armhf-lite.img of=/dev/sdc conv=fsync status=progress
+    dd if=2022-09-22-raspios-bullseye-armhf-lite.img of=/dev/sdX conv=fsync status=progress
     ```
 
 
@@ -82,26 +82,20 @@ to allow login and configuration. The file will be deleted after first boot.
     touch /mnt/rpi/boot/ssh
     ```
 
-5. Unmount boot partition:
-    ```
-    umount /mnt/rpi/boot
-    ```
+5. Add a 'userconf' file to the boot partition. This will set up the initial user and prevent displaying the
+prompt on first boot that would otherwise block a headless setup. This is required on Bullseye+.
 
-6. Mount the system partition. This should be the larger of the two partitions found in step 2:
+    * To generate an encrypted password:
     ```
-    mount /dev/sdXx /mnt/rpi/system
+    echo 'mypassword' | openssl passwd -6 -stdin
     ```
+    * Open the `/mnt/rpi/boot/userconf` configuration file using a text editor.
+    * The file must container 1 line with `<username>:<encryptd password>`.
+    * Save file and exit text editor.
 
-7. If using wired connection, skip this step and go to step 8. Edit the WPA supplicant file to add one
-or more network(s).
+6. If using wired connection, skip this step. Edit the WPA supplicant file to add one or more network(s).
 
-    * Open the wpa_supplicant configuration file using a text editor. Examples:
-    ```
-    vi /etc/wpa_supplicant/wpa_supplicant.conf
-    # OR:
-    nano /etc/wpa_supplicant/wpa_supplicant.conf
-    ```
-
+    * Open the `/mnt/rpi/boot/wpa_supplicant.conf` configuration file using a text editor.
     * Add everything after <Begin> and before <End> tags, replacing wpa-ssid and wpa-psk as
     appropriate for your network:
     ```
@@ -128,22 +122,25 @@ or more network(s).
     }
     ### End ###
     ```
+    * Save file and exit text editor.
 
-    * Save file and exit text editor. Examples:
+7. Unmount boot partition:
     ```
-    If using vi: ESC > Shift + : > wq > Enter
-    If using nano: `CTRL + X > Enter
+    umount /mnt/rpi/boot
     ```
 
-8. Unmount system partition:
-     ```
-     umount /mnt/rpi/system
-     ```
+8. Recommended: Change the default hostname. If not changing the name, skip this step.
 
-9. Ensure device is completely unmounted, and remove from SD card slot or external adapter:
-   ```
-   lsblk
-   ```
+   * Mount system partition: `mount /dev/sdXx /mnt/rpi/system`
+   * Change the name in: `/mnt/rpi/system/etc/hostname`
+   * Change the name in: `/mnt/rpi/system/etc/hosts`
+   * Add the name to the `127.0.0.1` and `::1` lines in: `/mnt/rpi/system/etc/hosts`
+   * Unmount system partition: `umount /mnt/rpi/system`
+
+11. Ensure device is completely unmounted, and remove from SD card slot or external adapter:
+     ```
+     lsblk
+     ```
 
 
 ### Prepare Operating System for User Access
@@ -155,19 +152,14 @@ or more network(s).
 3. If using DHCP, you will need to find the IP address of the Raspberry Pi. Examples:
     ```
     arp -a
-    ping -c1 raspberrypi
+    ping -c1 raspberrypi # Or hostname specified during setup.
     ```
 
-4. SSH into the Raspberry Pi as user 'pi' and password 'raspberry' via hostname or IP:
+4. SSH into the Raspberry Pi as the user/password set in the OS preparation phase via hostname or IP:
     ```
-    ssh pi@raspberrypi
+    ssh <myuser>@raspberrypi # Or hostname specified during setup.
     # OR:
-    ssh pi@<IP address>
-    ```
-
-5. Change 'pi' passwd to remove popup about default password on future logins:
-    ```
-    passwd
+    ssh <myuser>@<IP address>
     ```
 
 6. Enter configuration tool and update hostname of device on network and enable SSH:
@@ -181,27 +173,6 @@ or more network(s).
     ```
 
 7. Exit configuration tool by selecting "Finish". Do not reboot yet.
-
-8. Create a new administrator user:
-    ```
-    sudo adduser <username>
-    ```
-
-9. Add the new user to sudo group:
-   ```
-   sudo usermod -aG sudo <username>
-   ```
-
-10. Logout of Raspberry Pi, and reconnect as new user:
-    ```
-    exit
-    ssh <username>@<IP address>
-    ```
-
-11. Delete 'pi' user:
-    ```
-    sudo deluser pi
-    ```
 
 12. Change 'root' password to further secure system:
     ```
@@ -233,7 +204,7 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
 1. Install dependencies to build python from source. This builds a fairly minimal python. If you wish to expand
   the code further, python may need to be rebuilt later after more packages are installed:  
     ```
-    sudo apt install \
+    sudo apt install -y \
         build-essential \
         tk-dev \
         libncurses5-dev \
@@ -282,9 +253,9 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
 
 ### Setup Python Development Environment
 
-1. Install 'pip' Python Package Manager and Development Library:
+1. Install Python package manager, development, and virtual environment libraries:
     ```
-    sudo apt install python3-dev python3-pip python3-venv
+    sudo apt update && sudo apt install -y python3-dev python3-pip python3-venv
     ```
 
 
@@ -292,7 +263,7 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
 
 1. Setup OS requirements:
     ```
-    sudo apt install git vim libgpiod2
+    sudo apt install -y git vim libgpiod2
     ```
 
 2. Create development folder:
@@ -320,7 +291,6 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
 
 6. Install python project:
     ```
-    cd huereka
     export CFLAGS=-fcommon  # Needs to be set before calling pip install or it will fail on RPi.GPIO
     pip install -r requirements-dev.txt
     pip install -r requirements.txt
@@ -335,15 +305,6 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
 8. Generate HTTPS certificate:
     ```
     openssl req -newkey rsa:4096 -nodes -keyout huereka.key -x509 -days 365 -out huereka.crt
-    ```
-
-9. Setup libgpiod per adafruit instructions:
-    ```
-    cd ~
-    wget https://raw.githubusercontent.com/adafruit/Raspberry-Pi-Installer-Scripts/master/libgpiod.sh
-    chmod +x libgpiod.sh
-    ./libgpiod.sh
-    rm ./libgpiod.sh
     ```
 
 
