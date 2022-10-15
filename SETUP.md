@@ -22,6 +22,7 @@ dependencies. Your mileage may vary.
 * [Setup Python Dev Environment](#setup-python-development-environment)
 * [Setup Huereka Dev Environment](#setup-huereka-development-environment)
 * [Setup Huereka LED Test Hardware](#setup-huereka-led-test-hardware)
+* [Setup Huereka Service to Start on Boot](#setup-huereka-service-to-start-on-boot)
 
 
 ### Download Raspberry Pi OS (Raspbian) Image
@@ -344,3 +345,54 @@ steps on setting up circuits is needed. Basic overview:
    ```
    huereka/utils/gpio_tester.py
    ```
+
+
+### Setup Huereka Service to Start on Boot
+
+1. Ensure Huereka development environment is set up, or library is installed on to core system.
+
+2. Create a basic bash script which can be called by the service, such as `~/Development/huereka/huereka.sh`:
+    ```
+    #!/bin/bash
+    cd /home/huereka/Development/huereka
+    source .venv/bin/activate
+    PYTHONPATH=. ./huereka/server.py \
+        -a 0.0.0.0 \
+        -k ./huereka.key \
+        -c ./huereka.crt
+    ```
+
+3. Add extra arguments if needed.
+
+4. Make the script executable:
+    ```
+    chmod 755 ~/Development/huereka/huereka.sh
+    ```
+
+6. Create a new service file under `/etc/systemd/system/huereka.service`:
+    ```
+    [Unit]
+    Description=GPIO LED manager software
+
+    [Service]
+    ExecStart=/home/huereka/huereka.sh
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+
+7. Test the new service:
+    ```
+    sudo systemctl start huereka.service
+    ```
+
+8. Check the status and logs for the service:
+    ```
+    sudo service huereka status
+    sudo journalctl -u huereka.service
+    ```
+
+9. If the service is working as expected, enable it permanently to start on boot:
+    ```
+    sudo systemctl enable huereka.service
+    ```
