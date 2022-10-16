@@ -40,6 +40,7 @@ KEY_MANAGER = 'manager'
 KEY_MODE = 'mode'
 KEY_PROFILE = 'profile'
 KEY_START = 'start'
+KEY_STATUS = 'status'
 
 BRIGHTNESS_DISABLED = -1.0
 
@@ -60,6 +61,9 @@ DEFAULT_SCHEDULE_ON = 'on'
 MODE_OFF = 0
 MODE_ON = 1
 MODE_AUTO = 2
+
+STATUS_OFF = 0
+STATUS_ON = 1
 
 
 class LightingRoutine:  # Approved override of default. pylint: disable=too-many-instance-attributes
@@ -88,6 +92,7 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         """
         self._start = 0
         self._end = 86400
+        self._status = STATUS_OFF
         self.profile = profile
         self.start = start
         self.end = end
@@ -264,13 +269,13 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         """Provide human readable value for start."""
         return f'{int(self.start / 3600):02}:{int(self.start % 3600 / 60):02}'
 
-    def to_json(self) -> dict:
+    def to_json(self, save_only: bool = False) -> dict:
         """Convert the instance into a JSON compatible type.
 
         Returns:
             Mapping of the instance attributes.
         """
-        return {
+        data = {
             KEY_PROFILE: self.profile,
             KEY_DAYS: self._days,
             KEY_START: self.start_time,
@@ -278,6 +283,11 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
             KEY_ENABLED: self.enabled,
             KEY_BRIGHTNESS: self.brightness,
         }
+        if not save_only:
+            data.update({
+                KEY_STATUS: self._status,
+            })
+        return data
 
 
 class LightingSchedule(CollectionEntry):
@@ -381,21 +391,22 @@ class LightingSchedule(CollectionEntry):
             brightness=brightness,
         )
 
-    def to_json(self) -> dict:
+    def to_json(self, save_only: bool = False) -> dict:
         """Convert the instance into a JSON compatible type.
 
         Returns:
             Mapping of the instance attributes.
         """
-        return {
+        data = {
             KEY_ID: self.uuid,
             KEY_NAME: self.name,
             KEY_MANAGER: self.manager.id,
-            KEY_ROUTINES: [routine.to_json() for routine in self.routines],
+            KEY_ROUTINES: [routine.to_json(save_only=save_only) for routine in self.routines],
             KEY_MODE: self.mode,
             KEY_LED_DELAY: self.led_delay,
             KEY_BRIGHTNESS: self.brightness,
         }
+        return data
 
 
 OffLightingRoutine = LightingRoutine(
@@ -554,6 +565,10 @@ class LightingSchedules(Collection):
                         if error.code != 404:
                             raise error
                         continue
+                    for old_schedule in cls._collection.values():
+                        for old_routine in old_schedule.routines:
+                            old_routine._status = STATUS_OFF
+                    routine._status = STATUS_ON
                     # Copy the profile so that changes will be detected instead of comparing to self.
                     cls.__schedules_applied__[schedule.manager.id] = profile.copy()
                     if profile.name == color_profile.DEFAULT_PROFILE_OFF:

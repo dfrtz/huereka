@@ -207,7 +207,7 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
         else:
             self._unset_mode(MODE_REPEAT)
 
-    def to_json(self) -> dict:
+    def to_json(self, save_only: bool = False) -> dict:
         """Convert the instance into a JSON compatible type.
 
         Returns:

@@ -68,7 +68,7 @@ class Color(CollectionEntry):
             raise CollectionValueError('invalid-color-value')
         return Color(name, value)
 
-    def to_json(self) -> dict:
+    def to_json(self, save_only: bool = False) -> dict:
         """Convert the instance into a JSON compatible type.
 
         Returns:

@@ -135,19 +135,22 @@ class Collection(metaclass=abc.ABCMeta):
                 # it is interrupted, the original remains intact and the user can decide which to load.
                 tmp_path = f'{cls._collection_uri}.tmp'
                 with open(tmp_path, 'w+', encoding='utf-8') as file_out:
-                    json.dump(cls.to_json(), file_out, indent=2)
+                    json.dump(cls.to_json(save_only=True), file_out, indent=2)
                 shutil.move(tmp_path, cls._collection_uri)
                 logger.info(f'Saved {cls.collection_help}s to {cls._collection_uri}')
 
     @classmethod
-    def to_json(cls) -> list[dict]:
+    def to_json(cls, save_only: bool = False) -> list[dict]:
         """Convert all the entries into JSON compatible types.
+
+        Args:
+            save_only: Whether to only include values that are meant to be saved.
 
         Returns:
             List of entries as basic objects.
         """
         with cls._collection_lock:
-            return [entry.to_json() for entry in cls._collection.values()]
+            return [entry.to_json(save_only=save_only) for entry in cls._collection.values()]
 
     @classmethod
     def validate_entry(
@@ -205,8 +208,11 @@ class CollectionEntry:
             Instantiated entry with the given attributes.
         """
 
-    def to_json(self) -> dict:
+    def to_json(self, save_only: bool = False) -> dict:
         """Convert the entry into a JSON compatible type.
+
+        Args:
+            save_only: Whether to only include values that are meant to be saved.
 
         Returns:
             Mapping of the instance attributes.
