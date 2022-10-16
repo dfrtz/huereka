@@ -52,7 +52,7 @@ def main() -> None:
         decreasing = True
         while True:
             if args.fade:
-                time.sleep(.1)
+                time.sleep(.033)
                 LEDManagers.set_brightness(brightness, pin=pin)
                 LEDManagers.show(pin=pin)
                 brightness = brightness - (0.05 if decreasing else -0.05)
