@@ -11,6 +11,7 @@ from huereka.lib import color_utils
 from huereka.lib.collections import Collection
 from huereka.lib.collections import CollectionEntry
 from huereka.lib.collections import CollectionValueError
+from huereka.lib.collections import KEY_ID
 
 logger = logging.getLogger(__name__)
 
@@ -34,23 +35,25 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
     def __init__(
             self,
             name: str,
+            uuid: str = None,
             colors: list = None,
             gamma_correction: float = DEFAULT_GAMMA_CORRECTION,
             mode: int = MODE_REPEAT,
     ) -> None:
-        """Setup a color profile for managing LED patterns.
+        """Set up a color profile for managing LED patterns.
 
         Args:
             name: Human readable name used to store/reference in collections.
+            uuid: Unique identifier.
             colors: Numerical values, or string numerical value, representing raw colors.
             gamma_correction: Gamma correction values to balance LED power to more human comparable levels.
                 Quantization will result in less possible values, but balanced. e.g. 2.5 == 172 colors
             mode: Value representing enabled color pattern modes.
                 Can be combined via bitwise operations. e.g. MODE_REPEAT | MODE_MIRROR == MODE_REPEAT AND MODE_MIRROR
         """
+        super().__init__(name, uuid)
         self._corrected_colors = tuple()
         self._mode = mode
-        self.name = name
 
         # Set the current colors, and set a blank corrected colors value so first gamma application updates.
         self.colors = [color_utils.parse_color(color) for color in colors or []]
@@ -85,6 +88,7 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
         """
         return ColorProfile(
             name=self.name,
+            uuid=self.uuid,
             colors=self.colors.copy(),
             mode=self._mode,
         )
@@ -105,6 +109,9 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
             raise CollectionValueError('invalid-color-profile-name')
 
         # Optional arguments.
+        uuid = data.get(KEY_ID)
+        if not isinstance(uuid, str) and uuid is not None:
+            raise CollectionValueError('invalid-color-profile-id')
         colors = data.get(KEY_COLORS, [])
         if not isinstance(colors, list):
             raise CollectionValueError('invalid-color-profile-colors')
@@ -121,6 +128,7 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
 
         return ColorProfile(
             name,
+            uuid=uuid,
             colors=colors,
             gamma_correction=gamma_correction,
             mode=mode,
@@ -206,6 +214,7 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
             Mapping of the instance attributes.
         """
         return {
+            KEY_ID: self.uuid,
             KEY_NAME: self.name,
             KEY_COLORS: [color.to_rgb() for color in self.colors],
             KEY_GAMMA: self._gamma_correction,
@@ -235,7 +244,7 @@ class ColorProfiles(Collection):
     def post_load(cls) -> None:
         """Actions to perform after load completes."""
         # Always register the default "off" profile.
-        cls.register(ColorProfile(DEFAULT_PROFILE_OFF, colors=[]))
+        cls.register(ColorProfile(DEFAULT_PROFILE_OFF, uuid=DEFAULT_PROFILE_OFF, colors=[]))
 
     @classmethod
     def update(

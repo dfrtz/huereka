@@ -11,10 +11,13 @@ import threading
 
 from typing import Any
 from typing import Type
+from uuid import uuid4
 
 from huereka.lib import response_utils
 
 logger = logging.getLogger(__name__)
+
+KEY_ID = 'id'
 
 
 class Collection(metaclass=abc.ABCMeta):
@@ -102,17 +105,17 @@ class Collection(metaclass=abc.ABCMeta):
             entry: Previously setup entry to be stored in the cache and used during concurrent calls.
         """
         with cls._collection_lock:
-            name = entry.name
-            if name in cls._collection:
-                raise response_utils.APIError(f'duplicate-{cls.collection_help.replace(" ", "-")}', name, code=422)
-            cls._collection[name] = entry
+            uuid = entry.uuid
+            if uuid in cls._collection:
+                raise response_utils.APIError(f'duplicate-{cls.collection_help.replace(" ", "-")}', uuid, code=422)
+            cls._collection[uuid] = entry
 
     @classmethod
     def remove(cls, key: str) -> CollectionEntry:
         """Remove an entry from persistent storage.
 
         Args:
-            key: Name of the saved entry.
+            key: ID of the saved entry.
 
         Raises:
             APIError if the entry does not exist and cannot be removed.
@@ -167,6 +170,28 @@ class Collection(metaclass=abc.ABCMeta):
 
 class CollectionEntry:
     """Base class for loading and storing collection entries."""
+
+    def __init__(self, name: str, uuid: str) -> None:
+        """Set up the base collection entry values.
+
+        Args:
+            name: Human readable name used to store/reference in collections.
+            uuid: Unique identifier.
+        """
+        self.uuid = uuid if uuid else str(uuid4())
+        self.name = name or f'{self.__class__}_{uuid}'
+
+    def __hash__(self) -> int:
+        """Make the schedule hashable."""
+        return hash(self.uuid)
+
+    def __gt__(self, other: Any) -> bool:
+        """Make the schedule comparable for greater than operations by name."""
+        return isinstance(other, self.__class__) and self.name > other.name
+
+    def __lt__(self, other: Any) -> bool:
+        """Make the schedule comparable for less than operations by name."""
+        return isinstance(other, self.__class__) and self.name < other.name
 
     @classmethod
     @abc.abstractmethod

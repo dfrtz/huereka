@@ -33,37 +33,33 @@ def profiles_post() -> tuple:
     return responses.ok(profile.to_json())
 
 
-@api.route('/profiles/<string:name>', methods=['DELETE'])
-def profiles_delete_entry(name: str) -> tuple:
-    """Remove a color profile based on name attribute."""
-    if name == color_profile.DEFAULT_PROFILE_OFF:
+@api.route('/profiles/<string:uuid>', methods=['DELETE'])
+def profiles_delete_entry(uuid: str) -> tuple:
+    """Remove a color profile."""
+    if uuid == color_profile.DEFAULT_PROFILE_OFF:
         # Do not allow the default "off" profile to be deleted.
         return responses.not_allowed()
-    profile = ColorProfiles.remove(name)
+    profile = ColorProfiles.remove(uuid)
     ColorProfiles.save()
     return responses.ok(profile.to_json())
 
 
-@api.route('/profiles/<string:name>', methods=['GET'])
-def profiles_get_entry(name: str) -> tuple:
-    """Find a color profile based on name attribute."""
-    return responses.ok(ColorProfiles.get(name).to_json())
+@api.route('/profiles/<string:uuid>', methods=['GET'])
+def profiles_get_entry(uuid: str) -> tuple:
+    """Find a color profile."""
+    return responses.ok(ColorProfiles.get(uuid).to_json())
 
 
-@api.route('/profiles/<string:name>', methods=['PUT'])
-def profiles_put_entry(name: str) -> tuple:
-    """Update a color profile's values based on the current name."""
-    if name == color_profile.DEFAULT_PROFILE_OFF:
+@api.route('/profiles/<string:uuid>', methods=['PUT'])
+def profiles_put_entry(uuid: str) -> tuple:
+    """Update a color profile's values."""
+    if uuid == color_profile.DEFAULT_PROFILE_OFF:
         # Do not allow the default "off" profile to be modified.
         return responses.not_allowed()
     body = request.get_json(force=True)
-    old_profile = ColorProfiles.get(name).copy()
-    profile = ColorProfiles.update(name, body)
+    old_profile = ColorProfiles.get(uuid).copy()
+    profile = ColorProfiles.update(uuid, body)
     ColorProfiles.save()
-    if name != profile.name:
-        # The name of the profile changed, all lighting schedule routines should be updated as well.
-        LightingSchedules.update_profile(name, profile.name)
-        LightingSchedules.save()
     if old_profile.colors != profile.colors:
         # Colors were updated, do not wait the watchdog interval and apply immediately.
         LightingSchedules.verify_active_schedules()

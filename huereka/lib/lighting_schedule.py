@@ -20,6 +20,7 @@ from huereka.lib import response_utils
 from huereka.lib.collections import Collection
 from huereka.lib.collections import CollectionEntry
 from huereka.lib.collections import CollectionValueError
+from huereka.lib.collections import KEY_ID
 from huereka.lib.collections import get_and_validate
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ DEFAULT_SCHEDULE_OFF = 'off'
 DEFAULT_SCHEDULE_ON = 'on'
 
 
-class LightingRoutine(CollectionEntry):  # Approved override of default. pylint: disable=too-many-instance-attributes
+class LightingRoutine:  # Approved override of default. pylint: disable=too-many-instance-attributes
     """Details for running a specific color/lighting profile during a timeframe."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
@@ -72,7 +73,7 @@ class LightingRoutine(CollectionEntry):  # Approved override of default. pylint:
         """Set up the routine to run a profile at specific times.
 
         Args:
-            profile: Name of the color profile to use while this routine is active.
+            profile: ID of the color profile to use while this routine is active.
             days: Combination value representing enabled days.
                 Can be combined via bitwise operations. e.g. DAY_MONDAY | DAY_TUESDAY == "Monday" and "Tuesday"
             start: Start time in seconds as 0 < value < 86400 or HH:MM.
@@ -281,6 +282,7 @@ class LightingSchedule(CollectionEntry):
     def __init__(  # Approved override of default. pylint: disable=too-many-arguments
             self,
             name: str,
+            uuid: str = None,
             manager: Pin = board.D18,
             routines: list[LightingRoutine] = None,
             enabled: bool = True,
@@ -292,6 +294,7 @@ class LightingSchedule(CollectionEntry):
 
         Args:
             name: Human readable name used to store/reference in collections.
+            uuid: Unique identifier.
             manager: ID of the LED manager that will be controlled by this schedule.
             routines: Timeframes to trigger specific color profiles.
             enabled: Whether the schedule is currently enabled for automatic on/off scheduling.
@@ -300,7 +303,7 @@ class LightingSchedule(CollectionEntry):
             brightness: Brightness as a percent between 0.0 and 1.0.
                 Overrides LED manager brightness. Defaults to -1 to indicate override being disabled.
         """
-        self.name = name
+        super().__init__(name, uuid)
         self.manager = manager
         self.routines = routines or []
         self.enabled = enabled
@@ -317,18 +320,6 @@ class LightingSchedule(CollectionEntry):
             and self.led_delay == other.led_delay \
             and self.force == other.force \
             and self.brightness == other.brightness
-
-    def __hash__(self) -> int:
-        """Make the schedule hashable."""
-        return hash(self.name)
-
-    def __gt__(self, other: Any) -> bool:
-        """Make the schedule comparable for greater than operations by name."""
-        return isinstance(other, LightingSchedule) and self.name > other.name
-
-    def __lt__(self, other: Any) -> bool:
-        """Make the schedule comparable for less than operations by name."""
-        return isinstance(other, LightingSchedule) and self.name < other.name
 
     @property
     def active(self) -> LightingRoutine | None:
@@ -362,6 +353,9 @@ class LightingSchedule(CollectionEntry):
             raise CollectionValueError('invalid-lighting-schedule-manager')
 
         # Optional arguments.
+        uuid = data.get(KEY_ID)
+        if not isinstance(uuid, str) and uuid is not None:
+            raise CollectionValueError('invalid-lighting-schedule-id')
         routines = data.get(KEY_ROUTINES, [])
         if not isinstance(routines, list):
             raise CollectionValueError('invalid-lighting-schedule-routines')
@@ -381,7 +375,8 @@ class LightingSchedule(CollectionEntry):
 
         return LightingSchedule(
             name,
-            Pin(manager),
+            uuid=uuid,
+            manager=Pin(manager),
             routines=routines,
             enabled=enabled,
             led_delay=led_delay,
@@ -396,6 +391,7 @@ class LightingSchedule(CollectionEntry):
             Mapping of the instance attributes.
         """
         return {
+            KEY_ID: self.uuid,
             KEY_NAME: self.name,
             KEY_MANAGER: self.manager.id,
             KEY_ROUTINES: [routine.to_json() for routine in self.routines],
@@ -469,28 +465,24 @@ class LightingSchedules(Collection):
     @classmethod
     def update(
             cls,
-            old_schedule: str,
+            uuid: str,
             new_values: dict,
     ) -> LightingSchedule:
         """Update the values of a schedule.
 
         Args:
-            old_schedule: Name of the original schedule to update.
+            uuid: ID of the original schedule to update.
             new_values: New JSON like attributes to set on the schedule.
 
         Returns:
             Final schedule with the updated values.
         """
         with cls._collection_lock:
-            schedule = cls.get(old_schedule)
-            name = new_values.get(KEY_NAME)
+            schedule = cls.get(uuid)
             invalid_prefix = 'invalid-lighting-schedule'
-            if name is not None:
-                if not isinstance(name, str):
-                    raise CollectionValueError('invalid-lighting-schedule-name')
-                original_name = schedule.name
+            name = get_and_validate(new_values, KEY_NAME, str, nullable=True, error_prefix=invalid_prefix)
+            if name is not None and name != schedule.name:
                 schedule.name = name
-                cls._collection[name] = cls._collection.pop(original_name)
             routines = get_and_validate(new_values, KEY_ROUTINES, list, nullable=True, error_prefix=invalid_prefix)
             if routines is not None:
                 try:
@@ -528,9 +520,9 @@ class LightingSchedules(Collection):
     @classmethod
     def validate_entry(cls, data: dict, index: int) -> bool:
         """Actions to perform on every collection entry load."""
-        name = data.get(KEY_NAME)
-        if name in cls._collection:
-            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using name {name}')
+        uuid = data.get(KEY_NAME)
+        if uuid in cls._collection:
+            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using uuid {uuid}')
             return False
         return True
 

@@ -18,6 +18,7 @@ from huereka.lib import response_utils
 from huereka.lib.collections import Collection
 from huereka.lib.collections import CollectionEntry
 from huereka.lib.collections import CollectionValueError
+from huereka.lib.collections import KEY_ID
 from huereka.lib.color_utils import Colors
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,8 @@ class LEDManager(CollectionEntry):
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
             self,
+            name: str = None,
+            uuid: str = None,
             led_count: int = 100,
             brightness: float = 1.0,
             pixel_order: str = 'RGB',
@@ -48,12 +51,15 @@ class LEDManager(CollectionEntry):
         """Set up a single LED chain/strip.
 
         Args:
+            name: Human readable name used to store/reference in collections.
+            uuid: Unique identifier.
             led_count: How many LEDs are on the strip of lights.
             brightness: Default brightness as a percent between 0.0 and 1.0.
             pixel_order: RGB/RGBW/etc ordering of the LEDs on each microcontroller.
             pin: GPIO pin to use to send the signal.
             manager_type: Type of LED manager to use on the backend. e.g. "NeoPixel"
         """
+        super().__init__(name, uuid)
         if manager_type.lower() == 'neopixel':
             self._led_manager = neopixel.NeoPixel(
                 pin,
@@ -115,6 +121,9 @@ class LEDManager(CollectionEntry):
             raise CollectionValueError('invalid-led-manager-pin')
 
         # Optional arguments.
+        uuid = data.get(KEY_ID)
+        if not isinstance(uuid, str) and uuid is not None:
+            raise CollectionValueError('invalid-led-manager-id')
         brightness = data.get(KEY_BRIGHTNESS, 1.0)
         if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
             raise CollectionValueError('invalid-led-manager-brightness')

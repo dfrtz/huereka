@@ -9,7 +9,7 @@ from huereka.lib.colors import Color
 from huereka.lib.colors import Colors
 
 
-RESERVED_NAMES = (
+RESERVED_IDS = (
     colors.DEFAULT_COLOR_BLACK,
     colors.DEFAULT_COLOR_WHITE,
 )
@@ -26,35 +26,35 @@ def colors_post() -> tuple:
     """Create a new reusable color."""
     body = request.get_json(force=True)
     profile = Color.from_json(body)
-    if profile.name in RESERVED_NAMES:
+    if profile.name in RESERVED_IDS:
         raise colors.CollectionValueError('reserved-name')
     Colors.register(profile)
     Colors.save()
     return responses.ok(profile.to_json())
 
 
-@api.route('/colors/<string:name>', methods=['DELETE'])
-def colors_delete_entry(name: str) -> tuple:
-    """Remove a color based on name attribute."""
-    if name in RESERVED_NAMES:
+@api.route('/colors/<string:uuid>', methods=['DELETE'])
+def colors_delete_entry(uuid: str) -> tuple:
+    """Remove a color."""
+    if uuid in RESERVED_IDS:
         return responses.not_allowed()
-    profile = Colors.remove(name)
+    profile = Colors.remove(uuid)
     Colors.save()
     return responses.ok(profile.to_json())
 
 
-@api.route('/colors/<string:name>', methods=['GET'])
-def colors_get_entry(name: str) -> tuple:
-    """Find a color based on name attribute."""
-    return responses.ok(Colors.get(name).to_json())
+@api.route('/colors/<string:uuid>', methods=['GET'])
+def colors_get_entry(uuid: str) -> tuple:
+    """Find a color."""
+    return responses.ok(Colors.get(uuid).to_json())
 
 
-@api.route('/colors/<string:name>', methods=['PUT'])
-def colors_put_entry(name: str) -> tuple:
-    """Update a color's values based on the current name."""
-    if name in RESERVED_NAMES:
+@api.route('/colors/<string:uuid>', methods=['PUT'])
+def colors_put_entry(uuid: str) -> tuple:
+    """Update a color's values."""
+    if uuid in RESERVED_IDS:
         return responses.not_allowed()
     body = request.get_json(force=True)
-    profile = Colors.update(name, body)
+    profile = Colors.update(uuid, body)
     Colors.save()
     return responses.ok(profile.to_json())

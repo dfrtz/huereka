@@ -11,6 +11,7 @@ from huereka.lib import color_utils
 from huereka.lib.collections import Collection
 from huereka.lib.collections import CollectionEntry
 from huereka.lib.collections import CollectionValueError
+from huereka.lib.collections import KEY_ID
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +29,16 @@ class Color(CollectionEntry):
             self,
             name: str,
             value: str | int | float,
+            uuid: str = None,
     ) -> None:
-        """Setup a color for saving user selections.
+        """Set up a color for saving user selections.
 
         Args:
             name: Human readable name used to store/reference in collections.
             value: Numerical value, or string numerical value, representing raw color.
+            uuid: Unique identifier.
         """
-        self.name = name
+        super().__init__(name, uuid)
         self._color = color_utils.parse_color(value)
 
     def __eq__(self, other: Any) -> bool:
@@ -54,6 +57,9 @@ class Color(CollectionEntry):
         Returns:
             Instantiated color with the given attributes.
         """
+        uuid = data.get(KEY_ID)
+        if not isinstance(uuid, str) and uuid is not None:
+            raise CollectionValueError('invalid-color-id')
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
             raise CollectionValueError('invalid-color-name')
@@ -69,6 +75,7 @@ class Color(CollectionEntry):
             Mapping of the instance attributes.
         """
         return {
+            KEY_ID: self.uuid,
             KEY_NAME: self.name,
             KEY_VALUE: self.value.to_rgb(),
         }
@@ -106,8 +113,8 @@ class Colors(Collection):
     def post_load(cls) -> None:
         """Actions to perform after load completes."""
         # Always register the default colors.
-        cls.register(Color(DEFAULT_COLOR_BLACK, value=color_utils.Colors.BLACK.value))
-        cls.register(Color(DEFAULT_COLOR_WHITE, value=color_utils.Colors.WHITE.value))
+        cls.register(Color(DEFAULT_COLOR_BLACK, uuid=DEFAULT_COLOR_BLACK, value=color_utils.Colors.BLACK.value))
+        cls.register(Color(DEFAULT_COLOR_WHITE, uuid=DEFAULT_COLOR_WHITE, value=color_utils.Colors.WHITE.value))
 
     @classmethod
     def update(
