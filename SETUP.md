@@ -6,8 +6,8 @@ damage to your surroundings. By using this guide you agree to take proper precau
 **CAUTION: Improper use of 'dd' can overwrite any partition on your system. Do not proceed with any
 commands without absolute certainty they are targeting the correct partition.**
 
-This guide was written and tested on Raspberry Pi OS Lite (2021-10-30), however
-the same steps (should) work in any Debian based environment with minimal to no modification. Other
+This guide was written and tested on Raspberry Pi OS Lite (2022-09-22), however
+the same steps (should) work in any Debian based environment with minimal modification. Other
 Linux distros will require medium to heavy modification of the commands such as installing
 dependencies. Your mileage may vary.
 
@@ -23,6 +23,7 @@ dependencies. Your mileage may vary.
 * [Setup Huereka Dev Environment](#setup-huereka-development-environment)
 * [Setup Huereka LED Test Hardware](#setup-huereka-led-test-hardware)
 * [Setup Huereka Service to Start on Boot](#setup-huereka-service-to-start-on-boot)
+* [Improve Raspberry Pi Boot Time](#improve-raspberry-pi-boot-time)
 
 
 ### Download Raspberry Pi OS (Raspbian) Image
@@ -138,7 +139,9 @@ prompt on first boot that would otherwise block a headless setup. This is requir
    * Add the name to the `127.0.0.1` and `::1` lines in: `/mnt/rpi/system/etc/hosts`
    * Unmount system partition: `umount /mnt/rpi/system`
 
-11. Ensure device is completely unmounted, and remove from SD card slot or external adapter:
+9. Recommended: Consider additional changes from [Improve Raspberry Pi Boot Time](#improve-raspberry-pi-boot-time)
+
+10. Ensure device is completely unmounted, and remove from SD card slot or external adapter:
      ```
      lsblk
      ```
@@ -396,3 +399,41 @@ steps on setting up circuits is needed. Basic overview:
     ```
     sudo systemctl enable huereka.service
     ```
+
+
+### Improve Raspberry Pi Boot Time
+
+**CAUTION: Before applying any optimizations, understand the risks. These may lead to an un-bootable system
+if applied improperly. Not all settings are appropriate for all use cases either.**
+
+Huereka is not restricted to running only on Raspberry Pi, however this is a common hardware type to use due to
+availability and hardware features. To help with this common use case, a few tips have been collected to help.
+The following are common for standalone servers dedicated to single tasks, such as running Huereka.
+
+- Modify `/boot/config.txt` (each value on new line):
+  - Disable splash screen: `disable_splash=1`
+  - Disable bluetooth: `dtoverlay=disable-bt`
+  - Disable initial boot delay: `boot_delay=0`
+
+- Modify `/boot/cmdline.txt` (each value in place, do not add newlines):
+  - To disable splash screen, remove: `splash`
+  - To disable logging output to screen, add: `quiet`
+  - To disable loading and displaying logo, add: `logo.nologo`
+
+- Disable network wait at boot (Equivalent to "Wait for Network at Boot" from raspi-config):
+  - `rm /etc/systemd/system/dhcpcd.service.d/wait.conf`
+
+- Disable unneeded services before first boot:
+  - `rm /etc/systemd/system/sysinit.target.wants/keyboard-setup.service`
+  - `rm /etc/systemd/system/dbus-org.freedesktop.ModemManager1.service`
+  - `rm /etc/systemd/system/multi-user.target.wants/ModemManager.service`
+
+- Disable unnecessary services after first boot:
+  - Disable initial config service: `systemctl disable raspi-config.service`
+  - Disable physical swap services for low memory services: `systemctl disable dphys-swapfile.service`
+  - Disable device auto discovery on network: `systemctl disable avahi-daemon.service`
+
+- Analyze and disable possibly other unused services:
+  - To show overall boot time: `systemd-analyze`
+  - To show individual service boot time: `systemd-analyze blame`
+  - To disable a service (use with caution): `systemctl disable <service>`
