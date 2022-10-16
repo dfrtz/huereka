@@ -118,8 +118,6 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Startup web server using development backend and listen for requests."""
     args = parse_args()
-    if not args.key or not args.cert:
-        raise SystemExit('Operating server without HTTPS is not supported. Please create a key and cert and supply the configuration.')
     if app.secret_key == config_utils.DEFAULT_SECRET_KEY:
         logger.warning(f'Using default secret key. Recommended to set {config_utils.HUEREKA_SECRET_KEY} to override.')
     try:
@@ -129,7 +127,12 @@ def main() -> None:
             args.profile_presets,
             args.schedule_presets,
         )
-        app.run(host=args.host, port=args.port, debug=config_utils.DEBUG, ssl_context=(args.cert, args.key))
+        app.run(
+            host=args.host,
+            port=args.port,
+            debug=config_utils.DEBUG,
+            ssl_context=(args.cert, args.key) if args.key and args.cert else None,
+        )
     finally:
         LEDManagers.teardown()
 
