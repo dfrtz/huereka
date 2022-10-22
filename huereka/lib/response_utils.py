@@ -34,7 +34,7 @@ class APIError(Exception, metaclass=abc.ABCMeta):
     """Base class used to create standardized JSON API responses via error handlers."""
 
     def __init__(self, error: str, data: Any = None, code: int = 500) -> None:
-        """Setup the base error values.
+        """Set up the base error values.
 
         Args:
             error: User facing error message to show in the response body.

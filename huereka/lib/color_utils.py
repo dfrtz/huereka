@@ -21,6 +21,19 @@ class Color(int):
         """
         return (0x0000ff & self) >> 0
 
+    def darken(self, amount: float = .1) -> Color:
+        """Decrease a color's lightness while maintaining RGB ratio.
+
+        Args:
+            amount: Percentage to darken the value.
+
+        Returns:
+            New RGB color with the lightness applied.
+        """
+        hsl = HSLColor.from_color(self)
+        hsl_dark = hsl.with_lightness(max(0.0, min(hsl.lightness - amount, 1.0)))
+        return hsl_dark.to_color()
+
     @staticmethod
     def from_rgb(red: int, green: int, blue: int) -> Color:
         """Create an RGB color instance using separate RGB values.
@@ -37,19 +50,6 @@ class Color(int):
                  ((green & 0xff) << 8) |
                  ((blue & 0xff) << 0)) & 0xFFFFFFFF
         return Color(value)
-
-    def darken(self, amount: float = .1) -> Color:
-        """Decrease a color's lightness while maintaining RGB ratio.
-
-        Args:
-            amount: Percentage to darken the value.
-
-        Returns:
-            New RGB color with the lightness applied.
-        """
-        hsl = HSLColor.from_color(self)
-        hsl_dark = hsl.with_lightness(max(0.0, min(hsl.lightness - amount, 1.0)))
-        return hsl_dark.to_color()
 
     @property
     def green(self) -> int:
@@ -108,7 +108,7 @@ class HSLColor:
     """Color extension to calculate Hue, Saturation, and Lightness from RGB colors."""
 
     def __init__(self, hue: float, saturation: float, lightness: float) -> None:
-        """Setup the color extension based on HSL values.
+        """Set up the color extension based on HSL values.
 
         Args:
             hue: Degree on the color wheel as 0.0-360.0.
@@ -274,7 +274,7 @@ def rgb_to_hue(red: float, green: float, blue: float, max_rgb: float, delta: flo
     return 0.0 if math.isnan(hue) else hue
 
 
-def parse_color(value: str | int | float) -> Color:
+def parse_color(value: str | int | float | Colors) -> Color:
     """Helper to translate numerical values into a raw color int.
 
     Args:
@@ -283,11 +283,13 @@ def parse_color(value: str | int | float) -> Color:
     Returns:
         Translated value wrapped in Color int.
     """
+    if isinstance(value, Color):
+        return value
+    if isinstance(value, Colors):
+        return value.value
     if isinstance(value, (int, float)):
-        value = Color(value)
-    elif isinstance(value, str):
+        return Color(value)
+    if isinstance(value, str):
         raw_color = value.replace('#', '0x')
-        value = Color(raw_color, base=16)
-    else:
-        raise ValueError(f'{value} is not a valid color/int value')
-    return value
+        return Color(raw_color, base=16)
+    raise ValueError(f'{value} is not a valid color/int value')

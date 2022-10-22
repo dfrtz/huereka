@@ -9,10 +9,6 @@ import time
 from datetime import datetime
 from typing import Any
 
-import board
-
-from microcontroller import Pin
-
 from huereka.lib import color_profile
 from huereka.lib import color_utils
 from huereka.lib import led_manager
@@ -297,7 +293,7 @@ class LightingSchedule(CollectionEntry):
             self,
             name: str,
             uuid: str = None,
-            manager: Pin = board.D18,
+            manager: str = 'default',
             routines: list[LightingRoutine] = None,
             led_delay: float = led_manager.DEFAULT_LED_UPDATE_DELAY,
             mode: int = MODE_OFF,
@@ -326,7 +322,7 @@ class LightingSchedule(CollectionEntry):
         """Make the schedule comparable for equality using unique attributes."""
         return isinstance(other, LightingSchedule) \
             and self.name == other.name \
-            and self.manager.id == other.manager.id \
+            and self.manager == other.manager \
             and self.routines == other.routines \
             and self.led_delay == other.led_delay \
             and self.mode == other.mode \
@@ -359,8 +355,8 @@ class LightingSchedule(CollectionEntry):
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
             raise CollectionValueError('invalid-lighting-schedule-name')
-        manager = data.get(KEY_MANAGER, board.D18.id)
-        if not isinstance(manager, int):
+        manager = data.get(KEY_MANAGER, 'default')
+        if not isinstance(manager, str):
             raise CollectionValueError('invalid-lighting-schedule-manager')
 
         # Optional arguments.
@@ -384,7 +380,7 @@ class LightingSchedule(CollectionEntry):
         return LightingSchedule(
             name,
             uuid=uuid,
-            manager=Pin(manager),
+            manager='default',
             routines=routines,
             led_delay=led_delay,
             mode=mode,
@@ -400,7 +396,7 @@ class LightingSchedule(CollectionEntry):
         data = {
             KEY_ID: self.uuid,
             KEY_NAME: self.name,
-            KEY_MANAGER: self.manager.id,
+            KEY_MANAGER: self.manager,
             KEY_ROUTINES: [routine.to_json(save_only=save_only) for routine in self.routines],
             KEY_MODE: self.mode,
             KEY_LED_DELAY: self.led_delay,
@@ -415,14 +411,14 @@ OffLightingRoutine = LightingRoutine(
     start=0,
     end=86400,
     enabled=True,
-    brightness=0.0,
+    brightness=BRIGHTNESS_DISABLED,
 )
 
 
 class LightingSchedules(Collection):
     """Singleton for managing reusable lighting schedules."""
 
-    __schedules_applied__: dict[int, color_profile.ColorProfile] = {}
+    __schedules_applied__: dict[str, color_profile.ColorProfile] = {}
 
     _collection: dict[str, LightingSchedule] = {}
     _collection_lock: threading.Condition = threading.Condition()
@@ -454,7 +450,7 @@ class LightingSchedules(Collection):
         return super().get(key)
 
     @classmethod
-    def pending_routines(cls) -> dict[int, tuple[LightingSchedule, LightingRoutine]]:
+    def pending_routines(cls) -> dict[str, tuple[LightingSchedule, LightingRoutine]]:
         """Find all scheduled lighting routines that should be active.
 
         Returns:
@@ -463,10 +459,10 @@ class LightingSchedules(Collection):
         with cls._collection_lock:
             pending = {}
             for schedule in sorted(cls._collection.values()):
-                pending.setdefault(schedule.manager.id, (schedule, OffLightingRoutine))
+                pending.setdefault(schedule.manager, (schedule, OffLightingRoutine))
                 active = schedule.active
                 if active != OffLightingRoutine:
-                    pending[schedule.manager.id] = (schedule, active)
+                    pending[schedule.manager] = (schedule, active)
         return pending
 
     @classmethod
@@ -522,15 +518,6 @@ class LightingSchedules(Collection):
                         routine.profile = new_profile_name
 
     @classmethod
-    def validate_entry(cls, data: dict, index: int) -> bool:
-        """Actions to perform on every collection entry load."""
-        uuid = data.get(KEY_NAME)
-        if uuid in cls._collection:
-            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using uuid {uuid}')
-            return False
-        return True
-
-    @classmethod
     def verify_active_schedules(cls, force: bool = False) -> None:
         """Monitor schedules and enable/disable routines based on timing.
 
@@ -547,21 +534,22 @@ class LightingSchedules(Collection):
                         raise error
                     # Fallback to off, the profile was not found.
                     profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
-                if force or cls.__schedules_applied__.get(schedule.manager.id) != profile:
+                if force or cls.__schedules_applied__.get(schedule.manager) != profile:
                     try:
                         led_count = len(led_manager.LEDManagers.get(schedule.manager))
                         led_delay = schedule.led_delay if not schedule.mode == MODE_ON else 0
                         colors = color_utils.generate_pattern(profile.corrected_colors, led_count)
-                        led_manager.LEDManagers.set_colors(colors, pin=schedule.manager, delay=led_delay, show=False)
                         if routine.brightness != BRIGHTNESS_DISABLED:
                             brightness = routine.brightness
                         elif schedule.brightness != BRIGHTNESS_DISABLED:
                             brightness = schedule.brightness
                         else:
                             brightness = led_manager.LEDManagers.get(schedule.manager).brightness
-                        led_manager.LEDManagers.set_brightness(brightness, pin=schedule.manager, show=False, save=False)
-                        led_manager.LEDManagers.show(pin=schedule.manager)
+                        led_manager.LEDManagers.set_brightness(schedule.manager, brightness, show=True, save=False)
+                        time.sleep(.01)
+                        led_manager.LEDManagers.set_colors(schedule.manager, colors, delay=led_delay, show=True)
                     except response_utils.APIError as error:
+                        logger.error(f'Failed to update LEDs on manager {schedule.manager} due to: {error}')
                         if error.code != 404:
                             raise error
                         continue
@@ -570,11 +558,11 @@ class LightingSchedules(Collection):
                             old_routine._status = STATUS_OFF
                     routine._status = STATUS_ON
                     # Copy the profile so that changes will be detected instead of comparing to self.
-                    cls.__schedules_applied__[schedule.manager.id] = profile.copy()
+                    cls.__schedules_applied__[schedule.manager] = profile.copy()
                     if profile.name == color_profile.DEFAULT_PROFILE_OFF:
-                        logger.info(f'Turned off LEDs on manager {schedule.manager.id} due to no enabled routines')
+                        logger.info(f'Turned off LEDs on manager {schedule.manager} due to no enabled routines')
                     else:
-                        logger.info(f'Applied {schedule.name} schedule using {routine.profile} profile to manager {schedule.manager.id} due to matching {routine.days_human} {routine.start_time} - {routine.end_time} routine')
+                        logger.info(f'Applied {schedule.name} schedule using {routine.profile} profile to manager {schedule.manager} due to matching {routine.days_human} {routine.start_time} - {routine.end_time} routine')
 
 
 def start_schedule_watchdog() -> None:

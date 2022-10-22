@@ -149,12 +149,13 @@ class Colors(Collection):
     @classmethod
     def validate_entry(cls, data: dict, index: int) -> bool:
         """Additional confirmation of entry values before load."""
+        if not super().validate_entry(data, index):
+            return False
         name = data.get(KEY_NAME)
         if name == DEFAULT_COLOR_BLACK:
             logger.warning(f'Skipping stored color for "{DEFAULT_COLOR_BLACK}", not allowed to be overridden')
+            return False
         if name == DEFAULT_COLOR_WHITE:
             logger.warning(f'Skipping stored color for "{DEFAULT_COLOR_WHITE}", not allowed to be overridden')
-        if name in cls._collection:
-            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using name {name}')
             return False
         return True

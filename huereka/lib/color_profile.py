@@ -90,6 +90,7 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
             name=self.name,
             uuid=self.uuid,
             colors=self.colors.copy(),
+            gamma_correction=self.gamma_correction,
             mode=self._mode,
         )
 
@@ -298,11 +299,10 @@ class ColorProfiles(Collection):
     @classmethod
     def validate_entry(cls, data: dict, index: int) -> bool:
         """Additional confirmation of entry values before load."""
+        if not super().validate_entry(data, index):
+            return False
         name = data.get(KEY_NAME)
         if name == DEFAULT_PROFILE_OFF:
             logger.warning(f'Skipping stored {cls.collection_help} for "{DEFAULT_PROFILE_OFF}", not allowed to be overridden')
-            return False
-        if name in cls._collection:
-            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using name {name}')
             return False
         return True

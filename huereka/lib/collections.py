@@ -18,13 +18,14 @@ from huereka.lib import response_utils
 logger = logging.getLogger(__name__)
 
 KEY_ID = 'id'
+KEY_NAME = 'name'
 
 
 class Collection(metaclass=abc.ABCMeta):
     """Base singleton class for managing reusable collection entries in a thread safe manner."""
 
     # Abstract here to enforce each class declare and not share. Should be replaced with: {}
-    _collection: dict[Any, CollectionEntry] = abc.abstractproperty()
+    _collection: dict[str, CollectionEntry] = abc.abstractproperty()
     # Abstract here to enforce each class declare and not share. Should be replaced with: threading.Condition()
     _collection_lock: threading.Condition = abc.abstractproperty()
     # Abstract here to enforce each class declare and not share. Should be replaced with: None
@@ -98,7 +99,7 @@ class Collection(metaclass=abc.ABCMeta):
         # No actions by default.
 
     @classmethod
-    def register(cls, entry: Any) -> None:
+    def register(cls, entry: CollectionEntry) -> None:
         """Store an entry for concurrent access.
 
         Args:
@@ -109,6 +110,7 @@ class Collection(metaclass=abc.ABCMeta):
             if uuid in cls._collection:
                 raise response_utils.APIError(f'duplicate-{cls.collection_help.replace(" ", "-")}', uuid, code=422)
             cls._collection[uuid] = entry
+            logger.debug(f'Registered {cls.collection_help} {entry.uuid} {entry.name}')
 
     @classmethod
     def remove(cls, key: str) -> CollectionEntry:
@@ -167,7 +169,10 @@ class Collection(metaclass=abc.ABCMeta):
         Returns:
             True if the load should continue, False if it should be skipped.
         """
-        # No extra validation performed by default.
+        uuid = data.get(KEY_ID)
+        if uuid in cls._collection:
+            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using uuid {uuid}')
+            return False
         return True
 
 
@@ -182,7 +187,7 @@ class CollectionEntry:
             uuid: Unique identifier.
         """
         self.uuid = uuid if uuid else str(uuid4())
-        self.name = name or f'{self.__class__}_{uuid}'
+        self.name = name or f'{self.__class__.__name__}_{self.uuid}'
 
     def __hash__(self) -> int:
         """Make the schedule hashable."""
@@ -208,6 +213,7 @@ class CollectionEntry:
             Instantiated entry with the given attributes.
         """
 
+    @abc.abstractmethod
     def to_json(self, save_only: bool = False) -> dict:
         """Convert the entry into a JSON compatible type.
 
@@ -223,7 +229,7 @@ class CollectionValueError(response_utils.APIError, ValueError):
     """Exception subclass to help identify failures that indicate a collection entry value was invalid."""
 
     def __init__(self, error: str, data: Any = None, code: int = 422) -> None:
-        """Setup the user details of the error."""
+        """Set up the user details of the error."""
         super().__init__(error, data, code=code)
 
 

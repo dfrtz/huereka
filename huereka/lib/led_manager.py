@@ -4,31 +4,24 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
 
 from typing import Sequence
 
-import neopixel
-import board
-
 from adafruit_pixelbuf import ColorUnion
-from microcontroller import Pin
 
-from huereka.lib import response_utils
+from huereka.lib import micro_managers
+from huereka.lib.micro_managers import KEY_PIN
+from huereka.lib.micro_managers import KEY_TYPE
+from huereka.lib.collections import KEY_ID
+from huereka.lib.collections import KEY_NAME
 from huereka.lib.collections import Collection
 from huereka.lib.collections import CollectionEntry
 from huereka.lib.collections import CollectionValueError
-from huereka.lib.collections import KEY_ID
 from huereka.lib.color_utils import Colors
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_LED_UPDATE_DELAY = 0.01
-KEY_LED_COUNT = 'led_count'
-KEY_BRIGHTNESS = 'brightness'
-KEY_PIXEL_ORDER = 'pixel_order'
-KEY_TYPE = 'type'
-KEY_PIN = 'pin'
 
 
 class LEDManager(CollectionEntry):
@@ -38,47 +31,24 @@ class LEDManager(CollectionEntry):
     instead of function from the base class, to prevent race conditions from concurrent access.
     """
 
-    def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
+    def __init__(
             self,
             name: str = None,
             uuid: str = None,
-            led_count: int = 100,
-            brightness: float = 1.0,
-            pixel_order: str = 'RGB',
-            pin: Pin = board.D18,
-            manager_type: str = 'NeoPixel',
+            micromanager: micro_managers.LEDMicroManager = None,
     ) -> None:
         """Set up a single LED chain/strip.
 
         Args:
             name: Human readable name used to store/reference in collections.
             uuid: Unique identifier.
-            led_count: How many LEDs are on the strip of lights.
-            brightness: Default brightness as a percent between 0.0 and 1.0.
-            pixel_order: RGB/RGBW/etc ordering of the LEDs on each microcontroller.
-            pin: GPIO pin to use to send the signal.
-            manager_type: Type of LED manager to use on the backend. e.g. "NeoPixel"
         """
         super().__init__(name, uuid)
-        if manager_type.lower() == 'neopixel':
-            self._led_manager = neopixel.NeoPixel(
-                pin,
-                led_count,
-                brightness=brightness,
-                auto_write=False,
-                pixel_order=pixel_order,
-                bpp=len(pixel_order)
-            )
-        self.brightness = brightness
-        self.led_pin = pin
-        self.manager_type = manager_type
-        self.synchronized_lock = threading.Condition()
-        logger.info(f'Initialized LED manager for pin {self.led_pin.id}')
+        self._led_manager = micromanager
 
     def __getitem__(self, index: int | slice) -> int:
         """Find LED color at a specific LED position."""
-        with self.synchronized_lock:
-            return self._led_manager[index]
+        return self._led_manager[index]
 
     def __len__(self) -> int:
         """Number of controlled pixels."""
@@ -90,17 +60,16 @@ class LEDManager(CollectionEntry):
             color: Colors | ColorUnion | Sequence[ColorUnion],
     ) -> None:
         """Set color at a specific LED position and immediately show change."""
-        if isinstance(color, Colors):
-            color = color.value
-        with self.synchronized_lock:
-            self._led_manager[index] = color
+        self._led_manager[index] = color
+
+    @property
+    def brightness(self) -> float:
+        """Current brightness as a percent between 0.0 and 1.0."""
+        return self._led_manager.brightness
 
     def fill(self, color: Colors | ColorUnion) -> None:
         """Overridden fill to handle additional color types."""
-        if isinstance(color, Colors):
-            color = color.value
-        with self.synchronized_lock:
-            self._led_manager.fill(color)
+        self._led_manager.fill(color)
 
     @classmethod
     def from_json(cls, data: dict) -> LEDManager:
@@ -113,34 +82,30 @@ class LEDManager(CollectionEntry):
             Instantiated manager with the given attributes.
         """
         # Required arguments.
-        led_count = data.get(KEY_LED_COUNT)
-        if not led_count or not isinstance(led_count, int):
-            raise CollectionValueError('invalid-led-manager-led-count')
-        pin = data.get(KEY_PIN)
-        if not isinstance(pin, int):
-            raise CollectionValueError('invalid-led-manager-pin')
+        manager_type = data.get(KEY_TYPE)
+        if not isinstance(manager_type, str) or manager_type.lower() not in ('neopixel'):
+            raise CollectionValueError('invalid-led-manager-type')
+        uuid = data.get(KEY_ID)
+        if not uuid or not isinstance(uuid, str):
+            raise CollectionValueError('invalid-led-manager-id')
 
         # Optional arguments.
-        uuid = data.get(KEY_ID)
-        if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError('invalid-led-manager-id')
-        brightness = data.get(KEY_BRIGHTNESS, 1.0)
-        if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
-            raise CollectionValueError('invalid-led-manager-brightness')
-        pixel_order = data.get(KEY_PIXEL_ORDER, 'RGB')
-        if not isinstance(pixel_order, str) or pixel_order not in ('RGB', 'RGBW'):
-            raise CollectionValueError('invalid-led-manager-pixel-order')
-        manager_type = data.get(KEY_TYPE, 'NeoPixel')
-        if not isinstance(manager_type, str) or manager_type.lower() not in ('neopixel',):
-            raise CollectionValueError('invalid-led-manager-type')
+        name = data.get(KEY_NAME)
+        if not isinstance(uuid, str) and name is not None:
+            raise CollectionValueError('invalid-led-manager-name')
+        micromanager = None
+        if manager_type.lower() == 'neopixel':
+            micromanager = micro_managers.NeoPixelManager.from_json(data)
 
-        return LEDManager(
-            led_count=led_count,
-            brightness=brightness,
-            pixel_order=pixel_order,
-            pin=Pin(pin),
-            manager_type=manager_type
-        )
+        return LEDManager(name=name, uuid=uuid, micromanager=micromanager)
+
+    def off(self, show: bool = True) -> None:
+        """Helper to turn off (reduce brightness to 0) and immediately show change.
+
+        Args:
+            show: Whether to show the change immediately, or delay until the next show() is called.
+        """
+        self._led_manager.off(show=show)
 
     def set_brightness(
             self,
@@ -148,7 +113,7 @@ class LEDManager(CollectionEntry):
             show: bool = True,
             save: bool = False,
     ) -> None:
-        """Set LED brightness and immediately show change.
+        """Set LED brightness for entire strip.
 
         Args:
             brightness: New brightness as a percent between 0.0 and 1.0.
@@ -156,13 +121,7 @@ class LEDManager(CollectionEntry):
                 Ignored if delay > 0.
             save: Whether to save the value permanently, or only apply to the underlying manager.
         """
-        brightness = min(max(0.0, brightness), 1.0)
-        with self.synchronized_lock:
-            if save:
-                self.brightness = brightness
-            self._led_manager.brightness = brightness
-            if show:
-                self.show()
+        self._led_manager.set_brightness(brightness, show=show, save=save)
 
     def set_color(
             self,
@@ -182,30 +141,7 @@ class LEDManager(CollectionEntry):
             show: Whether to show the change immediately, or delay until the next show() is called.
                 Ignored if delay > 0.
         """
-        if index >= 0:
-            with self.synchronized_lock:
-                self[index] = color
-                if show:
-                    self.show()
-        else:
-            if delay:
-                def _set_color() -> None:
-                    delay_until = time.time()
-                    for led, _ in enumerate(self):
-                        delay_until += delay
-                        self.synchronized_lock.acquire()
-                        self[led] = color
-                        self.show()
-                        self.synchronized_lock.release()
-                        delta = delay_until - time.time()
-                        if delta > 0:
-                            time.sleep(delta)
-                threading.Thread(target=_set_color, daemon=True).start()
-            else:
-                with self.synchronized_lock:
-                    self.fill(color)
-                    if show:
-                        self.show()
+        self._led_manager.set_color(color, index, delay=delay, show=show)
 
     def set_colors(
             self,
@@ -222,73 +158,32 @@ class LEDManager(CollectionEntry):
             show: Whether to show the change immediately, or delay until the next show() is called.
                 Ignored if delay > 0.
         """
-        if delay:
-            def _set_color() -> None:
-                delay_until = time.time()
-                for led, led_color in enumerate(colors):
-                    delay_until += delay
-                    self.synchronized_lock.acquire()
-                    self[led] = led_color
-                    self.show()
-                    self.synchronized_lock.release()
-                    delta = delay_until - time.time()
-                    if delta > 0:
-                        time.sleep(delta)
-            threading.Thread(target=_set_color, daemon=True).start()
-        else:
-            with self.synchronized_lock:
-                for index, color in enumerate(colors):
-                    self[index] = color
-                if show:
-                    self.show()
+        self._led_manager.set_colors(colors, delay=delay, show=show)
 
     def show(self) -> None:
         """Display all pending pixel changes since last show."""
-        with self.synchronized_lock:
-            self._led_manager.show()
+        self._led_manager.show()
 
     def teardown(self) -> None:
         """Clear LED states, and release resources.
 
         Manager should not be reused after teardown.
         """
-        logger.info(f'Tearing down LED manager for pin {self.led_pin.id}')
-        self._led_manager.deinit()
+        self._led_manager.teardown()
 
-    def to_json(self) -> dict:
+    def to_json(self, save_only: bool = False) -> dict:
         """Convert the instance into a JSON compatible type.
 
         Returns:
             Mapping of the instance attributes.
         """
-        return {
-            KEY_LED_COUNT: len(self._led_manager),
-            KEY_BRIGHTNESS: self.brightness,
-            KEY_PIXEL_ORDER: self._led_manager.byteorder,
-            KEY_PIN: self.led_pin.id,
-            KEY_TYPE: self.manager_type,
-        }
-
-    def turn_off(self, index: int = -1, show: bool = True) -> None:
-        """Helper to turn off (set color to black) and immediately show change.
-
-        Args:
-            index: Position of the LED in the chain. Defaults to -1 to turn off all.
-            show: Whether to show the change immediately, or delay until the next show() is called.
-        """
-        with self.synchronized_lock:
-            if index < 0:
-                self.fill(Colors.BLACK)
-            else:
-                self[index] = Colors.BLACK
-            if show:
-                self.show()
+        return self._led_manager.to_json()
 
 
 class LEDManagers(Collection):
     """Singleton for managing concurrent access to LEDs connected to GPIO pins."""
 
-    _collection: dict[int, LEDManager] = {}
+    _collection: dict[str, LEDManager] = {}
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
@@ -296,117 +191,90 @@ class LEDManagers(Collection):
     entry_cls: str = LEDManager
 
     @classmethod
-    def get(cls, key: int | Pin) -> LEDManager:
+    def get(cls, key: str) -> LEDManager:
         """Find the manager associated with a given key.
 
         Override to update typehint and simplify caller typechecks.
         """
-        if isinstance(key, Pin):
-            key = key.id
         return super().get(key)
-
-    @classmethod
-    def register(cls, entry: LEDManager) -> None:
-        """Store a manager for concurrent access.
-
-        Override of base to change type use pin ID instead of name for storage.
-
-        Args:
-            entry: Previously setup LED manager to be stored in the cache and used during concurrent calls.
-        """
-        with cls._collection_lock:
-            pin_id = entry.led_pin.id
-            if pin_id in cls._collection:
-                raise response_utils.APIError(f'duplicate-{cls.collection_help.replace(" ", "-")}', pin_id, code=422)
-            cls._collection[pin_id] = entry
-
-    @classmethod
-    def remove(cls, key: int | Pin) -> LEDManager:
-        """Remove a single LED chain/strip and release its resources.
-
-        Override to update typehint and simplify caller typechecks.
-        """
-        if isinstance(key, Pin):
-            key = key.id
-        return super().remove(key)
 
     @classmethod
     def set_brightness(
             cls,
-            brightness: float = 1.0,
+            uuid: str,
+            brightness: float,
             show: bool = True,
-            pin: Pin = board.D18,
             save: bool = False,
     ) -> None:
         """Set brightness on a single pin and immediately show change.
 
         Args:
+            uuid: ID of the manager to use to send the signal.
             brightness: New brightness as a percent between 0.0 and 1.0.
             show: Whether to show the change immediately, or delay until the next show() is called.
-            pin: GPIO pin/index of the manager to use to send the signal.
             save: Whether to save the value permanently, or only set temporarily.
         """
         with cls._collection_lock:
-            cls.get(pin).set_brightness(brightness, show=show, save=save)
+            cls.get(uuid).set_brightness(brightness, show=show, save=save)
 
     @classmethod
     def set_color(
             cls,
+            uuid: str,
             color: Colors | ColorUnion,
             index: int = -1,
             show: bool = True,
-            pin: Pin = board.D18,
     ) -> None:
         """Set color on a single pin and immediately show change.
 
         Args:
+            uuid: ID of the manager to use to send the signal.
             color: New color to set.
             index: Position of the LED in the chain. Defaults to -1 to fill all.
             show: Whether to show the change immediately, or delay until the next show() is called.
-            pin: GPIO pin/index of the manager to use to send the signal.
         """
         with cls._collection_lock:
-            cls.get(pin).set_color(color, index=index, show=show)
+            cls.get(uuid).set_color(color, index=index, show=show)
 
     @classmethod
     def set_colors(
             cls,
+            uuid: str,
             colors: list[Colors | ColorUnion],
             delay: float = DEFAULT_LED_UPDATE_DELAY,
             show: bool = True,
-            pin: Pin = board.D18,
     ) -> None:
         """Set colors and immediately show change.
 
         Args:
+            uuid: ID of the manager to use to send the signal.
             colors: New colors to set, one per pin.
             delay: Time to wait between each LED update in seconds.
             show: Whether to show the change immediately, or delay until the next show() is called.
-            pin: GPIO pin/index of the manager to use to send the signal.
         """
         with cls._collection_lock:
-            manager = cls.get(pin)
+            manager = cls.get(uuid)
             manager.set_colors(colors, delay=delay, show=show)
 
     @classmethod
-    def shutoff(cls, pin: Pin = board.D18) -> None:
+    def shutoff(cls, uuid: str) -> None:
         """Clear LED states and shut off pin.
 
         Args:
-            pin: GPIO pin/index of the manager to use to send the signal.
+            uuid: ID of the manager to use to send the signal.
         """
         with cls._collection_lock:
-            cls.get(pin).turn_off()
+            cls.get(uuid).off()
 
     @classmethod
-    def show(cls, pin: Pin = board.D18) -> None:
+    def show(cls, uuid: str) -> None:
         """Call the associated write function to display the pixels on a manager.
 
         Args:
-            pin: GPIO pin/index of the manager to use to send the signal.
+            uuid: ID of the manager to use to send the signal.
         """
         with cls._collection_lock:
-            cls.get(pin).show()
+            cls.get(uuid).show()
 
     @classmethod
     def teardown(cls) -> None:
@@ -415,25 +283,20 @@ class LEDManagers(Collection):
         Managers should not be reused after teardown.
         """
         with cls._collection_lock:
-            for pin_id in list(cls._collection.keys()):
-                manager = cls.remove(pin_id)
+            for uuid in list(cls._collection.keys()):
+                manager: LEDManager = cls.remove(uuid)
                 manager.teardown()
-
-    @classmethod
-    def to_json(cls) -> list[dict]:
-        """Convert all the managers into JSON compatible types.
-
-        Returns:
-            List of manager configurations.
-        """
-        with cls._collection_lock:
-            return [manager.to_json() for manager in cls._collection.values()]
 
     @classmethod
     def validate_entry(cls, data: dict, index: int) -> bool:
         """Additional confirmation of entry values before load."""
-        pin_id = data.get(KEY_PIN)
-        if pin_id in cls._collection:
-            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using pin {pin_id}')
+        if not super().validate_entry(data, index):
             return False
+        manager_type = data.get(KEY_TYPE)
+        if manager_type.lower() == 'neopixel':
+            pin = data.get(KEY_PIN)
+            for manager in cls._collection.keys():
+                if isinstance(manager, micro_managers.NeoPixelManager) and manager.led_pin == pin:
+                    logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using pin {pin}')
+                    return False
         return True
