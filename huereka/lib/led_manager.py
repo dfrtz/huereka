@@ -11,6 +11,7 @@ from adafruit_pixelbuf import ColorUnion
 
 from huereka.lib import micro_managers
 from huereka.lib.micro_managers import KEY_PIN
+from huereka.lib.micro_managers import KEY_PORT
 from huereka.lib.micro_managers import KEY_TYPE
 from huereka.lib.collections import KEY_ID
 from huereka.lib.collections import KEY_NAME
@@ -83,7 +84,7 @@ class LEDManager(CollectionEntry):
         """
         # Required arguments.
         manager_type = data.get(KEY_TYPE)
-        if not isinstance(manager_type, str) or manager_type.lower() not in ('neopixel'):
+        if not isinstance(manager_type, str) or manager_type.lower() not in ('neopixel', 'serial'):
             raise CollectionValueError('invalid-led-manager-type')
         uuid = data.get(KEY_ID)
         if not uuid or not isinstance(uuid, str):
@@ -96,6 +97,8 @@ class LEDManager(CollectionEntry):
         micromanager = None
         if manager_type.lower() == 'neopixel':
             micromanager = micro_managers.NeoPixelManager.from_json(data)
+        elif manager_type.lower() == 'serial':
+            micromanager = micro_managers.SerialManager.from_json(data)
 
         return LEDManager(name=name, uuid=uuid, micromanager=micromanager)
 
@@ -177,7 +180,10 @@ class LEDManager(CollectionEntry):
         Returns:
             Mapping of the instance attributes.
         """
-        return self._led_manager.to_json()
+        data = self._led_manager.to_json()
+        data[KEY_ID] = self.uuid
+        data[KEY_NAME] = self.name
+        return data
 
 
 class LEDManagers(Collection):
@@ -298,5 +304,11 @@ class LEDManagers(Collection):
             for manager in cls._collection.keys():
                 if isinstance(manager, micro_managers.NeoPixelManager) and manager.led_pin == pin:
                     logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using pin {pin}')
+                    return False
+        elif manager_type.lower() == 'serial':
+            port = data.get(KEY_PORT)
+            for manager in cls._collection.keys():
+                if isinstance(manager, micro_managers.SerialManager) and manager.port == port:
+                    logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using port {port}')
                     return False
         return True
