@@ -18,9 +18,6 @@ logger = logging.getLogger(__name__)
 KEY_NAME = 'name'
 KEY_VALUE = 'value'
 
-DEFAULT_COLOR_BLACK = 'black'
-DEFAULT_COLOR_WHITE = 'white'
-
 
 class Color(CollectionEntry):
     """User color preference."""
@@ -110,18 +107,11 @@ class Colors(Collection):
         return super().get(key)
 
     @classmethod
-    def post_load(cls) -> None:
-        """Actions to perform after load completes."""
-        # Always register the default colors.
-        cls.register(Color(DEFAULT_COLOR_BLACK, uuid=DEFAULT_COLOR_BLACK, value=color_utils.Colors.BLACK.value))
-        cls.register(Color(DEFAULT_COLOR_WHITE, uuid=DEFAULT_COLOR_WHITE, value=color_utils.Colors.WHITE.value))
-
-    @classmethod
     def update(
             cls,
             old_color: str,
             new_values: dict,
-    ) -> Color:
+    ) -> dict:
         """Update the values of a color.
 
         Args:
@@ -129,7 +119,7 @@ class Colors(Collection):
             new_values: New JSON like attributes to set on the color.
 
         Returns:
-            Final color with the updated values.
+            Final color configuration with the updated values.
         """
         with cls._collection_lock:
             color = cls.get(old_color)
@@ -144,18 +134,5 @@ class Colors(Collection):
             if value is None or not isinstance(value, (str, int, float)):
                 raise CollectionValueError('invalid-color-value')
             color.value = value
-        return color
-
-    @classmethod
-    def validate_entry(cls, data: dict, index: int) -> bool:
-        """Additional confirmation of entry values before load."""
-        if not super().validate_entry(data, index):
-            return False
-        name = data.get(KEY_NAME)
-        if name == DEFAULT_COLOR_BLACK:
-            logger.warning(f'Skipping stored color for "{DEFAULT_COLOR_BLACK}", not allowed to be overridden')
-            return False
-        if name == DEFAULT_COLOR_WHITE:
-            logger.warning(f'Skipping stored color for "{DEFAULT_COLOR_WHITE}", not allowed to be overridden')
-            return False
-        return True
+            result = color.to_json()
+        return result

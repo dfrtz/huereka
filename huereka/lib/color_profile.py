@@ -252,7 +252,7 @@ class ColorProfiles(Collection):
             cls,
             old_profile: str,
             new_values: dict,
-    ) -> ColorProfile:
+    ) -> dict:
         """Update the values of a color profile.
 
         Args:
@@ -260,7 +260,7 @@ class ColorProfiles(Collection):
             new_values: New JSON like attributes to set on the profile.
 
         Returns:
-            Final profile with the updated values.
+            Final profile configuration with the updated values.
         """
         with cls._collection_lock:
             profile = cls.get(old_profile)
@@ -294,7 +294,8 @@ class ColorProfiles(Collection):
                     profile.repeat = mode & MODE_REPEAT != 0
                     profile.mirror = mode & MODE_MIRROR != 0
                     profile.random = mode & MODE_RANDOM != 0
-        return profile
+            result = profile.to_json()
+        return result
 
     @classmethod
     def validate_entry(cls, data: dict, index: int) -> bool:

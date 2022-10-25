@@ -17,7 +17,12 @@ logger = logging.getLogger(__name__)
 @api.route('/profiles', methods=['GET'])
 def profiles_get() -> tuple:
     """Find all currently saved color profiles."""
-    return responses.ok(ColorProfiles.to_json())
+    profiles = ColorProfiles.to_json()
+    response = {
+        'item_count': len(profiles),
+        'items': profiles,
+    }
+    return responses.ok(response)
 
 
 @api.route('/profiles', methods=['POST'])
@@ -30,7 +35,11 @@ def profiles_post() -> tuple:
         return responses.not_allowed()
     ColorProfiles.register(profile)
     ColorProfiles.save()
-    return responses.ok(profile.to_json())
+    response = {
+        'item_count': 1,
+        'items': profile.to_json(),
+    }
+    return responses.ok(response)
 
 
 @api.route('/profiles/<string:uuid>', methods=['DELETE'])
@@ -52,15 +61,15 @@ def profiles_get_entry(uuid: str) -> tuple:
 
 @api.route('/profiles/<string:uuid>', methods=['PUT'])
 def profiles_put_entry(uuid: str) -> tuple:
-    """Update a color profile's values."""
+    """Update a color profile's configuration."""
     if uuid == color_profile.DEFAULT_PROFILE_OFF:
         # Do not allow the default "off" profile to be modified.
         return responses.not_allowed()
     body = request.get_json(force=True)
-    old_profile = ColorProfiles.get(uuid).copy()
+    old_profile = ColorProfiles.get(uuid).to_json()
     profile = ColorProfiles.update(uuid, body)
     ColorProfiles.save()
-    if old_profile.colors != profile.colors:
+    if old_profile.get('colors') != profile.get('colors'):
         # Colors were updated, do not wait the watchdog interval and apply immediately.
         LightingSchedules.verify_active_schedules()
-    return responses.ok(profile.to_json())
+    return responses.ok(profile)

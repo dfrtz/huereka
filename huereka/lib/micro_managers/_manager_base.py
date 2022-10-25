@@ -222,3 +222,17 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
         Returns:
             Mapping of the instance attributes.
         """
+
+    @abc.abstractmethod
+    def update(
+            self,
+            new_values: dict,
+    ) -> dict:
+        """Update the configuration of the LED manager.
+
+        Args:
+            new_values: New attributes to set on the manager.
+
+        Returns:
+            Final manager configuration with the updated values.
+        """

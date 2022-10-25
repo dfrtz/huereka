@@ -49,11 +49,6 @@ DAY_SATURDAY = 32
 DAY_SUNDAY = 64
 DAYS_ALL = DAY_MONDAY | DAY_TUESDAY | DAY_WEDNESDAY | DAY_THURSDAY | DAY_FRIDAY | DAY_SATURDAY | DAY_SUNDAY
 
-DEFAULT_SCHEDULE_DISABLE = 'disable'
-DEFAULT_SCHEDULE_ENABLE = 'enable'
-DEFAULT_SCHEDULE_OFF = 'off'
-DEFAULT_SCHEDULE_ON = 'on'
-
 MODE_OFF = 0
 MODE_ON = 1
 MODE_AUTO = 2
@@ -406,7 +401,7 @@ class LightingSchedule(CollectionEntry):
 
 
 OffLightingRoutine = LightingRoutine(
-    DEFAULT_SCHEDULE_OFF,
+    color_profile.DEFAULT_PROFILE_OFF,
     days=DAYS_ALL,
     start=0,
     end=86400,
@@ -426,20 +421,6 @@ class LightingSchedules(Collection):
 
     collection_help: str = 'lighting schedule'
     entry_cls: str = LightingSchedule
-
-    @classmethod
-    def disable_all(cls) -> None:
-        """Disable all schedules."""
-        with cls._collection_lock:
-            for schedule in cls._collection.values():
-                schedule.enabled = False
-
-    @classmethod
-    def enable_all(cls) -> None:
-        """Enable all schedules."""
-        with cls._collection_lock:
-            for schedule in cls._collection.values():
-                schedule.enabled = True
 
     @classmethod
     def get(cls, key: str) -> LightingSchedule:
@@ -470,7 +451,7 @@ class LightingSchedules(Collection):
             cls,
             uuid: str,
             new_values: dict,
-    ) -> LightingSchedule:
+    ) -> dict:
         """Update the values of a schedule.
 
         Args:
@@ -478,7 +459,7 @@ class LightingSchedules(Collection):
             new_values: New JSON like attributes to set on the schedule.
 
         Returns:
-            Final schedule with the updated values.
+            Final schedule configuration with the updated values.
         """
         with cls._collection_lock:
             schedule = cls.get(uuid)
@@ -501,7 +482,8 @@ class LightingSchedules(Collection):
             brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float, nullable=True, error_prefix=invalid_prefix)
             if brightness is not None:
                 schedule.brightness = brightness
-        return schedule
+            result = schedule.to_json()
+        return result
 
     @classmethod
     def update_profile(cls, old_profile_name: str, new_profile_name: str) -> None:

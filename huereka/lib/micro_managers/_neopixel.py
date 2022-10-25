@@ -12,9 +12,9 @@ import board
 from adafruit_pixelbuf import ColorUnion
 from microcontroller import Pin
 
-from huereka.lib.collections import KEY_ID
-from huereka.lib.collections import CollectionValueError
 from huereka.lib import color_utils
+from huereka.lib.collections import CollectionValueError
+from huereka.lib.collections import get_and_validate
 from huereka.lib.color_utils import Colors
 from huereka.lib.micro_managers._manager_base import LEDMicroManager
 from huereka.lib.micro_managers._manager_base import KEY_BRIGHTNESS
@@ -88,9 +88,6 @@ class NeoPixelManager(LEDMicroManager):
             raise CollectionValueError('invalid-led-manager-pin')
 
         # Optional arguments.
-        uuid = data.get(KEY_ID)
-        if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError('invalid-led-manager-id')
         brightness = data.get(KEY_BRIGHTNESS, 1.0)
         if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
             raise CollectionValueError('invalid-led-manager-brightness')
@@ -149,3 +146,42 @@ class NeoPixelManager(LEDMicroManager):
             KEY_PIN: self.led_pin.id,
             KEY_TYPE: 'NeoPixel',
         }
+
+    def update(
+            self,
+            new_values: dict,
+    ) -> dict:
+        """Update the configuration of the LED manager.
+
+        Args:
+            new_values: New attributes to set on the manager.
+
+        Returns:
+            Final manager configuration with the updated values.
+        """
+        invalid_prefix = 'invalid-lighting-manager'
+        led_count = get_and_validate(new_values, KEY_LED_COUNT, int, nullable=True, error_prefix=invalid_prefix)
+        brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float, nullable=True, error_prefix=invalid_prefix)
+        if brightness is not None:
+            self.set_brightness(brightness, save=True)
+        pixel_order = get_and_validate(new_values, KEY_PIXEL_ORDER, str, nullable=True, error_prefix=invalid_prefix)
+        pin = get_and_validate(new_values, KEY_PIN, int, nullable=True, error_prefix=invalid_prefix)
+        if pin is not None:
+            self.led_pin = Pin(pin)
+        if led_count is not None:
+            colors = [color for color in self]
+            self.teardown()
+            self._neo_pixel = neopixel.NeoPixel(
+                self.led_pin,
+                led_count,
+                brightness=self.brightness,
+                auto_write=False,
+                pixel_order=pixel_order or self._neo_pixel.byteorder,
+                bpp=len(self._neo_pixel.byteorder)
+            )
+            if led_count > len(colors):
+                colors = colors[:led_count]
+            else:
+                colors = colors + [Colors.BLACK.value for _ in range(led_count - len(colors))]
+            self.set_colors(colors, delay=0.0)
+        return self.to_json()

@@ -18,6 +18,7 @@ from huereka.lib.collections import KEY_NAME
 from huereka.lib.collections import Collection
 from huereka.lib.collections import CollectionEntry
 from huereka.lib.collections import CollectionValueError
+from huereka.lib.collections import get_and_validate
 from huereka.lib.color_utils import Colors
 
 logger = logging.getLogger(__name__)
@@ -185,6 +186,25 @@ class LEDManager(CollectionEntry):
         data[KEY_NAME] = self.name
         return data
 
+    def update(
+            self,
+            new_values: dict,
+    ) -> dict:
+        """Update the values of an LED manager.
+
+        Args:
+            new_values: New attributes to set on the manager.
+
+        Returns:
+            Final manager configuration with the updated values.
+        """
+        invalid_prefix = 'invalid-lighting-manager'
+        name = get_and_validate(new_values, KEY_NAME, str, nullable=True, error_prefix=invalid_prefix)
+        if name is not None and name != self.name:
+            self.name = name
+        self._led_manager.update(new_values)
+        return self.to_json()
+
 
 class LEDManagers(Collection):
     """Singleton for managing concurrent access to LEDs connected to GPIO pins."""
@@ -292,6 +312,25 @@ class LEDManagers(Collection):
             for uuid in list(cls._collection.keys()):
                 manager: LEDManager = cls.remove(uuid)
                 manager.teardown()
+
+    @classmethod
+    def update(
+            cls,
+            uuid: str,
+            new_values: dict,
+    ) -> dict:
+        """Update the values of an LED manager.
+
+        Args:
+            uuid: ID of the original manager to update.
+            new_values: New attributes to set on the manager.
+
+        Returns:
+            Final manager configuration with the updated values.
+        """
+        with cls._collection_lock:
+            result = cls.get(uuid).update(new_values)
+        return result
 
     @classmethod
     def validate_entry(cls, data: dict, index: int) -> bool:
