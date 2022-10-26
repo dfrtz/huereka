@@ -99,7 +99,7 @@ def json_result(result: Any) -> dict:
     Returns:
         A mapping containing the result data, and capable of accepting more key/value pairs.
     """
-    return {KEY_RESULT: result}
+    return result if isinstance(result, dict) else {KEY_RESULT: result}
 
 
 def status_text(code: int) -> str:

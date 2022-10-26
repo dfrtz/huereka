@@ -29,7 +29,6 @@ KEY_NAME = 'name'
 
 KEY_BRIGHTNESS = 'brightness'
 KEY_DAYS = 'days'
-KEY_ENABLED = 'enabled'
 KEY_END = 'end'
 KEY_LED_DELAY = 'led_delay'
 KEY_MANAGER = 'manager'
@@ -66,7 +65,7 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
             days: int | list[int] = DAYS_ALL,
             start: int | float | str = 0,
             end: int | float | str = 86400,
-            enabled: bool = True,
+            mode: int = MODE_ON,
             brightness: float = BRIGHTNESS_DISABLED,
     ) -> None:
         """Set up the routine to run a profile at specific times.
@@ -77,13 +76,14 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
                 Can be combined via bitwise operations. e.g. DAY_MONDAY | DAY_TUESDAY == "Monday" and "Tuesday"
             start: Start time in seconds as 0 < value < 86400 or HH:MM.
             end: End time in seconds as 0 < value < 86400 or HH:MM.
-            enabled: Whether the routine is currently enabled.
+            mode: Activity mode for the schedule as 0, 1 (off, on).
             brightness: Brightness as a percent between 0.0 and 1.0.
                 Overrides schedule brightness. Defaults to -1 to indicate override being disabled.
         """
+        self._mode = MODE_ON
+        self._status = STATUS_OFF
         self._start = 0
         self._end = 86400
-        self._status = STATUS_OFF
         self.profile = profile
         self.start = start
         self.end = end
@@ -92,7 +92,7 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         else:
             for day in days:
                 self._set_day(day)
-        self.enabled = enabled
+        self.mode = mode
         self.brightness = brightness
 
     def __eq__(self, other: Any) -> bool:
@@ -115,7 +115,7 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
     @property
     def active(self) -> bool:
         """Determine if the current time is in the active window (inclusive start and end)."""
-        if self.enabled and self.profile:
+        if self.mode == MODE_ON and self.profile:
             now = datetime.now()
             if self.start < self.end:
                 # Start is before end, routine is active if between the two.
@@ -212,9 +212,9 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         end = data.get(KEY_END, 86400)
         if not isinstance(end, (int, float, str)):
             raise CollectionValueError('invalid-lighting-routine-end')
-        enabled = data.get(KEY_ENABLED, True)
-        if not isinstance(enabled, bool):
-            raise CollectionValueError('invalid-lighting-routine-enabled')
+        mode = data.get(KEY_MODE, MODE_ON)
+        if not isinstance(mode, int):
+            raise CollectionValueError('invalid-lighting-routine-mode')
         brightness = data.get(KEY_BRIGHTNESS, BRIGHTNESS_DISABLED)
         if not isinstance(brightness, float):
             raise CollectionValueError('invalid-lighting-routine-brightness')
@@ -224,8 +224,21 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
             days=days,
             start=start,
             end=end,
-            enabled=enabled,
+            mode=mode,
         )
+
+    @property
+    def mode(self) -> int:
+        """Return the current mode set on the routine."""
+        return self._mode
+
+    @mode.setter
+    def mode(self, mode: int) -> None:
+        """Safely set the current mode of the routine."""
+        valid_modes = (MODE_OFF, MODE_ON)
+        if mode not in valid_modes:
+            raise ValueError(f'Valid modes are: {valid_modes}')
+        self._mode = mode
 
     @property
     def start(self) -> int:
@@ -260,6 +273,19 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         """Provide human readable value for start."""
         return f'{int(self.start / 3600):02}:{int(self.start % 3600 / 60):02}'
 
+    @property
+    def status(self) -> int:
+        """Return the current status of the routine."""
+        return self._status
+
+    @status.setter
+    def status(self, status: int) -> None:
+        """Safely set the current status of the routine."""
+        valid_states = (STATUS_OFF, STATUS_ON)
+        if status not in valid_states:
+            raise ValueError(f'Valid states are: {valid_states}')
+        self._status = status
+
     def to_json(self, save_only: bool = False) -> dict:
         """Convert the instance into a JSON compatible type.
 
@@ -271,13 +297,11 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
             KEY_DAYS: self._days,
             KEY_START: self.start_time,
             KEY_END: self.end_time,
-            KEY_ENABLED: self.enabled,
+            KEY_MODE: self.mode,
             KEY_BRIGHTNESS: self.brightness,
         }
         if not save_only:
-            data.update({
-                KEY_STATUS: self._status,
-            })
+            data[KEY_STATUS] = self.status
         return data
 
 
@@ -307,6 +331,8 @@ class LightingSchedule(CollectionEntry):
                 Overrides LED manager brightness. Defaults to -1 to indicate override being disabled.
         """
         super().__init__(name, uuid)
+        self._mode = MODE_OFF
+        self._status = STATUS_OFF
         self.manager = manager
         self.routines = routines or []
         self.led_delay = led_delay
@@ -382,6 +408,32 @@ class LightingSchedule(CollectionEntry):
             brightness=brightness,
         )
 
+    @property
+    def mode(self) -> int:
+        """Return the current mode set on the schedules."""
+        return self._mode
+
+    @mode.setter
+    def mode(self, mode: int) -> None:
+        """Safely set the current mode of the schedule."""
+        valid_modes = (MODE_OFF, MODE_ON, MODE_AUTO)
+        if mode not in valid_modes:
+            raise ValueError(f'Valid modes are: {valid_modes}')
+        self._mode = mode
+
+    @property
+    def status(self) -> int:
+        """Return the current status of the schedule."""
+        return self._status
+
+    @status.setter
+    def status(self, status: int) -> None:
+        """Safely set the current status of the schedule."""
+        valid_states = (STATUS_OFF, STATUS_ON)
+        if status not in valid_states:
+            raise ValueError(f'Valid states are: {valid_states}')
+        self._status = status
+
     def to_json(self, save_only: bool = False) -> dict:
         """Convert the instance into a JSON compatible type.
 
@@ -397,6 +449,8 @@ class LightingSchedule(CollectionEntry):
             KEY_LED_DELAY: self.led_delay,
             KEY_BRIGHTNESS: self.brightness,
         }
+        if not save_only:
+            data[KEY_STATUS] = self.status
         return data
 
 
@@ -405,7 +459,7 @@ OffLightingRoutine = LightingRoutine(
     days=DAYS_ALL,
     start=0,
     end=86400,
-    enabled=True,
+    mode=MODE_ON,
     brightness=BRIGHTNESS_DISABLED,
 )
 
@@ -509,13 +563,17 @@ class LightingSchedules(Collection):
         pending = cls.pending_routines()
         with cls._collection_lock:
             for schedule, routine in sorted(pending.values()):
-                try:
-                    profile = color_profile.ColorProfiles.get(routine.profile)
-                except response_utils.APIError as error:
-                    if error.code != 404:
-                        raise error
-                    # Fallback to off, the profile was not found.
+                manager = led_manager.LEDManagers.get(schedule.manager)
+                if manager.mode != MODE_ON:
                     profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
+                else:
+                    try:
+                        profile = color_profile.ColorProfiles.get(routine.profile)
+                    except response_utils.APIError as error:
+                        if error.code != 404:
+                            raise error
+                        # Fallback to off, the profile was not found.
+                        profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
                 if force or cls.__schedules_applied__.get(schedule.manager) != profile:
                     try:
                         led_count = len(led_manager.LEDManagers.get(schedule.manager))
@@ -536,14 +594,18 @@ class LightingSchedules(Collection):
                             raise error
                         continue
                     for old_schedule in cls._collection.values():
+                        old_schedule.status = STATUS_OFF
                         for old_routine in old_schedule.routines:
-                            old_routine._status = STATUS_OFF
-                    routine._status = STATUS_ON
+                            old_routine.status = STATUS_OFF
+                    schedule.status = STATUS_ON
+                    routine.status = STATUS_ON
                     # Copy the profile so that changes will be detected instead of comparing to self.
                     cls.__schedules_applied__[schedule.manager] = profile.copy()
                     if profile.name == color_profile.DEFAULT_PROFILE_OFF:
+                        manager.status = STATUS_OFF
                         logger.info(f'Turned off LEDs on manager {schedule.manager} due to no enabled routines')
                     else:
+                        manager.status = STATUS_ON
                         logger.info(f'Applied {schedule.name} schedule using {routine.profile} profile to manager {schedule.manager} due to matching {routine.days_human} {routine.start_time} - {routine.end_time} routine')
 
 

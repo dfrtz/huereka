@@ -6,6 +6,7 @@ from huereka.api.v1 import api
 from huereka.lib import response_utils as responses
 from huereka.lib.led_manager import LEDManager
 from huereka.lib.led_manager import LEDManagers
+from huereka.lib.lighting_schedule import LightingSchedules
 
 
 @api.route('/managers', methods=['GET'])
@@ -51,6 +52,9 @@ def managers_get_entry(uuid: str) -> tuple:
 def managers_put_entry(uuid: str) -> tuple:
     """Update a lighting manager's configuration."""
     body = request.get_json(force=True)
+    old_manager = LEDManagers.get(uuid).to_json()
     manager = LEDManagers.update(uuid, body)
     LEDManagers.save()
+    if old_manager.get('mode') != manager.get('mode'):
+        LightingSchedules.verify_active_schedules()
     return responses.ok(manager)

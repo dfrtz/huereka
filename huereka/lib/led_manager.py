@@ -23,20 +23,30 @@ from huereka.lib.color_utils import Colors
 
 logger = logging.getLogger(__name__)
 
+KEY_MODE = 'mode'
+KEY_STATUS = 'status'
+
 DEFAULT_LED_UPDATE_DELAY = 0.01
+
+MODE_OFF = 0
+MODE_ON = 1
+
+STATUS_OFF = 0
+STATUS_ON = 1
 
 
 class LEDManager(CollectionEntry):
-    """Manage the colors and brightness of LEDs connected to a GPIO pin.
+    """Manage the colors and brightness of LEDs.
 
-    When updating lights it is recommended to use one of the "synchronized" functions in this class,
-    instead of function from the base class, to prevent race conditions from concurrent access.
+    Low level lighting controls are delegated to micromanagers based on the hardware. No direct access to hardware
+    should be performed in this class, and only passthroughs to micromanagers are allowed.
     """
 
     def __init__(
             self,
             name: str = None,
             uuid: str = None,
+            mode: int = MODE_OFF,
             micromanager: micro_managers.LEDMicroManager = None,
     ) -> None:
         """Set up a single LED chain/strip.
@@ -44,9 +54,12 @@ class LEDManager(CollectionEntry):
         Args:
             name: Human readable name used to store/reference in collections.
             uuid: Unique identifier.
+            mode: Activity mode for the schedule as 0, 1 (off, on).
         """
         super().__init__(name, uuid)
         self._led_manager = micromanager
+        self._mode = mode
+        self._status = STATUS_OFF
 
     def __getitem__(self, index: int | slice) -> int:
         """Find LED color at a specific LED position."""
@@ -95,13 +108,16 @@ class LEDManager(CollectionEntry):
         name = data.get(KEY_NAME)
         if not isinstance(uuid, str) and name is not None:
             raise CollectionValueError('invalid-led-manager-name')
+        mode = data.get(KEY_MODE, MODE_OFF)
+        if not isinstance(mode, int):
+            raise CollectionValueError('invalid-led-manager-mode')
         micromanager = None
         if manager_type.lower() == 'neopixel':
             micromanager = micro_managers.NeoPixelManager.from_json(data)
         elif manager_type.lower() == 'serial':
             micromanager = micro_managers.SerialManager.from_json(data)
 
-        return LEDManager(name=name, uuid=uuid, micromanager=micromanager)
+        return LEDManager(name=name, uuid=uuid, mode=mode, micromanager=micromanager)
 
     def off(self, show: bool = True) -> None:
         """Helper to turn off (reduce brightness to 0) and immediately show change.
@@ -110,6 +126,19 @@ class LEDManager(CollectionEntry):
             show: Whether to show the change immediately, or delay until the next show() is called.
         """
         self._led_manager.off(show=show)
+
+    @property
+    def mode(self) -> int:
+        """Return the current mode set on the manager."""
+        return self._mode
+
+    @mode.setter
+    def mode(self, mode: int) -> None:
+        """Safely set the current mode of the manager."""
+        valid_modes = (MODE_OFF, MODE_ON)
+        if mode not in valid_modes:
+            raise ValueError(f'Valid modes are: {valid_modes}')
+        self._mode = mode
 
     def set_brightness(
             self,
@@ -168,6 +197,19 @@ class LEDManager(CollectionEntry):
         """Display all pending pixel changes since last show."""
         self._led_manager.show()
 
+    @property
+    def status(self) -> int:
+        """Return the current status of the manager."""
+        return self._status
+
+    @status.setter
+    def status(self, status: int) -> None:
+        """Safely set the current status of the manager."""
+        valid_states = (STATUS_OFF, STATUS_ON)
+        if status not in valid_states:
+            raise ValueError(f'Valid states are: {valid_states}')
+        self._status = status
+
     def teardown(self) -> None:
         """Clear LED states, and release resources.
 
@@ -184,6 +226,9 @@ class LEDManager(CollectionEntry):
         data = self._led_manager.to_json()
         data[KEY_ID] = self.uuid
         data[KEY_NAME] = self.name
+        data[KEY_MODE] = self.mode
+        if not save_only:
+            data[KEY_STATUS] = self.status
         return data
 
     def update(
@@ -202,6 +247,9 @@ class LEDManager(CollectionEntry):
         name = get_and_validate(new_values, KEY_NAME, str, nullable=True, error_prefix=invalid_prefix)
         if name is not None and name != self.name:
             self.name = name
+        mode = get_and_validate(new_values, KEY_MODE, int, nullable=True, error_prefix=invalid_prefix)
+        if mode is not None and mode != self.mode:
+            self.mode = mode
         self._led_manager.update(new_values)
         return self.to_json()
 
