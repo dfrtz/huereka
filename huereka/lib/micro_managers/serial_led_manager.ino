@@ -43,6 +43,11 @@ typedef struct led_strip {
 struct led_strip strips[MAX_STRIPS];
 
 /*
+ * Hard reset device.
+ */
+void(* reset) (void) = 0;
+
+/*
  * Serial buffer management.
  */
 
@@ -198,6 +203,11 @@ void listen() {
         break;
       case 77:
         op_test();
+        break;
+
+      // Hard reset device to clear all initialized strips.
+      case 99:
+        reset();
         break;
 
       // Unknown op, do nothing.
