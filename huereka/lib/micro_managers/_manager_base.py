@@ -16,7 +16,7 @@ from huereka.lib.color_utils import Colors
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LED_UPDATE_DELAY = 0.01
+DEFAULT_LED_UPDATE_DELAY = 0.005
 KEY_LED_COUNT = 'led_count'
 KEY_BRIGHTNESS = 'brightness'
 KEY_TYPE = 'type'
@@ -156,9 +156,7 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
         else:
             if delay:
                 def _set_color() -> None:
-                    delay_until = time.time()
                     for led, _ in enumerate(self):
-                        delay_until += delay
                         with self._lock:
                             self._set_color(led, color, show=True)
                         time.sleep(delay)
@@ -184,9 +182,7 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
         """
         if delay:
             def _set_color() -> None:
-                delay_until = time.time()
                 for led, led_color in enumerate(colors):
-                    delay_until += delay
                     with self._lock:
                         self._set_color(led, led_color, show=True)
                     time.sleep(delay)

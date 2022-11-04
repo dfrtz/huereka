@@ -132,6 +132,10 @@ void setMaxRefreshRate(uint8_t strip, uint16_t refresh, bool constrain) {
   } else {
     strips[strip].refresh_rate = 0;
   }
+  if (strips[strip].refresh_rate < 5000) {
+    // Hard cap at 200 FPS (1 frame per 500 usec).
+    strips[strip].refresh_rate = 5000;
+  }
 }
 
 /*

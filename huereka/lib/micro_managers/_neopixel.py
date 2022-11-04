@@ -111,6 +111,8 @@ class NeoPixelManager(LEDMicroManager):
         color = color_utils.parse_color(color)
         with self._lock:
             self._neo_pixel.fill(color)
+            if show:
+                self.show()
 
     def set_brightness(
             self,

@@ -33,12 +33,13 @@ OP_FILL_LEDS = 33
 OP_SET_LED = 34
 OP_SHOW = 35
 OP_TEST = 77
+OP_RESET = 99
 
 KEY_STRIP = 'strip'
 KEY_PORT = 'port'
 KEY_BAUD = 'baud'
 
-FRAME_LIMITER = 0.01
+FRAME_LIMITER = 0.005
 
 
 class SerialManager(LEDMicroManager):
@@ -53,6 +54,7 @@ class SerialManager(LEDMicroManager):
             port: str = '/dev/ttyACM0',
             baudrate: int = 115200,
             timeout: int = 10,
+            dsrdtr: bool = False,
     ) -> None:
         """Set up a single FastLED strip.
 
@@ -64,6 +66,7 @@ class SerialManager(LEDMicroManager):
             pixel_order: RGB/RGBW/etc ordering of the LEDs on each microcontroller.
             pin: GPIO pin to use to send the signal.
             manager_type: Type of LED manager to use on the backend. e.g. "NeoPixel"
+            dsrdtr: Enable hardware (DSR/DTR) flow control.
         """
         super().__init__(brightness=brightness)
         self._ready = False
@@ -73,7 +76,7 @@ class SerialManager(LEDMicroManager):
         self.pin = pin
         self.port = port
         self.baudrate = baudrate
-        self._serial = serial.Serial(self.port, self.baudrate, timeout=timeout, dsrdtr=True)
+        self._serial = serial.Serial(self.port, self.baudrate, timeout=timeout, dsrdtr=dsrdtr)
         # Delay startup by 1 second to prevent silent failures when it looks like the data sent.
         # All pending actions will be queued up to run as soon as available.
         threading.Timer(1, self._init).start()
@@ -135,6 +138,12 @@ class SerialManager(LEDMicroManager):
             color.green,
             color.blue,
             1 if show else 0,
+        )
+
+    def _op_reset(self) -> None:
+        """Force the remote device to hard reset."""
+        self._write(
+            OP_RESET,
         )
 
     def _op_set_brightness(self, brightness: float, show: bool = True) -> None:

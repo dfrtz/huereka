@@ -376,7 +376,7 @@ class LightingSchedule(CollectionEntry):
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
             raise CollectionValueError('invalid-lighting-schedule-name')
-        manager = data.get(KEY_MANAGER, 'default')
+        manager = data.get(KEY_MANAGER)
         if not isinstance(manager, str):
             raise CollectionValueError('invalid-lighting-schedule-manager')
 
@@ -401,7 +401,7 @@ class LightingSchedule(CollectionEntry):
         return LightingSchedule(
             name,
             uuid=uuid,
-            manager='default',
+            manager=manager,
             routines=routines,
             led_delay=led_delay,
             mode=mode,
@@ -563,8 +563,16 @@ class LightingSchedules(Collection):
         pending = cls.pending_routines()
         with cls._collection_lock:
             for schedule, routine in sorted(pending.values()):
-                manager = led_manager.LEDManagers.get(schedule.manager)
-                if manager.mode != MODE_ON:
+                try:
+                    manager = led_manager.LEDManagers.get(schedule.manager)
+                    if schedule.manager not in cls.__schedules_applied__:
+                        cls.__schedules_applied__[schedule.manager] = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
+                except response_utils.APIError as error:
+                    if error.code != 404:
+                        raise error
+                    logger.warning(f'Skipping update of LEDs on non-existent manager {schedule.manager}')
+                    continue
+                if manager.mode == MODE_OFF:
                     profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
                 else:
                     try:
@@ -575,24 +583,24 @@ class LightingSchedules(Collection):
                         # Fallback to off, the profile was not found.
                         profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
                 if force or cls.__schedules_applied__.get(schedule.manager) != profile:
-                    try:
-                        led_count = len(led_manager.LEDManagers.get(schedule.manager))
-                        led_delay = schedule.led_delay if not schedule.mode == MODE_ON else 0
-                        colors = color_utils.generate_pattern(profile.corrected_colors, led_count)
-                        if routine.brightness != BRIGHTNESS_DISABLED:
-                            brightness = routine.brightness
-                        elif schedule.brightness != BRIGHTNESS_DISABLED:
-                            brightness = schedule.brightness
-                        else:
-                            brightness = led_manager.LEDManagers.get(schedule.manager).brightness
-                        led_manager.LEDManagers.set_brightness(schedule.manager, brightness, show=True, save=False)
-                        time.sleep(.01)
-                        led_manager.LEDManagers.set_colors(schedule.manager, colors, delay=led_delay, show=True)
-                    except response_utils.APIError as error:
-                        logger.error(f'Failed to update LEDs on manager {schedule.manager} due to: {error}')
-                        if error.code != 404:
-                            raise error
-                        continue
+                    # Allow animating if turning on/off, or automatically changing between schedules.
+                    if cls.__schedules_applied__.get(schedule.manager).name == color_profile.DEFAULT_PROFILE_OFF \
+                            or profile.name == color_profile.DEFAULT_PROFILE_OFF \
+                            or schedule.mode == MODE_AUTO:
+                        led_delay = schedule.led_delay
+                    else:
+                        led_delay = 0
+                    # led_delay = schedule.led_delay
+                    colors = color_utils.generate_pattern(profile.corrected_colors, len(manager))
+                    if routine.brightness != BRIGHTNESS_DISABLED:
+                        brightness = routine.brightness
+                    elif schedule.brightness != BRIGHTNESS_DISABLED:
+                        brightness = schedule.brightness
+                    else:
+                        brightness = manager.brightness
+                    manager.set_brightness(brightness, show=True, save=False)
+                    time.sleep(.01)
+                    manager.set_colors(colors, delay=led_delay, show=True)
                     for old_schedule in cls._collection.values():
                         old_schedule.status = STATUS_OFF
                         for old_routine in old_schedule.routines:
