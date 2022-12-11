@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 KEY_MODE = 'mode'
 KEY_STATUS = 'status'
 
-DEFAULT_LED_UPDATE_DELAY = 0.01
+# Based on max speed without flickering on a 12V strand of 100 WS2811 LEDs with 5V signal.
+DEFAULT_LED_UPDATE_DELAY = 0.01125
 
 MODE_OFF = 0
 MODE_ON = 1
