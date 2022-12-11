@@ -17,6 +17,7 @@ from huereka.lib import color_utils
 from huereka.lib.collections import CollectionValueError
 from huereka.lib.collections import get_and_validate
 from huereka.lib.color_utils import Colors
+from huereka.lib.micro_managers._manager_base import DEFAULT_LED_UPDATE_DELAY
 from huereka.lib.micro_managers._manager_base import LEDMicroManager
 from huereka.lib.micro_managers._manager_base import KEY_BRIGHTNESS
 from huereka.lib.micro_managers._manager_base import KEY_LED_COUNT
@@ -38,8 +39,6 @@ OP_RESET = 99
 KEY_STRIP = 'strip'
 KEY_PORT = 'port'
 KEY_BAUD = 'baud'
-
-FRAME_LIMITER = 0.005
 
 
 class SerialManager(LEDMicroManager):
@@ -116,7 +115,7 @@ class SerialManager(LEDMicroManager):
             self._op_fill_leds(Colors.BLACK.value, show=True)
             for values, start in self._pending:
                 self._write(*values, start=start)
-                time.sleep(FRAME_LIMITER)
+                time.sleep(DEFAULT_LED_UPDATE_DELAY)
 
     def _op_init_strip(self) -> None:
         """Send operation to set up LED strip."""
