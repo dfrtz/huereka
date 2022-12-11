@@ -18,11 +18,11 @@ dependencies. Your mileage may vary.
 * [Installing OS](#installing-the-operating-system)
 * [Prepare OS Headless Boot](#prepare-operating-system-for-headless-boot)
 * [Prepare OS For User Access](#prepare-operating-system-for-user-access)
-* [Build And Install Python](#build-and-install-python36)
-* [Setup Python Dev Environment](#setup-python-development-environment)
-* [Setup Huereka Dev Environment](#setup-huereka-development-environment)
-* [Setup Huereka LED Test Hardware](#setup-huereka-led-test-hardware)
-* [Setup Huereka Service to Start on Boot](#setup-huereka-service-to-start-on-boot)
+* [Build And Install Python](#build-and-install-python39)
+* [Set up Python Dev Environment](#set-up-python-development-environment)
+* [Set up Huereka Dev Environment](#set-up-huereka-development-environment)
+* [Set up Huereka LED Test Hardware](#set-up-huereka-testing-hardware)
+* [Set up Huereka Service to Start on Boot](#set-up-huereka-service-to-start-on-boot)
 * [Improve Raspberry Pi Boot Time](#improve-raspberry-pi-boot-time)
 
 
@@ -37,12 +37,15 @@ https://www.raspberrypi.org/downloads/
 **CAUTION: Improper use of 'dd' can overwrite any partition on your system. Do not proceed with any
 commands without absolute certainty they are targeting the correct partition.**
 
+In order to install the Raspberry Pi OS you will need a separate computer from the Raspberry Pi itself.
+The following procedure outlines installing the image from a Linux based OS.
+
 1. List the current devices and their mount points:
     ```
     lsblk
     ```
 
-2. Insert the SD card into the SD card slot, or an external adapter.
+2. Insert the SD card into an SD card slot, or an external adapter.
 
 3. Check for the new device and location (/dev/sdX):
     ```
@@ -73,7 +76,7 @@ be split into two parts after installing the OS, similar to `/dev/sdb1` and `/de
     lsblk
     ```
 
-3. Mount the boot partition. This should be the smaller of the 2 partitions found in Step 2, usually `/dev/sdX1`:
+3. Mount the boot partition. This should be the smallest of the 2 partitions found in Step 2, usually `/dev/sdX1`:
     ```
     mount /dev/sdXx /mnt/rpi/boot
     ```
@@ -88,17 +91,17 @@ to allow login and configuration. The file will be deleted after first boot.
 prompt on first boot that would otherwise block a headless setup. This is required on Bullseye+.
 
     * To generate an encrypted password:
-    ```
-    echo 'mypassword' | openssl passwd -6 -stdin
-    ```
+        ```
+        echo 'mypassword' | openssl passwd -6 -stdin
+        ```
     * Open the `/mnt/rpi/boot/userconf` configuration file using a text editor.
-    * The file must container 1 line with `<username>:<encryptd password>`.
+    * The file must contain 1 line with `<username>:<encryptd password>`.
     * Save file and exit text editor.
 
-6. If using wired connection, skip this step. Edit the WPA supplicant file to add one or more network(s).
+6. If using a wired connection, skip this step. Edit the WPA supplicant file to add one or more network(s).
 
     * Open the `/mnt/rpi/boot/wpa_supplicant.conf` configuration file using a text editor.
-    * Add everything after <Begin> and before <End> tags, replacing wpa-ssid and wpa-psk as
+    * Add everything after <Begin> and before <End> tags, replacing county, wpa-ssid, and wpa-psk as
     appropriate for your network:
     ```
     ### Begin ###
@@ -139,7 +142,8 @@ prompt on first boot that would otherwise block a headless setup. This is requir
    * Add the name to the `127.0.0.1` and `::1` lines in: `/mnt/rpi/system/etc/hosts`
    * Unmount system partition: `umount /mnt/rpi/system`
 
-9. Recommended: Consider additional changes from [Improve Raspberry Pi Boot Time](#improve-raspberry-pi-boot-time)
+9. Recommended: Consider additional changes from [Improve Raspberry Pi Boot Time](#improve-raspberry-pi-boot-time).
+These can also be performed at a later time.
 
 10. Ensure device is completely unmounted, and remove from SD card slot or external adapter:
      ```
@@ -166,7 +170,8 @@ prompt on first boot that would otherwise block a headless setup. This is requir
     ssh <myuser>@<IP address>
     ```
 
-6. Enter configuration tool and update hostname of device on network and enable SSH:
+5. Enter configuration tool and update hostname of device on network (if not performed with OS set up) and ensure SSH is
+enabled:
     ```
     sudo raspi-config
     ```
@@ -176,25 +181,25 @@ prompt on first boot that would otherwise block a headless setup. This is requir
     Main Menu > Interface Options > SSH
     ```
 
-7. Exit configuration tool by selecting "Finish". Do not reboot yet.
+6. Exit configuration tool by selecting "Finish". Do not reboot yet.
 
-12. Change 'root' password to further secure system:
+7. If using OS earlier that Bullseye, change 'root' password to further secure system:
     ```
     sudo passwd root
     ```
 
-13. Update packages:  
+8. Update packages:
     ```
     sudo apt update
     sudo apt upgrade
     ```
 
-14. Reboot:
+9. Reboot:
     ```
     sudo reboot
     ```
 
-15. After it reboots, setup your local SSH key on the new user to simplify future logins:
+10. After it reboots, set up your local SSH key on the new user to simplify future logins:
     ```
     ssh-copy-id -i ~/.ssh/id_rsa.pub <username>@<ip>
     ```
@@ -202,11 +207,11 @@ prompt on first boot that would otherwise block a headless setup. This is requir
 
 ### Build and Install Python3.9
 
-As of Raspberry Pi OS Bullseye this step is no longer required, however it is left here for posterity or wishing
-to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lite).
+As of Raspberry Pi OS Bullseye this step is no longer required, however it is left here for posterity or for this
+wishing to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lite).
 
 1. Install dependencies to build python from source. This builds a fairly minimal python. If you wish to expand
-  the code further, python may need to be rebuilt later after more packages are installed:  
+the code further, python may need to be rebuilt later after more packages are installed:  
     ```
     sudo apt install -y \
         build-essential \
@@ -255,7 +260,7 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
     ```
 
 
-### Setup Python Development Environment
+### Set Up Python Development Environment
 
 1. Install Python package manager, development, and virtual environment libraries:
     ```
@@ -263,9 +268,9 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
     ```
 
 
-### Setup Huereka Development Environment
+### Set Up Huereka Development Environment
 
-1. Setup OS requirements:
+1. Set up OS requirements:
     ```
     sudo apt install -y git vim libgpiod2
     ```
@@ -282,7 +287,7 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
     cd huereka
     ```
 
-4. Setup the hooks:
+4. Set up hooks:
     ```
     hooks/setup_hooks.sh
     ```
@@ -312,7 +317,10 @@ to build a version newer than 3.9.2 (latest as of 2021-10-30 Raspberry Pi OS Lit
     ```
 
 
-### Setup Huereka Testing Hardware
+### Set Up Huereka Testing Hardware
+
+**CAUTION: Improper grounding, voltage, and other interactions with electricity, can cause personal injury or
+damage to your surroundings. By using this guide you agree to take proper precautions and assume full responsibility.**
 
 After setting up the OS and software it is recommended to perform a basic test using a standalone LED.
 This is optional, but can help provide assurance that the setup is ready to continue into production.
@@ -331,8 +339,8 @@ This is optional, but can help provide assurance that the setup is ready to cont
    pinout
    ```
 
-2. Setup the circuit. This is not a tutorial on jumpers or breadboards, refer to public guides if more detailed
-steps on setting up circuits is needed. Basic overview:
+2. Set up the circuit. This is not a tutorial on jumpers or breadboards, refer to public guides if more detailed
+steps on setting up circuits are needed. Basic overview:
    1. If not using breadboard:
       1. Connect GND (pin 14) from Pi to LED.
       2. Connect GPIO18 (pin 12) power line from Pi to 330 resistor.
@@ -350,7 +358,7 @@ steps on setting up circuits is needed. Basic overview:
    ```
 
 
-### Setup Huereka Service to Start on Boot
+### Set Up Huereka Service to Start on Boot
 
 1. Ensure Huereka development environment is set up, or library is installed on to core system.
 
@@ -372,7 +380,7 @@ steps on setting up circuits is needed. Basic overview:
     chmod 755 ~/Development/huereka/huereka.sh
     ```
 
-6. Create a new service file under `/etc/systemd/system/huereka.service`:
+5. Create a new service file under `/etc/systemd/system/huereka.service`:
     ```
     [Unit]
     Description=GPIO LED manager software
@@ -384,18 +392,18 @@ steps on setting up circuits is needed. Basic overview:
     WantedBy=multi-user.target
     ```
 
-7. Test the new service:
+6. Test the new service:
     ```
     sudo systemctl start huereka.service
     ```
 
-8. Check the status and logs for the service:
+7. Check the status and logs for the service:
     ```
     sudo service huereka status
     sudo journalctl -u huereka.service
     ```
 
-9. If the service is working as expected, enable it permanently to start on boot:
+8. If the service is working as expected, enable it permanently to start on boot:
     ```
     sudo systemctl enable huereka.service
     ```

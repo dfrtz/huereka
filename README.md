@@ -1,4 +1,3 @@
-
 # Huereka
 
 [![python: python3.9](https://img.shields.io/badge/python-3.9-blue)](https://docs.python.org/3.9/)
@@ -22,7 +21,7 @@ Decorative lighting management software.
 
 ### Recommendations
 
-* Raspberry Pi 3 or equivalent hardware
+* Raspberry Pi 3+ or equivalent hardware
 
 
 ### API Quick Start
@@ -30,7 +29,7 @@ Decorative lighting management software.
 1. Read the NeoPixel Uberguide to understand the best practices:
 [Adafruit Neopixel Uberguide](https://learn.adafruit.com/adafruit-neopixel-uberguide)
 
-2. Setup hardware and software environments with: [How to Setup Raspberry Pi](SETUP.md)
+2. Set up hardware and software environments with: [How to Set up Raspberry Pi](SETUP.md)
 
 3. Start server with:
     ```
