@@ -17,7 +17,11 @@ Decorative lighting management software.
 * Controller with GPIO pins
 * LED lights with WS2811 microcontrollers
 * Read [Neopixel Uberguide](https://learn.adafruit.com/adafruit-neopixel-uberguide) to understand best practices.
-
+* If controlling 12V lights:
+  * Microcontroller with 5V GPIO pins, such as Arduino (Raspberry Pi only provides 3V)
+  * Alternatively, a 3V to 5V level shifter may be used for the data signal
+* Possibly required for 5V lights depending on light model and using a controller with 5V GPIO pins
+  * A 5V to 3V level shifter for data signal
 
 ### Recommendations
 

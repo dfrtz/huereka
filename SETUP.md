@@ -22,6 +22,7 @@ dependencies. Your mileage may vary.
 * [Set up Python Dev Environment](#set-up-python-development-environment)
 * [Set up Huereka Dev Environment](#set-up-huereka-development-environment)
 * [Set up Huereka LED Test Hardware](#set-up-huereka-testing-hardware)
+* [Set up Serial Hardware Alias](#set-up-serial-hardware-alias)
 * [Set up Huereka Service to Start on Boot](#set-up-huereka-service-to-start-on-boot)
 * [Improve Raspberry Pi Boot Time](#improve-raspberry-pi-boot-time)
 
@@ -356,6 +357,35 @@ steps on setting up circuits are needed. Basic overview:
    ```
    huereka/utils/gpio_tester.py
    ```
+
+
+### Set Up Serial Hardware Alias
+
+If using a serial device to control lighting, such as connecting an Arduino to a Raspberry Pi, it is worth
+configuring static device aliases to bypass possible tty changes. For example, rapid connect/disconnect of
+serial devices from a Raspberry Pi may result in `/dev/ttyACM0` becoming `/dev/ttyACM1`. This can cause
+LED managers to fail due to device no longer existing. The following steps outline how to set up a
+static `/dev/arduino` alias on a Raspberry Pi, however they can be used for any device.
+
+1. Grab the `idVendor`, `idProduct`, and `serial` for a connected serial device. Example commands:
+   ```bash
+   # Use udevadm to list device connected via USB serial to default ACM:
+   udevadm info -a -n /dev/ttyACM0 |grep -E "idVendor|idProduct|{serial}" |head -3
+
+   # Or check recently connected device logs:
+   less /var/log/messages
+   ```
+
+2. Add a new `/etc/udev/rules.d/99-usb-serial.rules` file with the following contents, filling in the placeholders.
+   ```
+   # Template:
+   SUBSYSTEM=="tty", ATTRS{idVendor}=="<your device idVendor>", ATTRS{idProduct}=="<your device idProduct>", ATTRS{serial}=="<your device serial>", SYMLINK+="<your alias>"
+
+   # Example:
+   SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0058", ATTRS{serial}=="045B78B2515146", SYMLINK+="arduino"
+   ```
+
+3. Reconnect device, or reboot system, for alias to take effect.
 
 
 ### Set Up Huereka Service to Start on Boot
