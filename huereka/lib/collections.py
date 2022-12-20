@@ -190,15 +190,15 @@ class CollectionEntry:
         self.name = name or f'{self.__class__.__name__}_{self.uuid}'
 
     def __hash__(self) -> int:
-        """Make the schedule hashable."""
+        """Make the collection hashable."""
         return hash(self.uuid)
 
     def __gt__(self, other: Any) -> bool:
-        """Make the schedule comparable for greater than operations by name."""
+        """Make the collection comparable for greater than operations by name."""
         return isinstance(other, self.__class__) and self.name > other.name
 
     def __lt__(self, other: Any) -> bool:
-        """Make the schedule comparable for less than operations by name."""
+        """Make the collection comparable for less than operations by name."""
         return isinstance(other, self.__class__) and self.name < other.name
 
     @classmethod

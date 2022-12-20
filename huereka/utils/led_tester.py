@@ -9,8 +9,8 @@ import board
 import microcontroller
 
 from huereka.lib import color_utils
-from huereka.lib.led_manager import LEDManager
-from huereka.lib.led_manager import LEDManagers
+from huereka.lib import led_manager
+from huereka.lib.led_manager import micro_managers
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,19 +42,24 @@ def main() -> None:
         return
 
     pin = microcontroller.Pin(args.pin)
-    LEDManagers.register(LEDManager(led_count=len(colors), pin=pin))
+    manager = led_manager.LEDManager(
+        mode=led_manager.MODE_ON,
+        micromanager=micro_managers.NeoPixelManager(led_count=len(colors), pin=pin)
+    )
+    uuid = manager.uuid
+    led_manager.LEDManagers.register(manager)
     print(f'Testing {len(colors)} LEDs. Press CTRL+C to stop...')
     try:
         for index, color in enumerate(colors):
-            LEDManagers.set_color(color, index=index, show=False, pin=pin)
-        LEDManagers.show(pin=pin)
+            led_manager.LEDManagers.set_color(uuid, color, index=index, show=False)
+        led_manager.LEDManagers.show(uuid)
         brightness = 1.0
         decreasing = True
         while True:
             if args.fade:
                 time.sleep(.033)
-                LEDManagers.set_brightness(brightness, pin=pin)
-                LEDManagers.show(pin=pin)
+                led_manager.LEDManagers.set_brightness(uuid, brightness)
+                led_manager.LEDManagers.show(uuid)
                 brightness = brightness - (0.05 if decreasing else -0.05)
                 if brightness < 0:
                     brightness = 0
@@ -67,7 +72,7 @@ def main() -> None:
     except KeyboardInterrupt:
         print()
     finally:
-        LEDManagers.teardown()
+        led_manager.LEDManagers.teardown()
 
 
 if __name__ == '__main__':
