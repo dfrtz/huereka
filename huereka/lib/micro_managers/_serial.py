@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
+import math
+import threading
 import time
 
-import math
-import serial
-import threading
-
 from typing import Sequence
+
+import serial
 
 from adafruit_pixelbuf import ColorUnion
 
@@ -41,7 +41,7 @@ KEY_PORT = 'port'
 KEY_BAUD = 'baud'
 
 
-class SerialManager(LEDMicroManager):
+class SerialManager(LEDMicroManager):  # Approved override of the default variable limit. pylint: disable=too-many-instance-attributes
     """Manage the colors and brightness of LEDs connected to a GPIO pin on a device connected to a serial port."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
@@ -58,13 +58,13 @@ class SerialManager(LEDMicroManager):
         """Set up a single FastLED strip.
 
         Args:
-            name: Human readable name used to store/reference in collections.
-            uuid: Unique identifier.
             led_count: How many LEDs are on the strip of lights.
             brightness: Default brightness as a percent between 0.0 and 1.0.
-            pixel_order: RGB/RGBW/etc ordering of the LEDs on each microcontroller.
-            pin: GPIO pin to use to send the signal.
-            manager_type: Type of LED manager to use on the backend. e.g. "NeoPixel"
+            strip: Index of the strip to initialize on the serial device.
+            pin: GPIO pin on the serial device to use to send the signal.
+            port: Location of the serial port to connect to.
+            baudrate: Speed of the serial connection. Must match the configuration of the serial device.
+            timeout: Amount of time in seconds to wait for a message to send before timing out.
             dsrdtr: Enable hardware (DSR/DTR) flow control.
         """
         super().__init__(brightness=brightness)
