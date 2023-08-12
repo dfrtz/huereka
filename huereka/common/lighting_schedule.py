@@ -5,37 +5,36 @@ from __future__ import annotations
 import logging
 import threading
 import time
-
 from datetime import datetime
 from typing import Any
 
-from huereka.lib import color_profile
-from huereka.lib import color_utils
-from huereka.lib import led_manager
-from huereka.lib import response_utils
-from huereka.lib.collections import Collection
-from huereka.lib.collections import CollectionEntry
-from huereka.lib.collections import CollectionValueError
-from huereka.lib.collections import KEY_ID
-from huereka.lib.collections import get_and_validate
+from huereka.common import color_profile
+from huereka.common import color_utils
+from huereka.common import led_manager
+from huereka.common import response_utils
+from huereka.common.collections import KEY_ID
+from huereka.common.collections import Collection
+from huereka.common.collections import CollectionEntry
+from huereka.common.collections import CollectionValueError
+from huereka.common.collections import get_and_validate
 
 logger = logging.getLogger(__name__)
 
 __WATCHDOG__ = None
 __WATCHDOG_SLEEP__ = True
 
-KEY_ROUTINES = 'routines'
-KEY_NAME = 'name'
+KEY_ROUTINES = "routines"
+KEY_NAME = "name"
 
-KEY_BRIGHTNESS = 'brightness'
-KEY_DAYS = 'days'
-KEY_END = 'end'
-KEY_LED_DELAY = 'led_delay'
-KEY_MANAGER = 'manager'
-KEY_MODE = 'mode'
-KEY_PROFILE = 'profile'
-KEY_START = 'start'
-KEY_STATUS = 'status'
+KEY_BRIGHTNESS = "brightness"
+KEY_DAYS = "days"
+KEY_END = "end"
+KEY_LED_DELAY = "led_delay"
+KEY_MANAGER = "manager"
+KEY_MODE = "mode"
+KEY_PROFILE = "profile"
+KEY_START = "start"
+KEY_STATUS = "status"
 
 BRIGHTNESS_DISABLED = -1.0
 
@@ -60,13 +59,13 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
     """Details for running a specific color/lighting profile during a timeframe."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
-            self,
-            profile: str = None,
-            days: int | list[int] = DAYS_ALL,
-            start: int | float | str = 0,
-            end: int | float | str = 86400,
-            mode: int = MODE_ON,
-            brightness: float = BRIGHTNESS_DISABLED,
+        self,
+        profile: str = None,
+        days: int | list[int] = DAYS_ALL,
+        start: int | float | str = 0,
+        end: int | float | str = 86400,
+        mode: int = MODE_ON,
+        brightness: float = BRIGHTNESS_DISABLED,
     ) -> None:
         """Set up the routine to run a profile at specific times.
 
@@ -97,12 +96,14 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
 
     def __eq__(self, other: Any) -> bool:
         """Make the routine comparable for equality using unique attributes."""
-        return isinstance(other, LightingRoutine) \
-            and self.profile == other.profile \
-            and self.days == other.days \
-            and self.start == other.start \
-            and self.end == other.end \
+        return (
+            isinstance(other, LightingRoutine)
+            and self.profile == other.profile
+            and self.days == other.days
+            and self.start == other.start
+            and self.end == other.end
             and self.brightness == other.brightness
+        )
 
     def _set_day(self, day: int) -> None:
         """Toggle combination flag for a day on."""
@@ -144,14 +145,14 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
     @property
     def days_human(self) -> str:
         """Provide human readable string for days."""
-        days = ''
-        days += 'S' if self.days & DAY_SUNDAY != 0 else '-'
-        days += 'M' if self.days & DAY_MONDAY != 0 else '-'
-        days += 'T' if self.days & DAY_TUESDAY != 0 else '-'
-        days += 'W' if self.days & DAY_WEDNESDAY != 0 else '-'
-        days += 'T' if self.days & DAY_THURSDAY != 0 else '-'
-        days += 'F' if self.days & DAY_FRIDAY != 0 else '-'
-        days += 'S' if self.days & DAY_SATURDAY != 0 else '-'
+        days = ""
+        days += "S" if self.days & DAY_SUNDAY != 0 else "-"
+        days += "M" if self.days & DAY_MONDAY != 0 else "-"
+        days += "T" if self.days & DAY_TUESDAY != 0 else "-"
+        days += "W" if self.days & DAY_WEDNESDAY != 0 else "-"
+        days += "T" if self.days & DAY_THURSDAY != 0 else "-"
+        days += "F" if self.days & DAY_FRIDAY != 0 else "-"
+        days += "S" if self.days & DAY_SATURDAY != 0 else "-"
         return days
 
     @property
@@ -168,26 +169,26 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         """
         if isinstance(end, (int, float)):
             if end < 0 or end > 86400:
-                raise CollectionValueError('End time must be between 0 and 86400 seconds.')
+                raise CollectionValueError("End time must be between 0 and 86400 seconds.")
             self._end = end
         elif isinstance(end, str):
-            if ':' not in end or end.count(':') > 1:
-                raise CollectionValueError('End time must be in format HH:MM')
-            hour, minute = end.split(':')
+            if ":" not in end or end.count(":") > 1:
+                raise CollectionValueError("End time must be in format HH:MM")
+            hour, minute = end.split(":")
             hour = int(hour)
             minute = int(minute)
             if hour < 0 or hour > 24:
-                raise CollectionValueError('End hour must be between 0 and 24')
+                raise CollectionValueError("End hour must be between 0 and 24")
             if hour == 24 and minute > 0:
-                raise CollectionValueError('End minute must be 0 if hour is 24')
+                raise CollectionValueError("End minute must be 0 if hour is 24")
             if minute < 0 or minute > 59:
-                raise CollectionValueError('End minute must be between 0 and 59')
+                raise CollectionValueError("End minute must be between 0 and 59")
             self._end = hour * 60 * 60 + minute * 60
 
     @property
     def end_time(self) -> str:
         """Provide human readable value for end."""
-        return f'{int(self.end / 3600):02}:{int(self.end % 3600 / 60):02}'
+        return f"{int(self.end / 3600):02}:{int(self.end % 3600 / 60):02}"
 
     @classmethod
     def from_json(cls, data: dict) -> LightingRoutine:
@@ -202,22 +203,22 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         # Optional arguments.
         profile = data.get(KEY_PROFILE)
         if not profile or not isinstance(profile, str):
-            raise CollectionValueError('invalid-lighting-routine-profile')
+            raise CollectionValueError("invalid-lighting-routine-profile")
         days = data.get(KEY_DAYS, DAYS_ALL)
         if not isinstance(days, int):
-            raise CollectionValueError('invalid-lighting-routine-days')
+            raise CollectionValueError("invalid-lighting-routine-days")
         start = data.get(KEY_START, 0)
         if not isinstance(start, (int, float, str)):
-            raise CollectionValueError('invalid-lighting-routine-start')
+            raise CollectionValueError("invalid-lighting-routine-start")
         end = data.get(KEY_END, 86400)
         if not isinstance(end, (int, float, str)):
-            raise CollectionValueError('invalid-lighting-routine-end')
+            raise CollectionValueError("invalid-lighting-routine-end")
         mode = data.get(KEY_MODE, MODE_ON)
         if not isinstance(mode, int):
-            raise CollectionValueError('invalid-lighting-routine-mode')
+            raise CollectionValueError("invalid-lighting-routine-mode")
         brightness = data.get(KEY_BRIGHTNESS, BRIGHTNESS_DISABLED)
         if not isinstance(brightness, float):
-            raise CollectionValueError('invalid-lighting-routine-brightness')
+            raise CollectionValueError("invalid-lighting-routine-brightness")
 
         return LightingRoutine(
             profile=profile,
@@ -237,7 +238,7 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         """Safely set the current mode of the routine."""
         valid_modes = (MODE_OFF, MODE_ON)
         if mode not in valid_modes:
-            raise ValueError(f'Valid modes are: {valid_modes}')
+            raise ValueError(f"Valid modes are: {valid_modes}")
         self._mode = mode
 
     @property
@@ -254,24 +255,24 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         """
         if isinstance(start, (int, float)):
             if start < 0 or start > 86400:
-                raise CollectionValueError('Start time must be between 0 and 86400 seconds.')
+                raise CollectionValueError("Start time must be between 0 and 86400 seconds.")
             self._start = int(start)
         elif isinstance(start, str):
-            if ':' not in start or start.count(':') > 1:
-                raise CollectionValueError('Start time must be in format HH:MM')
-            hour, minute = start.split(':')
+            if ":" not in start or start.count(":") > 1:
+                raise CollectionValueError("Start time must be in format HH:MM")
+            hour, minute = start.split(":")
             hour = int(hour)
             minute = int(minute)
             if hour < 0 or hour > 23:
-                raise CollectionValueError('Start hour must be between 0 and 23')
+                raise CollectionValueError("Start hour must be between 0 and 23")
             if minute < 0 or minute > 59:
-                raise CollectionValueError('Start minute must be between 0 and 59')
+                raise CollectionValueError("Start minute must be between 0 and 59")
             self._start = hour * 60 * 60 + minute * 60
 
     @property
     def start_time(self) -> str:
         """Provide human readable value for start."""
-        return f'{int(self.start / 3600):02}:{int(self.start % 3600 / 60):02}'
+        return f"{int(self.start / 3600):02}:{int(self.start % 3600 / 60):02}"
 
     @property
     def status(self) -> int:
@@ -283,7 +284,7 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         """Safely set the current status of the routine."""
         valid_states = (STATUS_OFF, STATUS_ON)
         if status not in valid_states:
-            raise ValueError(f'Valid states are: {valid_states}')
+            raise ValueError(f"Valid states are: {valid_states}")
         self._status = status
 
     def to_json(self, save_only: bool = False) -> dict:
@@ -309,14 +310,14 @@ class LightingSchedule(CollectionEntry):
     """Schedule used to control active color profile on an LED strip."""
 
     def __init__(  # Approved override of default. pylint: disable=too-many-arguments
-            self,
-            name: str,
-            uuid: str = None,
-            manager: str = 'default',
-            routines: list[LightingRoutine] = None,
-            led_delay: float = led_manager.DEFAULT_LED_UPDATE_DELAY,
-            mode: int = MODE_OFF,
-            brightness: float = BRIGHTNESS_DISABLED,
+        self,
+        name: str,
+        uuid: str = None,
+        manager: str = "default",
+        routines: list[LightingRoutine] = None,
+        led_delay: float = led_manager.DEFAULT_LED_UPDATE_DELAY,
+        mode: int = MODE_OFF,
+        brightness: float = BRIGHTNESS_DISABLED,
     ) -> None:
         """Set up a schedule for managing active color profile.
 
@@ -341,13 +342,15 @@ class LightingSchedule(CollectionEntry):
 
     def __eq__(self, other: Any) -> bool:
         """Make the schedule comparable for equality using unique attributes."""
-        return isinstance(other, LightingSchedule) \
-            and self.name == other.name \
-            and self.manager == other.manager \
-            and self.routines == other.routines \
-            and self.led_delay == other.led_delay \
-            and self.mode == other.mode \
+        return (
+            isinstance(other, LightingSchedule)
+            and self.name == other.name
+            and self.manager == other.manager
+            and self.routines == other.routines
+            and self.led_delay == other.led_delay
+            and self.mode == other.mode
             and self.brightness == other.brightness
+        )
 
     @property
     def active(self) -> LightingRoutine | None:
@@ -375,28 +378,28 @@ class LightingSchedule(CollectionEntry):
         # Required arguments.
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
-            raise CollectionValueError('invalid-lighting-schedule-name')
+            raise CollectionValueError("invalid-lighting-schedule-name")
         manager = data.get(KEY_MANAGER)
         if not isinstance(manager, str):
-            raise CollectionValueError('invalid-lighting-schedule-manager')
+            raise CollectionValueError("invalid-lighting-schedule-manager")
 
         # Optional arguments.
         uuid = data.get(KEY_ID)
         if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError('invalid-lighting-schedule-id')
+            raise CollectionValueError("invalid-lighting-schedule-id")
         routines = data.get(KEY_ROUTINES, [])
         if not isinstance(routines, list):
-            raise CollectionValueError('invalid-lighting-schedule-routines')
+            raise CollectionValueError("invalid-lighting-schedule-routines")
         routines = [LightingRoutine.from_json(routine) for routine in routines]
         mode = data.get(KEY_MODE, MODE_OFF)
         if not isinstance(mode, int):
-            raise CollectionValueError('invalid-lighting-schedule-mode')
+            raise CollectionValueError("invalid-lighting-schedule-mode")
         led_delay = data.get(KEY_LED_DELAY, led_manager.DEFAULT_LED_UPDATE_DELAY)
         if not isinstance(led_delay, float):
-            raise CollectionValueError('invalid-lighting-schedule-led-delay')
+            raise CollectionValueError("invalid-lighting-schedule-led-delay")
         brightness = data.get(KEY_BRIGHTNESS, BRIGHTNESS_DISABLED)
         if not isinstance(led_delay, float):
-            raise CollectionValueError('invalid-lighting-schedule-led-brightness')
+            raise CollectionValueError("invalid-lighting-schedule-led-brightness")
 
         return LightingSchedule(
             name,
@@ -418,7 +421,7 @@ class LightingSchedule(CollectionEntry):
         """Safely set the current mode of the schedule."""
         valid_modes = (MODE_OFF, MODE_ON, MODE_AUTO)
         if mode not in valid_modes:
-            raise ValueError(f'Valid modes are: {valid_modes}')
+            raise ValueError(f"Valid modes are: {valid_modes}")
         self._mode = mode
 
     @property
@@ -431,7 +434,7 @@ class LightingSchedule(CollectionEntry):
         """Safely set the current status of the schedule."""
         valid_states = (STATUS_OFF, STATUS_ON)
         if status not in valid_states:
-            raise ValueError(f'Valid states are: {valid_states}')
+            raise ValueError(f"Valid states are: {valid_states}")
         self._status = status
 
     def to_json(self, save_only: bool = False) -> dict:
@@ -473,8 +476,54 @@ class LightingSchedules(Collection):
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
-    collection_help: str = 'lighting schedule'
+    collection_help: str = "lighting schedule"
     entry_cls: str = LightingSchedule
+
+    @classmethod
+    def _apply_schedule(
+        cls,
+        schedule: LightingSchedule,
+        routine: LightingRoutine,
+        profile: color_profile.ColorProfile,
+        manager: led_manager.LEDManager,
+    ) -> None:
+        """Apply a lighting schedule."""
+        # Allow animating if turning on/off, or automatically changing between schedules.
+        if (
+            cls.__schedules_applied__.get(schedule.manager).name == color_profile.DEFAULT_PROFILE_OFF
+            or profile.name == color_profile.DEFAULT_PROFILE_OFF
+            or schedule.mode == MODE_AUTO
+        ):
+            led_delay = schedule.led_delay
+        else:
+            led_delay = 0
+        # led_delay = schedule.led_delay
+        colors = color_utils.generate_pattern(profile.corrected_colors, len(manager))
+        if routine.brightness != BRIGHTNESS_DISABLED:
+            brightness = routine.brightness
+        elif schedule.brightness != BRIGHTNESS_DISABLED:
+            brightness = schedule.brightness
+        else:
+            brightness = manager.brightness
+        manager.set_brightness(brightness, show=True, save=False)
+        time.sleep(0.01)
+        manager.set_colors(colors, delay=led_delay, show=True)
+        for old_schedule in cls._collection.values():
+            old_schedule.status = STATUS_OFF
+            for old_routine in old_schedule.routines:
+                old_routine.status = STATUS_OFF
+        schedule.status = STATUS_ON
+        routine.status = STATUS_ON
+        # Copy the profile so that changes will be detected instead of comparing to self.
+        cls.__schedules_applied__[schedule.manager] = profile.copy()
+        if profile.name == color_profile.DEFAULT_PROFILE_OFF:
+            manager.status = STATUS_OFF
+            logger.info(f"Turned off LEDs on manager {schedule.manager} due to no enabled routines")
+        else:
+            manager.status = STATUS_ON
+            logger.info(
+                f"Applied {schedule.name} schedule using {routine.profile} profile to manager {schedule.manager} due to matching {routine.days_human} {routine.start_time} - {routine.end_time} routine"
+            )
 
     @classmethod
     def get(cls, key: str) -> LightingSchedule:
@@ -502,9 +551,9 @@ class LightingSchedules(Collection):
 
     @classmethod
     def update(
-            cls,
-            uuid: str,
-            new_values: dict,
+        cls,
+        uuid: str,
+        new_values: dict,
     ) -> dict:
         """Update the values of a schedule.
 
@@ -517,7 +566,7 @@ class LightingSchedules(Collection):
         """
         with cls._collection_lock:
             schedule = cls.get(uuid)
-            invalid_prefix = 'invalid-lighting-schedule'
+            invalid_prefix = "invalid-lighting-schedule"
             name = get_and_validate(new_values, KEY_NAME, str, nullable=True, error_prefix=invalid_prefix)
             if name is not None and name != schedule.name:
                 schedule.name = name
@@ -526,7 +575,7 @@ class LightingSchedules(Collection):
                 try:
                     schedule.routines = [LightingRoutine.from_json(routine) for routine in routines]
                 except Exception as error:  # pylint: disable=broad-except
-                    raise CollectionValueError(f'{invalid_prefix}-routines') from error
+                    raise CollectionValueError(f"{invalid_prefix}-routines") from error
             mode = get_and_validate(new_values, KEY_MODE, int, nullable=True, error_prefix=invalid_prefix)
             if mode is not None:
                 schedule.mode = mode
@@ -566,11 +615,13 @@ class LightingSchedules(Collection):
                 try:
                     manager = led_manager.LEDManagers.get(schedule.manager)
                     if schedule.manager not in cls.__schedules_applied__:
-                        cls.__schedules_applied__[schedule.manager] = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
+                        cls.__schedules_applied__[schedule.manager] = color_profile.ColorProfiles.get(
+                            color_profile.DEFAULT_PROFILE_OFF
+                        )
                 except response_utils.APIError as error:
                     if error.code != 404:
                         raise error
-                    logger.warning(f'Skipping update of LEDs on non-existent manager {schedule.manager}')
+                    logger.warning(f"Skipping update of LEDs on non-existent manager {schedule.manager}")
                     continue
                 if manager.mode == MODE_OFF:
                     profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
@@ -583,38 +634,7 @@ class LightingSchedules(Collection):
                         # Fallback to off, the profile was not found.
                         profile = color_profile.ColorProfiles.get(color_profile.DEFAULT_PROFILE_OFF)
                 if force or cls.__schedules_applied__.get(schedule.manager) != profile:
-                    # Allow animating if turning on/off, or automatically changing between schedules.
-                    if cls.__schedules_applied__.get(schedule.manager).name == color_profile.DEFAULT_PROFILE_OFF \
-                            or profile.name == color_profile.DEFAULT_PROFILE_OFF \
-                            or schedule.mode == MODE_AUTO:
-                        led_delay = schedule.led_delay
-                    else:
-                        led_delay = 0
-                    # led_delay = schedule.led_delay
-                    colors = color_utils.generate_pattern(profile.corrected_colors, len(manager))
-                    if routine.brightness != BRIGHTNESS_DISABLED:
-                        brightness = routine.brightness
-                    elif schedule.brightness != BRIGHTNESS_DISABLED:
-                        brightness = schedule.brightness
-                    else:
-                        brightness = manager.brightness
-                    manager.set_brightness(brightness, show=True, save=False)
-                    time.sleep(.01)
-                    manager.set_colors(colors, delay=led_delay, show=True)
-                    for old_schedule in cls._collection.values():
-                        old_schedule.status = STATUS_OFF
-                        for old_routine in old_schedule.routines:
-                            old_routine.status = STATUS_OFF
-                    schedule.status = STATUS_ON
-                    routine.status = STATUS_ON
-                    # Copy the profile so that changes will be detected instead of comparing to self.
-                    cls.__schedules_applied__[schedule.manager] = profile.copy()
-                    if profile.name == color_profile.DEFAULT_PROFILE_OFF:
-                        manager.status = STATUS_OFF
-                        logger.info(f'Turned off LEDs on manager {schedule.manager} due to no enabled routines')
-                    else:
-                        manager.status = STATUS_ON
-                        logger.info(f'Applied {schedule.name} schedule using {routine.profile} profile to manager {schedule.manager} due to matching {routine.days_human} {routine.start_time} - {routine.end_time} routine')
+                    cls._apply_schedule(schedule, routine, profile, manager)
 
 
 def start_schedule_watchdog() -> None:
@@ -623,9 +643,10 @@ def start_schedule_watchdog() -> None:
     global __WATCHDOG_SLEEP__  # pylint: disable=global-statement
     interval = 5
     if __WATCHDOG__ is None or not __WATCHDOG__.is_alive():
+
         def _release_the_hound() -> None:
             """Monitor schedules and enable/disable as appropriate."""
-            logger.info('Schedule watchdog is running')
+            logger.info("Schedule watchdog is running")
             while True:
                 if __WATCHDOG_SLEEP__:
                     global __WATCHDOG__  # pylint: disable=global-statement
@@ -634,9 +655,9 @@ def start_schedule_watchdog() -> None:
                 try:
                     LightingSchedules.verify_active_schedules()
                 except:  # pylint: disable=bare-except
-                    logger.exception('Failed to verify lighting schedules')
+                    logger.exception("Failed to verify lighting schedules")
                 time.sleep(interval)
-            logger.info('Schedule watchdog is sleeping')
+            logger.info("Schedule watchdog is sleeping")
 
         # This must be a daemon to ensure that the primary thread does not wait for it.
         __WATCHDOG_SLEEP__ = False

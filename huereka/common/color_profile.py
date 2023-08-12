@@ -4,41 +4,40 @@ from __future__ import annotations
 
 import logging
 import threading
-
 from typing import Any
 
-from huereka.lib import color_utils
-from huereka.lib.collections import Collection
-from huereka.lib.collections import CollectionEntry
-from huereka.lib.collections import CollectionValueError
-from huereka.lib.collections import KEY_ID
+from huereka.common import color_utils
+from huereka.common.collections import KEY_ID
+from huereka.common.collections import Collection
+from huereka.common.collections import CollectionEntry
+from huereka.common.collections import CollectionValueError
 
 logger = logging.getLogger(__name__)
 
-KEY_COLORS = 'colors'
-KEY_GAMMA = 'gamma'
-KEY_MODE = 'mode'
-KEY_NAME = 'name'
+KEY_COLORS = "colors"
+KEY_GAMMA = "gamma"
+KEY_MODE = "mode"
+KEY_NAME = "name"
 
 MODE_NONE = 0
 MODE_REPEAT = 1
 MODE_MIRROR = 2
 MODE_RANDOM = 4
 
-DEFAULT_PROFILE_OFF = 'off'
+DEFAULT_PROFILE_OFF = "off"
 DEFAULT_GAMMA_CORRECTION = 1.0
 
 
-class ColorProfile(CollectionEntry):  # Approved override of the default variable limit. pylint: disable=too-many-instance-attributes
+class ColorProfile(CollectionEntry):
     """Color profile used to control LED strip."""
 
     def __init__(
-            self,
-            name: str,
-            uuid: str = None,
-            colors: list = None,
-            gamma_correction: float = DEFAULT_GAMMA_CORRECTION,
-            mode: int = MODE_REPEAT,
+        self,
+        name: str,
+        uuid: str = None,
+        colors: list = None,
+        gamma_correction: float = DEFAULT_GAMMA_CORRECTION,
+        mode: int = MODE_REPEAT,
     ) -> None:
         """Set up a color profile for managing LED patterns.
 
@@ -66,11 +65,13 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
 
     def __eq__(self, other: Any) -> bool:
         """Make the profile comparable for equality using unique attributes."""
-        return isinstance(other, ColorProfile) \
-            and self.name == other.name \
-            and self.gamma_correction == other.gamma_correction \
-            and self.colors == other.colors \
+        return (
+            isinstance(other, ColorProfile)
+            and self.name == other.name
+            and self.gamma_correction == other.gamma_correction
+            and self.colors == other.colors
             and self._mode == other._mode
+        )
 
     def _set_mode(self, mode: int) -> None:
         """Toggle combination flag for a mode on."""
@@ -107,25 +108,25 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
         # Required arguments.
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
-            raise CollectionValueError('invalid-color-profile-name')
+            raise CollectionValueError("invalid-color-profile-name")
 
         # Optional arguments.
         uuid = data.get(KEY_ID)
         if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError('invalid-color-profile-id')
+            raise CollectionValueError("invalid-color-profile-id")
         colors = data.get(KEY_COLORS, [])
         if not isinstance(colors, list):
-            raise CollectionValueError('invalid-color-profile-colors')
+            raise CollectionValueError("invalid-color-profile-colors")
         try:
             colors = [color_utils.parse_color(color) for color in colors]
         except Exception as error:  # pylint: disable=broad-except
-            raise CollectionValueError('invalid-color-profile-colors') from error
+            raise CollectionValueError("invalid-color-profile-colors") from error
         gamma_correction = data.get(KEY_GAMMA, DEFAULT_GAMMA_CORRECTION)
         if not isinstance(gamma_correction, float):
-            raise CollectionValueError('invalid-color-profile-gamma')
+            raise CollectionValueError("invalid-color-profile-gamma")
         mode = data.get(KEY_MODE, MODE_REPEAT)
         if not isinstance(mode, int):
-            raise CollectionValueError('invalid-color-profile-mode')
+            raise CollectionValueError("invalid-color-profile-mode")
 
         return ColorProfile(
             name,
@@ -139,11 +140,12 @@ class ColorProfile(CollectionEntry):  # Approved override of the default variabl
     def corrected_colors(self) -> tuple:
         """The current gamma corrected colors."""
         if self._last_corrected_colors != self.colors:
-            self._corrected_colors = tuple(color_utils.Color.from_rgb(
-                self.gamma_values[color.red],
-                self.gamma_values[color.green],
-                self.gamma_values[color.blue]
-            ) for color in self.colors)
+            self._corrected_colors = tuple(
+                color_utils.Color.from_rgb(
+                    self.gamma_values[color.red], self.gamma_values[color.green], self.gamma_values[color.blue]
+                )
+                for color in self.colors
+            )
             self._last_corrected_colors = self.colors.copy()
         return self._corrected_colors
 
@@ -230,7 +232,7 @@ class ColorProfiles(Collection):
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
-    collection_help: str = 'color profile'
+    collection_help: str = "color profile"
     entry_cls: str = ColorProfile
 
     @classmethod
@@ -249,9 +251,9 @@ class ColorProfiles(Collection):
 
     @classmethod
     def update(
-            cls,
-            old_profile: str,
-            new_values: dict,
+        cls,
+        old_profile: str,
+        new_values: dict,
     ) -> dict:
         """Update the values of a color profile.
 
@@ -267,27 +269,27 @@ class ColorProfiles(Collection):
             name = new_values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):
-                    raise CollectionValueError('invalid-color-profile-name')
+                    raise CollectionValueError("invalid-color-profile-name")
                 original_name = profile.name
                 profile.name = name
                 cls._collection[name] = cls._collection.pop(original_name)
             colors = new_values.get(KEY_COLORS)
             if colors is not None:
                 if not isinstance(colors, list):
-                    raise CollectionValueError('invalid-color-profile-colors')
+                    raise CollectionValueError("invalid-color-profile-colors")
                 try:
                     profile.colors = [color_utils.parse_color(color) for color in colors]
                 except Exception as error:  # pylint: disable=broad-except
-                    raise CollectionValueError('invalid-color-profile-colors') from error
+                    raise CollectionValueError("invalid-color-profile-colors") from error
             gamma_correction = new_values.get(KEY_GAMMA)
             if gamma_correction is not None:
                 if not isinstance(gamma_correction, float):
-                    raise CollectionValueError('invalid-color-profile-gamma')
+                    raise CollectionValueError("invalid-color-profile-gamma")
                 profile.gamma_correction = gamma_correction
             mode = new_values.get(KEY_MODE)
             if mode is not None:
                 if not isinstance(mode, int):
-                    raise CollectionValueError('invalid-color-profile-mode')
+                    raise CollectionValueError("invalid-color-profile-mode")
                 if mode == MODE_NONE:
                     profile.mode = MODE_NONE
                 else:
@@ -304,6 +306,8 @@ class ColorProfiles(Collection):
             return False
         name = data.get(KEY_NAME)
         if name == DEFAULT_PROFILE_OFF:
-            logger.warning(f'Skipping stored {cls.collection_help} for "{DEFAULT_PROFILE_OFF}", not allowed to be overridden')
+            logger.warning(
+                f'Skipping stored {cls.collection_help} for "{DEFAULT_PROFILE_OFF}", not allowed to be overridden'
+            )
             return False
         return True

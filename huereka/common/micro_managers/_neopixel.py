@@ -3,39 +3,37 @@
 from __future__ import annotations
 
 import logging
-
 from typing import Sequence
 
-import neopixel
 import board
-
+import neopixel
 from adafruit_pixelbuf import ColorUnion
 from microcontroller import Pin
 
-from huereka.lib import color_utils
-from huereka.lib.collections import CollectionValueError
-from huereka.lib.collections import get_and_validate
-from huereka.lib.color_utils import Colors
-from huereka.lib.micro_managers._manager_base import LEDMicroManager
-from huereka.lib.micro_managers._manager_base import KEY_BRIGHTNESS
-from huereka.lib.micro_managers._manager_base import KEY_LED_COUNT
-from huereka.lib.micro_managers._manager_base import KEY_PIN
-from huereka.lib.micro_managers._manager_base import KEY_TYPE
+from huereka.common import color_utils
+from huereka.common.collections import CollectionValueError
+from huereka.common.collections import get_and_validate
+from huereka.common.color_utils import Colors
+from huereka.common.micro_managers._manager_base import KEY_BRIGHTNESS
+from huereka.common.micro_managers._manager_base import KEY_LED_COUNT
+from huereka.common.micro_managers._manager_base import KEY_PIN
+from huereka.common.micro_managers._manager_base import KEY_TYPE
+from huereka.common.micro_managers._manager_base import LEDMicroManager
 
 logger = logging.getLogger(__name__)
 
-KEY_PIXEL_ORDER = 'pixel_order'
+KEY_PIXEL_ORDER = "pixel_order"
 
 
 class NeoPixelManager(LEDMicroManager):
     """Manage the colors and brightness of LEDs connected to a GPIO pin."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
-            self,
-            led_count: int = 100,
-            brightness: float = 1.0,
-            pixel_order: str = 'RGB',
-            pin: Pin = board.D18,
+        self,
+        led_count: int = 100,
+        brightness: float = 1.0,
+        pixel_order: str = "RGB",
+        pin: Pin = board.D18,
     ) -> None:
         """Set up a single NeoPixel LED strip.
 
@@ -52,10 +50,10 @@ class NeoPixelManager(LEDMicroManager):
             brightness=brightness,
             auto_write=False,
             pixel_order=pixel_order,
-            bpp=len(pixel_order)
+            bpp=len(pixel_order),
         )
         self.led_pin = pin
-        logger.info(f'Initialized LED manager for pin {self.led_pin.id}')
+        logger.info(f"Initialized LED manager for pin {self.led_pin.id}")
 
     def __getitem__(self, index: int | slice) -> int:
         """Find LED color at a specific LED position."""
@@ -67,9 +65,9 @@ class NeoPixelManager(LEDMicroManager):
         return len(self._neo_pixel)
 
     def __setitem__(
-            self,
-            index: int | slice,
-            color: Colors | ColorUnion | Sequence[ColorUnion],
+        self,
+        index: int | slice,
+        color: Colors | ColorUnion | Sequence[ColorUnion],
     ) -> None:
         """Set color at a specific LED position and immediately show change."""
         color = color_utils.parse_color(color)
@@ -82,18 +80,18 @@ class NeoPixelManager(LEDMicroManager):
         # Required arguments.
         led_count = data.get(KEY_LED_COUNT)
         if not led_count or not isinstance(led_count, int):
-            raise CollectionValueError('invalid-led-manager-led-count')
+            raise CollectionValueError("invalid-led-manager-led-count")
         pin = data.get(KEY_PIN)
         if not isinstance(pin, int):
-            raise CollectionValueError('invalid-led-manager-pin')
+            raise CollectionValueError("invalid-led-manager-pin")
 
         # Optional arguments.
         brightness = data.get(KEY_BRIGHTNESS, 1.0)
         if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
-            raise CollectionValueError('invalid-led-manager-brightness')
-        pixel_order = data.get(KEY_PIXEL_ORDER, 'RGB')
-        if not isinstance(pixel_order, str) or pixel_order not in ('RGB', 'RGBW'):
-            raise CollectionValueError('invalid-led-manager-pixel-order')
+            raise CollectionValueError("invalid-led-manager-brightness")
+        pixel_order = data.get(KEY_PIXEL_ORDER, "RGB")
+        if not isinstance(pixel_order, str) or pixel_order not in ("RGB", "RGBW"):
+            raise CollectionValueError("invalid-led-manager-pixel-order")
 
         return NeoPixelManager(
             led_count=led_count,
@@ -103,9 +101,9 @@ class NeoPixelManager(LEDMicroManager):
         )
 
     def fill(
-            self,
-            color: Colors | ColorUnion,
-            show: bool = True,
+        self,
+        color: Colors | ColorUnion,
+        show: bool = True,
     ) -> None:
         """Fill entire strip with a single color."""
         color = color_utils.parse_color(color)
@@ -115,10 +113,10 @@ class NeoPixelManager(LEDMicroManager):
                 self.show()
 
     def set_brightness(
-            self,
-            brightness: float = 1.0,
-            show: bool = True,
-            save: bool = False,
+        self,
+        brightness: float = 1.0,
+        show: bool = True,
+        save: bool = False,
     ) -> None:
         """Set LED brightness for entire strip."""
         brightness = min(max(0.0, brightness), 1.0)
@@ -136,7 +134,7 @@ class NeoPixelManager(LEDMicroManager):
 
     def teardown(self) -> None:
         """Clear LED states, and release resources."""
-        logger.info(f'Tearing down LED manager for pin {self.led_pin}')
+        logger.info(f"Tearing down LED manager for pin {self.led_pin}")
         self._neo_pixel.deinit()
 
     def to_json(self, save_only: bool = False) -> dict:
@@ -146,12 +144,12 @@ class NeoPixelManager(LEDMicroManager):
             KEY_BRIGHTNESS: self.brightness,
             KEY_PIXEL_ORDER: self._neo_pixel.byteorder,
             KEY_PIN: self.led_pin.id,
-            KEY_TYPE: 'NeoPixel',
+            KEY_TYPE: "NeoPixel",
         }
 
     def update(
-            self,
-            new_values: dict,
+        self,
+        new_values: dict,
     ) -> dict:
         """Update the configuration of the LED manager.
 
@@ -161,7 +159,7 @@ class NeoPixelManager(LEDMicroManager):
         Returns:
             Final manager configuration with the updated values.
         """
-        invalid_prefix = 'invalid-lighting-manager'
+        invalid_prefix = "invalid-lighting-manager"
         led_count = get_and_validate(new_values, KEY_LED_COUNT, int, nullable=True, error_prefix=invalid_prefix)
         brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float, nullable=True, error_prefix=invalid_prefix)
         if brightness is not None:
@@ -171,7 +169,7 @@ class NeoPixelManager(LEDMicroManager):
         if pin is not None:
             self.led_pin = Pin(pin)
         if led_count is not None:
-            colors = [color for color in self]
+            colors = list(self)
             self.teardown()
             self._neo_pixel = neopixel.NeoPixel(
                 self.led_pin,
@@ -179,7 +177,7 @@ class NeoPixelManager(LEDMicroManager):
                 brightness=self.brightness,
                 auto_write=False,
                 pixel_order=pixel_order or self._neo_pixel.byteorder,
-                bpp=len(self._neo_pixel.byteorder)
+                bpp=len(self._neo_pixel.byteorder),
             )
             if led_count > len(colors):
                 colors = colors[:led_count]

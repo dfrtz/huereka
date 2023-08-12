@@ -1,0 +1,21 @@
+"""Utilities for reading and storing and configurations."""
+
+import os
+
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = "443"
+DEFAULT_DEBUG = "false"
+
+HUEREKA_SECRET_KEY = "HUEREKA_SECRET_KEY"  # nosec B105
+HUEREKA_HOST = "HUEREKA_HOST"
+HUEREKA_PORT = "HUEREKA_PORT"
+HUEREKA_KEY = "HUEREKA_KEY"
+HUEREKA_CERT = "HUEREKA_CERT"
+HUEREKA_DEBUG = "HUEREKA_DEBUG"
+
+SECRET_KEY = os.getenv(HUEREKA_SECRET_KEY, "")  # nosec B105
+HOST = os.getenv(HUEREKA_HOST, DEFAULT_HOST)
+PORT = int(os.getenv(HUEREKA_PORT, DEFAULT_PORT))
+KEY = os.getenv(HUEREKA_KEY)
+CERT = os.getenv(HUEREKA_CERT)
+DEBUG = os.getenv(HUEREKA_DEBUG, DEFAULT_DEBUG).lower() == "true"

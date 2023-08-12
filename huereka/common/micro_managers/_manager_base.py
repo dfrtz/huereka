@@ -6,30 +6,29 @@ import abc
 import logging
 import threading
 import time
-
 from typing import Sequence
 
 from adafruit_pixelbuf import ColorUnion
 
-from huereka.lib import color_utils
-from huereka.lib.color_utils import Colors
+from huereka.common import color_utils
+from huereka.common.color_utils import Colors
 
 logger = logging.getLogger(__name__)
 
 # Based on max speed without flickering on a 12V strand of 100 WS2811 LEDs with 5V signal.
 DEFAULT_LED_UPDATE_DELAY = 0.01125
-KEY_LED_COUNT = 'led_count'
-KEY_BRIGHTNESS = 'brightness'
-KEY_TYPE = 'type'
-KEY_PIN = 'pin'
+KEY_LED_COUNT = "led_count"
+KEY_BRIGHTNESS = "brightness"
+KEY_TYPE = "type"
+KEY_PIN = "pin"
 
 
 class LEDMicroManager(metaclass=abc.ABCMeta):
     """Base class for controlling LEDs in a common way across hardware types."""
 
     def __init__(
-            self,
-            brightness: float = 1.0,
+        self,
+        brightness: float = 1.0,
     ) -> None:
         """Set up a single LED chain/strip.
 
@@ -50,9 +49,9 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __setitem__(
-            self,
-            index: int | slice,
-            color: Colors | ColorUnion | Sequence[ColorUnion],
+        self,
+        index: int | slice,
+        color: Colors | ColorUnion | Sequence[ColorUnion],
     ) -> None:
         """Set color at a specific LED position.
 
@@ -60,10 +59,10 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
         """
 
     def _set_color(
-            self,
-            index: int,
-            color: Colors | ColorUnion,
-            show: bool = True,
+        self,
+        index: int,
+        color: Colors | ColorUnion,
+        show: bool = True,
     ) -> bool:
         """Set color at a specific LED position, show change, and return true if color was changed.
 
@@ -86,9 +85,9 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def fill(
-            self,
-            color: Colors | ColorUnion,
-            show: bool = True,
+        self,
+        color: Colors | ColorUnion,
+        show: bool = True,
     ) -> None:
         """Fill entire strip with a single color.
 
@@ -110,7 +109,7 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
         """
 
     def off(self, show: bool = True) -> None:
-        """Helper to turn off (reduce brightness to 0) and immediately show change.
+        """Helper to disable (reduce brightness to 0) and immediately show change.
 
         Args:
             show: Whether to show the change immediately, or delay until the next show() is called.
@@ -119,10 +118,10 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def set_brightness(
-            self,
-            brightness: float = 1.0,
-            show: bool = True,
-            save: bool = False,
+        self,
+        brightness: float = 1.0,
+        show: bool = True,
+        save: bool = False,
     ) -> None:
         """Set LED brightness for entire strip.
 
@@ -134,11 +133,11 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
         """
 
     def set_color(
-            self,
-            color: Colors | ColorUnion,
-            index: int = -1,
-            delay: float = DEFAULT_LED_UPDATE_DELAY,
-            show: bool = True,
+        self,
+        color: Colors | ColorUnion,
+        index: int = -1,
+        delay: float = DEFAULT_LED_UPDATE_DELAY,
+        show: bool = True,
     ) -> None:
         """Set LED color and immediately show change.
 
@@ -156,21 +155,23 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
                 self._set_color(index, color, show=show)
         else:
             if delay:
+
                 def _set_color() -> None:
                     for led, _ in enumerate(self):
                         with self._lock:
                             self._set_color(led, color, show=True)
                         time.sleep(delay)
+
                 threading.Thread(target=_set_color, daemon=True).start()
             else:
                 with self._lock:
                     self.fill(color, show=show)
 
     def set_colors(
-            self,
-            colors: list[Colors | ColorUnion],
-            delay: float = DEFAULT_LED_UPDATE_DELAY,
-            show: bool = True,
+        self,
+        colors: list[Colors | ColorUnion],
+        delay: float = DEFAULT_LED_UPDATE_DELAY,
+        show: bool = True,
     ) -> None:
         """Set multiple LED colors simultaneously and show change.
 
@@ -182,11 +183,13 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
                 Ignored if delay > 0.
         """
         if delay:
+
             def _set_color() -> None:
                 for led, led_color in enumerate(colors):
                     with self._lock:
                         self._set_color(led, led_color, show=True)
                     time.sleep(delay)
+
             threading.Thread(target=_set_color, daemon=True).start()
         else:
             with self._lock:
@@ -222,8 +225,8 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def update(
-            self,
-            new_values: dict,
+        self,
+        new_values: dict,
     ) -> dict:
         """Update the configuration of the LED manager.
 

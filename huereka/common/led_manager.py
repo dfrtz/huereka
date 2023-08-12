@@ -4,27 +4,26 @@ from __future__ import annotations
 
 import logging
 import threading
-
 from typing import Sequence
 
 from adafruit_pixelbuf import ColorUnion
 
-from huereka.lib import micro_managers
-from huereka.lib.micro_managers import KEY_PIN
-from huereka.lib.micro_managers import KEY_PORT
-from huereka.lib.micro_managers import KEY_TYPE
-from huereka.lib.collections import KEY_ID
-from huereka.lib.collections import KEY_NAME
-from huereka.lib.collections import Collection
-from huereka.lib.collections import CollectionEntry
-from huereka.lib.collections import CollectionValueError
-from huereka.lib.collections import get_and_validate
-from huereka.lib.color_utils import Colors
+from huereka.common import micro_managers
+from huereka.common.collections import KEY_ID
+from huereka.common.collections import KEY_NAME
+from huereka.common.collections import Collection
+from huereka.common.collections import CollectionEntry
+from huereka.common.collections import CollectionValueError
+from huereka.common.collections import get_and_validate
+from huereka.common.color_utils import Colors
+from huereka.common.micro_managers import KEY_PIN
+from huereka.common.micro_managers import KEY_PORT
+from huereka.common.micro_managers import KEY_TYPE
 
 logger = logging.getLogger(__name__)
 
-KEY_MODE = 'mode'
-KEY_STATUS = 'status'
+KEY_MODE = "mode"
+KEY_STATUS = "status"
 
 # Based on max speed without flickering on a 12V strand of 100 WS2811 LEDs with 5V signal.
 DEFAULT_LED_UPDATE_DELAY = 0.01125
@@ -44,11 +43,11 @@ class LEDManager(CollectionEntry):
     """
 
     def __init__(
-            self,
-            name: str = None,
-            uuid: str = None,
-            mode: int = MODE_OFF,
-            micromanager: micro_managers.LEDMicroManager = None,
+        self,
+        name: str = None,
+        uuid: str = None,
+        mode: int = MODE_OFF,
+        micromanager: micro_managers.LEDMicroManager = None,
     ) -> None:
         """Set up a single LED chain/strip.
 
@@ -56,6 +55,7 @@ class LEDManager(CollectionEntry):
             name: Human readable name used to store/reference in collections.
             uuid: Unique identifier.
             mode: Activity mode for the schedule as 0, 1 (off, on).
+            micromanager: Low level manager that controls connectivity and messaging to LED hardware.
         """
         super().__init__(name, uuid)
         self._led_manager = micromanager
@@ -71,9 +71,9 @@ class LEDManager(CollectionEntry):
         return len(self._led_manager)
 
     def __setitem__(
-            self,
-            index: int | slice,
-            color: Colors | ColorUnion | Sequence[ColorUnion],
+        self,
+        index: int | slice,
+        color: Colors | ColorUnion | Sequence[ColorUnion],
     ) -> None:
         """Set color at a specific LED position and immediately show change."""
         self._led_manager[index] = color
@@ -99,29 +99,29 @@ class LEDManager(CollectionEntry):
         """
         # Required arguments.
         manager_type = data.get(KEY_TYPE)
-        if not isinstance(manager_type, str) or manager_type.lower() not in ('neopixel', 'serial'):
-            raise CollectionValueError('invalid-led-manager-type')
+        if not isinstance(manager_type, str) or manager_type.lower() not in ("neopixel", "serial"):
+            raise CollectionValueError("invalid-led-manager-type")
         uuid = data.get(KEY_ID)
         if not uuid or not isinstance(uuid, str):
-            raise CollectionValueError('invalid-led-manager-id')
+            raise CollectionValueError("invalid-led-manager-id")
 
         # Optional arguments.
         name = data.get(KEY_NAME)
         if not isinstance(uuid, str) and name is not None:
-            raise CollectionValueError('invalid-led-manager-name')
+            raise CollectionValueError("invalid-led-manager-name")
         mode = data.get(KEY_MODE, MODE_OFF)
         if not isinstance(mode, int):
-            raise CollectionValueError('invalid-led-manager-mode')
+            raise CollectionValueError("invalid-led-manager-mode")
         micromanager = None
-        if manager_type.lower() == 'neopixel':
+        if manager_type.lower() == "neopixel":
             micromanager = micro_managers.NeoPixelManager.from_json(data)
-        elif manager_type.lower() == 'serial':
+        elif manager_type.lower() == "serial":
             micromanager = micro_managers.SerialManager.from_json(data)
 
         return LEDManager(name=name, uuid=uuid, mode=mode, micromanager=micromanager)
 
     def off(self, show: bool = True) -> None:
-        """Helper to turn off (reduce brightness to 0) and immediately show change.
+        """Helper to disable (reduce brightness to 0) and immediately show change.
 
         Args:
             show: Whether to show the change immediately, or delay until the next show() is called.
@@ -138,14 +138,14 @@ class LEDManager(CollectionEntry):
         """Safely set the current mode of the manager."""
         valid_modes = (MODE_OFF, MODE_ON)
         if mode not in valid_modes:
-            raise ValueError(f'Valid modes are: {valid_modes}')
+            raise ValueError(f"Valid modes are: {valid_modes}")
         self._mode = mode
 
     def set_brightness(
-            self,
-            brightness: float = 1.0,
-            show: bool = True,
-            save: bool = False,
+        self,
+        brightness: float = 1.0,
+        show: bool = True,
+        save: bool = False,
     ) -> None:
         """Set LED brightness for entire strip.
 
@@ -158,11 +158,11 @@ class LEDManager(CollectionEntry):
         self._led_manager.set_brightness(brightness, show=show, save=save)
 
     def set_color(
-            self,
-            color: Colors | ColorUnion,
-            index: int = -1,
-            delay: float = DEFAULT_LED_UPDATE_DELAY,
-            show: bool = True,
+        self,
+        color: Colors | ColorUnion,
+        index: int = -1,
+        delay: float = DEFAULT_LED_UPDATE_DELAY,
+        show: bool = True,
     ) -> None:
         """Set LED color and immediately show change.
 
@@ -178,10 +178,10 @@ class LEDManager(CollectionEntry):
         self._led_manager.set_color(color, index, delay=delay, show=show)
 
     def set_colors(
-            self,
-            colors: list[Colors | ColorUnion],
-            delay: float = DEFAULT_LED_UPDATE_DELAY,
-            show: bool = True,
+        self,
+        colors: list[Colors | ColorUnion],
+        delay: float = DEFAULT_LED_UPDATE_DELAY,
+        show: bool = True,
     ) -> None:
         """Set multiple LED colors simultaneously and show change.
 
@@ -208,7 +208,7 @@ class LEDManager(CollectionEntry):
         """Safely set the current status of the manager."""
         valid_states = (STATUS_OFF, STATUS_ON)
         if status not in valid_states:
-            raise ValueError(f'Valid states are: {valid_states}')
+            raise ValueError(f"Valid states are: {valid_states}")
         self._status = status
 
     def teardown(self) -> None:
@@ -233,8 +233,8 @@ class LEDManager(CollectionEntry):
         return data
 
     def update(
-            self,
-            new_values: dict,
+        self,
+        new_values: dict,
     ) -> dict:
         """Update the values of an LED manager.
 
@@ -244,7 +244,7 @@ class LEDManager(CollectionEntry):
         Returns:
             Final manager configuration with the updated values.
         """
-        invalid_prefix = 'invalid-lighting-manager'
+        invalid_prefix = "invalid-lighting-manager"
         name = get_and_validate(new_values, KEY_NAME, str, nullable=True, error_prefix=invalid_prefix)
         if name is not None and name != self.name:
             self.name = name
@@ -262,7 +262,7 @@ class LEDManagers(Collection):
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
-    collection_help: str = 'LED manager'
+    collection_help: str = "LED manager"
     entry_cls: str = LEDManager
 
     @classmethod
@@ -275,11 +275,11 @@ class LEDManagers(Collection):
 
     @classmethod
     def set_brightness(
-            cls,
-            uuid: str,
-            brightness: float,
-            show: bool = True,
-            save: bool = False,
+        cls,
+        uuid: str,
+        brightness: float,
+        show: bool = True,
+        save: bool = False,
     ) -> None:
         """Set brightness on a single pin and immediately show change.
 
@@ -294,11 +294,11 @@ class LEDManagers(Collection):
 
     @classmethod
     def set_color(
-            cls,
-            uuid: str,
-            color: Colors | ColorUnion,
-            index: int = -1,
-            show: bool = True,
+        cls,
+        uuid: str,
+        color: Colors | ColorUnion,
+        index: int = -1,
+        show: bool = True,
     ) -> None:
         """Set color on a single pin and immediately show change.
 
@@ -313,11 +313,11 @@ class LEDManagers(Collection):
 
     @classmethod
     def set_colors(
-            cls,
-            uuid: str,
-            colors: list[Colors | ColorUnion],
-            delay: float = DEFAULT_LED_UPDATE_DELAY,
-            show: bool = True,
+        cls,
+        uuid: str,
+        colors: list[Colors | ColorUnion],
+        delay: float = DEFAULT_LED_UPDATE_DELAY,
+        show: bool = True,
     ) -> None:
         """Set colors and immediately show change.
 
@@ -364,9 +364,9 @@ class LEDManagers(Collection):
 
     @classmethod
     def update(
-            cls,
-            uuid: str,
-            new_values: dict,
+        cls,
+        uuid: str,
+        new_values: dict,
     ) -> dict:
         """Update the values of an LED manager.
 
@@ -387,16 +387,16 @@ class LEDManagers(Collection):
         if not super().validate_entry(data, index):
             return False
         manager_type = data.get(KEY_TYPE)
-        if manager_type.lower() == 'neopixel':
+        if manager_type.lower() == "neopixel":
             pin = data.get(KEY_PIN)
-            for manager in cls._collection.keys():
+            for manager in cls._collection:
                 if isinstance(manager, micro_managers.NeoPixelManager) and manager.led_pin == pin:
-                    logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using pin {pin}')
+                    logger.warning(f"Skipping duplicate {cls.collection_help} setup at index {index} using pin {pin}")
                     return False
-        elif manager_type.lower() == 'serial':
+        elif manager_type.lower() == "serial":
             port = data.get(KEY_PORT)
-            for manager in cls._collection.keys():
+            for manager in cls._collection:
                 if isinstance(manager, micro_managers.SerialManager) and manager.port == port:
-                    logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using port {port}')
+                    logger.warning(f"Skipping duplicate {cls.collection_help} setup at index {index} using port {port}")
                     return False
         return True

@@ -32,7 +32,7 @@ def read_requirements_file(extra_type: str | None) -> list[str]:
 
 setup(
     name="huereka",
-    description="Decorative lighting management software",
+    description="Hobbyist home lighting and automation platform",
     long_description=Path("README.md").read_text(encoding="utf-8"),
     long_description_content_type="text/markdown",
     version=_find_version("huereka"),

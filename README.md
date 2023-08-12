@@ -1,22 +1,46 @@
 # Huereka
 
-[![python: python3.9](https://img.shields.io/badge/python-3.9-blue)](https://docs.python.org/3.9/)
+[![os: linux](https://img.shields.io/badge/os-linux-blue)](https://docs.python.org/3.10/)
+[![raspberry-pi](https://img.shields.io/badge/-Raspberry_Pi-C51A4A?logo=Raspberry-Pi&logoColor=white)](https://www.raspberrypi.com/)
+[![arduino](https://img.shields.io/badge/-Arduino-00979D?logo=arduino&logoColor=white)](https://www.raspberrypi.com/)
+[![python: 3.10+](https://img.shields.io/badge/python-3.10_|_3.11-blue)](https://devguide.python.org/versions)
+[![python: Micropython](https://img.shields.io/badge/python-MicroPython-blue)](https://micropython.org)
 [![python style: google](https://img.shields.io/badge/python%20style-google-blue)](https://google.github.io/styleguide/pyguide.html)
-[![code quality: pylint](https://img.shields.io/badge/code%20quality-pylint-green)](https://github.com/PyCQA/pylint)
+[![imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://github.com/PyCQA/isort)
+[![code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![code style: pycodestyle](https://img.shields.io/badge/code%20style-pycodestyle-green)](https://github.com/PyCQA/pycodestyle)
 [![doc style: pydocstyle](https://img.shields.io/badge/doc%20style-pydocstyle-green)](https://github.com/PyCQA/pydocstyle)
+[![static typing: mypy](https://img.shields.io/badge/static_typing-mypy-green)](https://github.com/python/mypy)
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/PyCQA/pylint)
+[![testing: pytest](https://img.shields.io/badge/testing-pytest-yellowgreen)](https://github.com/pytest-dev/pytest)
 [![security: bandit](https://img.shields.io/badge/security-bandit-black)](https://github.com/PyCQA/bandit)
-[![license: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](https://www.apache.org/licenses/LICENSE-2.0)
+[![license: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](LICENSE)
 
-Decorative lighting management software.
+
+### Home lighting and automation platform.
+
+Huereka! is a home-grown automation platform for hobbyists. Originally a way to control home decorative lighting,
+such as RGB holiday lights, it also allows control of other basic electronic devices via various microcontrollers.
+
+> **Note**: This is a hobbyist home lighting and automation platform, and does provide any guarantees around
+any specific new features being added.
+
+
+## Table Of Contents
+
+  * [Requirements](#requirements)
+  * [Recommendations](#recommendations)
+  * [API Quick Start](#api-quick-start)
+  * [Additional Guides](#additional-guides)
+  * [Design Overview](#design-overview)
 
 
 ### Requirements
 
+* Read [Neopixel Uberguide](https://learn.adafruit.com/adafruit-neopixel-uberguide) to understand best practices.
 * Python3.9+
 * Controller with GPIO pins
 * LED lights with WS2811 microcontrollers
-* Read [Neopixel Uberguide](https://learn.adafruit.com/adafruit-neopixel-uberguide) to understand best practices.
 * If controlling 12V lights:
   * Microcontroller with 5V GPIO pins, such as Arduino (Raspberry Pi only provides 3V)
   * Alternatively, a 3V to 5V level shifter may be used for the data signal
@@ -37,26 +61,35 @@ Decorative lighting management software.
 
 3. Start server with:
     ```
-    huereka/server.py -a 0.0.0.0 -k <path to HTTPS key> -c <path to HTTPS cert>
+    huereka/server.py
     ```
 
 4. Attempt to check the status from an external client:
     ```
-    curl -k https://<hostname or ip>:<port>/health
+    curl -k http://127.0.0.1:443/health
     ```
 
 5. Create a new color profile:
     ```
-    curl -k -X POST https://<hostname or ip>:<port>/api/v1/profiles -d '{"name": "redtest", "colors": ["#FF0000"]}'
+    curl -k -X POST http://127.0.0.1:443/api/v1/profiles -d '{"name": "redtest", "colors": ["#FF0000"]}'
     ```
 
 6. Create a new color schedule:
     ```
-    curl -k https://<hostname or ip>:<port>/api/v1/schedules -d '{"name": "redtest", "routines": [{"profile": "redtest", "days": 127}]}'
+    curl -k http://127.0.0.1:443/api/v1/schedules -d '{"name": "redtest", "routines": [{"profile": "redtest", "days": 127}]}'
     ```
 
 7. The lights should all turn red if the setup is complete. If no lights turn on, ensure the full setup has been
    performed and attempt the basic LED/GPIO tests.
+
+
+### Additional Guides
+
+[Set up Huereka LED Test Hardware](SETUP.md#set-up-huereka-testing-hardware)  
+[Set up Huereka Service to Start on Boot](SETUP.md#set-up-huereka-service-to-start-on-boot)  
+[Improve Raspberry Pi Boot Time](SETUP.md#improve-raspberry-pi-boot-time)  
+[uHuereka (Micro-Huereka) Set Up](uhuereka/SETUP.md)
+[Other Set Up Guides](SETUP.md)
 
 
 ### Design Overview
@@ -83,3 +116,8 @@ summarized as: schedules wrap around routines, and routines wrap around profiles
 **LightingSchedule**: Collection of lighting routines and the LED managers
 - Manager: Which LED manager to send lighting routine updates to
 - Routines: Collection of lighting routines which can trigger LED updates
+
+**uHuereka**: Miniature version of Huereka designed for MicroPython
+- Pronounced Micro-Huereka
+- Designed to run on microcontrollers with low memory, CPU, etc.
+- Contains minimal features compared to the full size library.

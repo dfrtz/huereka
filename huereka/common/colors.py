@@ -4,29 +4,28 @@ from __future__ import annotations
 
 import logging
 import threading
-
 from typing import Any
 
-from huereka.lib import color_utils
-from huereka.lib.collections import Collection
-from huereka.lib.collections import CollectionEntry
-from huereka.lib.collections import CollectionValueError
-from huereka.lib.collections import KEY_ID
+from huereka.common import color_utils
+from huereka.common.collections import KEY_ID
+from huereka.common.collections import Collection
+from huereka.common.collections import CollectionEntry
+from huereka.common.collections import CollectionValueError
 
 logger = logging.getLogger(__name__)
 
-KEY_NAME = 'name'
-KEY_VALUE = 'value'
+KEY_NAME = "name"
+KEY_VALUE = "value"
 
 
 class Color(CollectionEntry):
     """User color preference."""
 
     def __init__(
-            self,
-            name: str,
-            value: str | int | float,
-            uuid: str = None,
+        self,
+        name: str,
+        value: str | int | float,
+        uuid: str = None,
     ) -> None:
         """Set up a color for saving user selections.
 
@@ -40,9 +39,7 @@ class Color(CollectionEntry):
 
     def __eq__(self, other: Any) -> bool:
         """Make the color comparable for equality using unique attributes."""
-        return isinstance(other, Color) \
-            and self.name == other.name \
-            and self.value == other.value
+        return isinstance(other, Color) and self.name == other.name and self.value == other.value
 
     @classmethod
     def from_json(cls, data: dict) -> Color:
@@ -56,13 +53,13 @@ class Color(CollectionEntry):
         """
         uuid = data.get(KEY_ID)
         if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError('invalid-color-id')
+            raise CollectionValueError("invalid-color-id")
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
-            raise CollectionValueError('invalid-color-name')
+            raise CollectionValueError("invalid-color-name")
         value = data.get(KEY_VALUE)
         if value is None or not isinstance(value, (str, int, float)):
-            raise CollectionValueError('invalid-color-value')
+            raise CollectionValueError("invalid-color-value")
         return Color(name, value)
 
     def to_json(self, save_only: bool = False) -> dict:
@@ -95,7 +92,7 @@ class Colors(Collection):
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
-    collection_help: str = 'color'
+    collection_help: str = "color"
     entry_cls: str = Color
 
     @classmethod
@@ -108,9 +105,9 @@ class Colors(Collection):
 
     @classmethod
     def update(
-            cls,
-            old_color: str,
-            new_values: dict,
+        cls,
+        old_color: str,
+        new_values: dict,
     ) -> dict:
         """Update the values of a color.
 
@@ -126,13 +123,13 @@ class Colors(Collection):
             name = new_values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):
-                    raise CollectionValueError('invalid-color-name')
+                    raise CollectionValueError("invalid-color-name")
                 original_name = color.name
                 color.name = name
                 cls._collection[name] = cls._collection.pop(original_name)
             value = new_values.get(KEY_VALUE)
             if value is None or not isinstance(value, (str, int, float)):
-                raise CollectionValueError('invalid-color-value')
+                raise CollectionValueError("invalid-color-value")
             color.value = value
             result = color.to_json()
         return result

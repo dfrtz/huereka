@@ -272,48 +272,43 @@ the code further, python may need to be rebuilt later after more packages are in
 ### Set Up Huereka Development Environment
 
 1. Set up OS requirements:
-    ```
+    ```shell
     sudo apt install -y git vim libgpiod2
     ```
 
 2. Create development folder:
-    ```
+    ```shell
     mkdir -v ~/Development
     ```
 
 3. Clone repo and update location:
-    ```
+    ```shell
     cd ~/Development
     git clone <remote repo location>
     cd huereka
     ```
 
 4. Set up hooks:
-    ```
-    hooks/setup_hooks.sh
+    ```shell
+    make setup
     ```
 
 5. Make virtual environment to isolate packages:
-    ```
-    python3.9 -m venv .venv
+    ```shell
+    make venv
     source .venv/bin/activate
     ```
 
 6. Install python project:
-    ```
+    ```shell
     export CFLAGS=-fcommon  # Needs to be set before calling pip install or it will fail on RPi.GPIO
     pip install -r requirements-dev.txt
     pip install -r requirements.txt
     unset CFLAGS
     ```
 
-7. Add git path to virtual environment, so it can be found automatically while active:
-    ```
-    echo ~/Development/huereka > .venv/lib/python3.9/site-packages/huereka.pth
-    ```
-
-8. Generate HTTPS certificate:
-    ```
+7. Generate HTTPS certificate:
+    ```shell
     openssl req -newkey rsa:4096 -nodes -keyout huereka.key -x509 -days 365 -out huereka.crt
     ```
 
@@ -393,12 +388,11 @@ static `/dev/arduino` alias on a Raspberry Pi, however they can be used for any 
 1. Ensure Huereka development environment is set up, or library is installed on to core system.
 
 2. Create a basic bash script which can be called by the service, such as `~/Development/huereka/huereka.sh`:
-    ```
+    ```bash
     #!/bin/bash
     cd /home/huereka/Development/huereka
     source .venv/bin/activate
     PYTHONPATH=. ./huereka/server.py \
-        -a 0.0.0.0 \
         -k ./huereka.key \
         -c ./huereka.crt
     ```

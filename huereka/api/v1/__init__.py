@@ -4,13 +4,13 @@ import os
 
 from flask import Blueprint
 
-from huereka.lib import import_utils
-from huereka.lib import response_utils as responses
+from huereka.common import import_utils
+from huereka.common import response_utils as responses
 
-api = Blueprint('v1_api', __name__)
+api = Blueprint("v1_api", __name__)
 
 
-@api.route('/health', methods=['GET'])
+@api.route("/health", methods=["GET"])
 def health() -> tuple:
     """Basic health check to ensure API version is responding."""
     return responses.ok()

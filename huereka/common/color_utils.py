@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 import random
-
 from enum import Enum
 from typing import Iterable
 
@@ -19,9 +18,9 @@ class Color(int):
         Returns:
             Last/rightmost 8 bit section of the color representing blue as 0-255.
         """
-        return (0x0000ff & self) >> 0
+        return (0x0000FF & self) >> 0
 
-    def darken(self, amount: float = .1) -> Color:
+    def darken(self, amount: float = 0.1) -> Color:
         """Decrease a color's lightness while maintaining RGB ratio.
 
         Args:
@@ -46,9 +45,7 @@ class Color(int):
         Returns:
             New color with a single integer value representing all RGB portions combined.
         """
-        value = (((red & 0xff) << 16) |
-                 ((green & 0xff) << 8) |
-                 ((blue & 0xff) << 0)) & 0xFFFFFFFF
+        value = (((red & 0xFF) << 16) | ((green & 0xFF) << 8) | ((blue & 0xFF) << 0)) & 0xFFFFFFFF
         return Color(value)
 
     @property
@@ -58,9 +55,9 @@ class Color(int):
         Returns:
             Second 8 bit section of the color representing green as 0-255.
         """
-        return (0x00ff00 & self) >> 8
+        return (0x00FF00 & self) >> 8
 
-    def lighten(self, amount: float = .1) -> Color:
+    def lighten(self, amount: float = 0.1) -> Color:
         """Increase a color's lightness while maintaining RGB ratio.
 
         Args:
@@ -80,7 +77,7 @@ class Color(int):
         Returns:
             First/leftmost 8 bit section of the color representing red as 0-255.
         """
-        return (0xff0000 & self) >> 16
+        return (0xFF0000 & self) >> 16
 
     def to_rgb(self) -> str:
         """Convert the raw color value into RGB hex string.
@@ -88,7 +85,7 @@ class Color(int):
         Returns:
             Hex string representing color.
         """
-        return f'#{self.red:02x}{self.green:02x}{self.blue:02x}'
+        return f"#{self.red:02x}{self.green:02x}{self.blue:02x}"
 
 
 class Colors(Enum):
@@ -96,12 +93,12 @@ class Colors(Enum):
 
     BLACK = Color(0x000000)
     RED = Color(0xFF0000)
-    YELLOW = Color(0xff9600)
-    GREEN = Color(0x00ff00)
-    CYAN = Color(0x00ffff)
-    BLUE = Color(0x0000ff)
-    PURPLE = Color(0xb400ff)
-    WHITE = Color(0xffffff)
+    YELLOW = Color(0xFF9600)
+    GREEN = Color(0x00FF00)
+    CYAN = Color(0x00FFFF)
+    BLUE = Color(0x0000FF)
+    PURPLE = Color(0xB400FF)
+    WHITE = Color(0xFFFFFF)
 
 
 class HSLColor:
@@ -166,10 +163,10 @@ class HSLColor:
 
 
 def generate_pattern(
-        colors: Iterable[int],
-        length: int,
-        mirror: bool = False,
-        randomize: bool = False,
+    colors: Iterable[int],
+    length: int,
+    mirror: bool = False,
+    randomize: bool = False,
 ) -> list[int]:
     """Inflate a list of colors using a small selection of possible colors to create patterns.
 
@@ -187,7 +184,7 @@ def generate_pattern(
     if randomize:
         if len(colors) > 1:
             for _ in range(length):
-                pattern.append(random.choice(colors))
+                pattern.append(random.choice(colors))  # nosec B311
         else:
             pattern = colors * length
     elif mirror:
@@ -262,7 +259,7 @@ def rgb_to_hue(red: float, green: float, blue: float, max_rgb: float, delta: flo
     Returns:
         Degree on a color wheel representing the color.
     """
-    hue = float('nan')
+    hue = float("nan")
     if max_rgb == 0.0:
         hue = 0.0
     elif max_rgb == red:
@@ -290,6 +287,6 @@ def parse_color(value: str | int | float | Colors) -> Color:
     if isinstance(value, (int, float)):
         return Color(value)
     if isinstance(value, str):
-        raw_color = value.replace('#', '0x')
+        raw_color = value.replace("#", "0x")
         return Color(raw_color, base=16)
-    raise ValueError(f'{value} is not a valid color/int value')
+    raise ValueError(f"{value} is not a valid color/int value")
