@@ -4,11 +4,5 @@
 # This means that scripts placed in this file should have paths that are represented
 # as if they are being run from the ${REPO} base directory.
 
-set -e
-
 # The current working directory with pre-push hooks is the git root, no manual search required.
-git_root=$(pwd)
-pydocstyle --config ${git_root}/setup.cfg --count huereka
-pycodestyle --config ${git_root} --count huereka
-pylint --rcfile ${git_root} huereka
-bandit -r -c=bandit.yaml -ll huereka
+make qa || exit 1

@@ -8,17 +8,16 @@ import logging
 import os
 import shutil
 import threading
-
 from typing import Any
 from typing import Type
 from uuid import uuid4
 
-from huereka.lib import response_utils
+from huereka.common import response_utils
 
 logger = logging.getLogger(__name__)
 
-KEY_ID = 'id'
-KEY_NAME = 'name'
+KEY_ID = "id"
+KEY_NAME = "name"
 
 
 class Collection(metaclass=abc.ABCMeta):
@@ -64,23 +63,23 @@ class Collection(metaclass=abc.ABCMeta):
         """
         loaded_data = []
         if isinstance(data, str):
-            if data.startswith('['):
+            if data.startswith("["):
                 try:
                     loaded_data = json.loads(data)
                 except Exception:  # pylint: disable=broad-except
-                    logger.exception(f'Failed to load {cls.collection_help}s from text')
-            elif data.startswith(('/', 'file://')):
-                data = data.removeprefix('file://')
+                    logger.exception(f"Failed to load {cls.collection_help}s from text")
+            elif data.startswith(("/", "file://")):
+                data = data.removeprefix("file://")
                 cls._collection_uri = data
                 try:
-                    with open(data, 'rt', encoding='utf-8') as file_in:
+                    with open(data, "rt", encoding="utf-8") as file_in:
                         try:
                             loaded_data = json.load(file_in)
-                            logger.info(f'Loaded {cls.collection_help}s from {cls._collection_uri}')
+                            logger.info(f"Loaded {cls.collection_help}s from {cls._collection_uri}")
                         except Exception:  # pylint: disable=broad-except
-                            logger.exception(f'Failed to load {cls.collection_help}s from local file {data}')
+                            logger.exception(f"Failed to load {cls.collection_help}s from local file {data}")
                 except FileNotFoundError:
-                    logger.warning(f'Skipping {cls.collection_help}s load, file not found {data}')
+                    logger.warning(f"Skipping {cls.collection_help}s load, file not found {data}")
         elif isinstance(data, list):
             loaded_data = data
         for index, entry_config in enumerate(loaded_data):
@@ -90,7 +89,7 @@ class Collection(metaclass=abc.ABCMeta):
                 entry = cls.entry_cls.from_json(entry_config)
                 cls.register(entry)
             except Exception:  # pylint: disable=broad-except
-                logger.exception(f'Skipping invalid {cls.collection_help} setup at index {index}')
+                logger.exception(f"Skipping invalid {cls.collection_help} setup at index {index}")
         cls.post_load()
 
     @classmethod
@@ -110,7 +109,7 @@ class Collection(metaclass=abc.ABCMeta):
             if uuid in cls._collection:
                 raise response_utils.APIError(f'duplicate-{cls.collection_help.replace(" ", "-")}', uuid, code=422)
             cls._collection[uuid] = entry
-            logger.debug(f'Registered {cls.collection_help} {entry.uuid} {entry.name}')
+            logger.debug(f"Registered {cls.collection_help} {entry.uuid} {entry.name}")
 
     @classmethod
     def remove(cls, key: str) -> CollectionEntry:
@@ -135,11 +134,11 @@ class Collection(metaclass=abc.ABCMeta):
             with cls._collection_lock:
                 # Write to a temporary file, and then move to expected file, so that if for any reason
                 # it is interrupted, the original remains intact and the user can decide which to load.
-                tmp_path = f'{cls._collection_uri}.tmp'
-                with open(tmp_path, 'w+', encoding='utf-8') as file_out:
+                tmp_path = f"{cls._collection_uri}.tmp"
+                with open(tmp_path, "w+", encoding="utf-8") as file_out:
                     json.dump(cls.to_json(save_only=True), file_out, indent=2)
                 shutil.move(tmp_path, cls._collection_uri)
-                logger.info(f'Saved {cls.collection_help}s to {cls._collection_uri}')
+                logger.info(f"Saved {cls.collection_help}s to {cls._collection_uri}")
 
     @classmethod
     def to_json(cls, save_only: bool = False) -> list[dict]:
@@ -156,9 +155,9 @@ class Collection(metaclass=abc.ABCMeta):
 
     @classmethod
     def validate_entry(
-            cls,
-            data: dict,  # Argument used by subclass. pylint: disable=unused-argument
-            index: int,  # Argument used by subclass. pylint: disable=unused-argument
+        cls,
+        data: dict,  # Argument used by subclass. pylint: disable=unused-argument
+        index: int,  # Argument used by subclass. pylint: disable=unused-argument
     ) -> bool:
         """Additional confirmation of entry values before load.
 
@@ -171,7 +170,7 @@ class Collection(metaclass=abc.ABCMeta):
         """
         uuid = data.get(KEY_ID)
         if uuid in cls._collection:
-            logger.warning(f'Skipping duplicate {cls.collection_help} setup at index {index} using uuid {uuid}')
+            logger.warning(f"Skipping duplicate {cls.collection_help} setup at index {index} using uuid {uuid}")
             return False
         return True
 
@@ -187,7 +186,7 @@ class CollectionEntry:
             uuid: Unique identifier.
         """
         self.uuid = uuid if uuid else str(uuid4())
-        self.name = name or f'{self.__class__.__name__}_{self.uuid}'
+        self.name = name or f"{self.__class__.__name__}_{self.uuid}"
 
     def __hash__(self) -> int:
         """Make the collection hashable."""
@@ -234,11 +233,11 @@ class CollectionValueError(response_utils.APIError, ValueError):
 
 
 def get_and_validate(
-        data: dict,
-        key: str,
-        expected_type: Any,
-        nullable: bool = False,
-        error_prefix: str = 'invalid'
+    data: dict,
+    key: str,
+    expected_type: Any,
+    nullable: bool = False,
+    error_prefix: str = "invalid",
 ) -> Any:
     """Retrieve data and validate type.
 
@@ -257,5 +256,5 @@ def get_and_validate(
     """
     value = data.get(key)
     if (value is None and not nullable) or (value is not None and not isinstance(value, expected_type)):
-        raise CollectionValueError(f'{error_prefix}-{key}')
+        raise CollectionValueError(f"{error_prefix}-{key}")
     return value

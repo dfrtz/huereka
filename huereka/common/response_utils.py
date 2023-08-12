@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-
 from http import HTTPStatus
 from typing import Any
 
@@ -16,18 +15,18 @@ StatusInvalidRequest = HTTPStatus.BAD_REQUEST
 StatusInvalidData = HTTPStatus.UNPROCESSABLE_ENTITY
 
 _status_texts = {
-    StatusOK: 'ok',
-    StatusInternalError: 'internal-error',
-    StatusNotAuthorized: 'not-authorized',
-    StatusNotFound: 'not-found',
-    StatusNotAllowed: 'not-allowed',
-    StatusInvalidRequest: 'invalid-request',
-    StatusInvalidData: 'invalid-data',
+    StatusOK: "ok",
+    StatusInternalError: "internal-error",
+    StatusNotAuthorized: "not-authorized",
+    StatusNotFound: "not-found",
+    StatusNotAllowed: "not-allowed",
+    StatusInvalidRequest: "invalid-request",
+    StatusInvalidData: "invalid-data",
 }
 
-KEY_ERROR = 'error'
-KEY_ERROR_DATA = 'error_data'
-KEY_RESULT = 'result'
+KEY_ERROR = "error"
+KEY_ERROR_DATA = "error_data"
+KEY_RESULT = "result"
 
 
 class APIError(Exception, metaclass=abc.ABCMeta):
@@ -115,11 +114,12 @@ def status_text(code: int) -> str:
     found = status is not None
     if not found:
         # Fallback to standard HTTP messages if API has no custom message.
-        status = f'unknown-{code}'
+        status = f"unknown-{code}"
     return status
 
 
 # JSON quick responses.
+
 
 def invalid_data(data: Any = None) -> tuple[dict, int]:
     """Create a JSON API response for a 422 code representing bad data (can read but can't process).
@@ -172,7 +172,7 @@ def not_found() -> tuple[dict, int]:
     return json_error(StatusNotFound), StatusNotFound
 
 
-def ok(data: Any = 'ok') -> tuple[dict, int]:  # Intentionally short name. pylint: disable=invalid-name
+def ok(data: Any = "ok") -> tuple[dict, int]:  # Intentionally short name. pylint: disable=invalid-name
     """Create a JSON API response for a 200 code representing valid request and response.
 
     Args:

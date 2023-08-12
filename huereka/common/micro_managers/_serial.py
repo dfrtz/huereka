@@ -6,27 +6,25 @@ import logging
 import math
 import threading
 import time
-
 from typing import Sequence
 
 import serial
-
 from adafruit_pixelbuf import ColorUnion
 
-from huereka.lib import color_utils
-from huereka.lib.collections import CollectionValueError
-from huereka.lib.collections import get_and_validate
-from huereka.lib.color_utils import Colors
-from huereka.lib.micro_managers._manager_base import DEFAULT_LED_UPDATE_DELAY
-from huereka.lib.micro_managers._manager_base import LEDMicroManager
-from huereka.lib.micro_managers._manager_base import KEY_BRIGHTNESS
-from huereka.lib.micro_managers._manager_base import KEY_LED_COUNT
-from huereka.lib.micro_managers._manager_base import KEY_PIN
-from huereka.lib.micro_managers._manager_base import KEY_TYPE
+from huereka.common import color_utils
+from huereka.common.collections import CollectionValueError
+from huereka.common.collections import get_and_validate
+from huereka.common.color_utils import Colors
+from huereka.common.micro_managers._manager_base import DEFAULT_LED_UPDATE_DELAY
+from huereka.common.micro_managers._manager_base import KEY_BRIGHTNESS
+from huereka.common.micro_managers._manager_base import KEY_LED_COUNT
+from huereka.common.micro_managers._manager_base import KEY_PIN
+from huereka.common.micro_managers._manager_base import KEY_TYPE
+from huereka.common.micro_managers._manager_base import LEDMicroManager
 
 logger = logging.getLogger(__name__)
 
-OP_MAGIC = int(127).to_bytes(length=1, byteorder='little', signed=False)
+OP_MAGIC = int(127).to_bytes(length=1, byteorder="little", signed=False)
 
 OP_INIT_STRIP = 1
 OP_SET_BRIGHTNESS = 32
@@ -36,24 +34,26 @@ OP_SHOW = 35
 OP_TEST = 77
 OP_RESET = 99
 
-KEY_STRIP = 'strip'
-KEY_PORT = 'port'
-KEY_BAUD = 'baud'
+KEY_STRIP = "strip"
+KEY_PORT = "port"
+KEY_BAUD = "baud"
 
 
-class SerialManager(LEDMicroManager):  # Approved override of the default variable limit. pylint: disable=too-many-instance-attributes
+class SerialManager(
+    LEDMicroManager
+):  # Approved override of the default variable limit. pylint: disable=too-many-instance-attributes
     """Manage the colors and brightness of LEDs connected to a GPIO pin on a device connected to a serial port."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
-            self,
-            led_count: int = 100,
-            brightness: float = 1.0,
-            strip: int = 0,
-            pin: int = 5,
-            port: str = '/dev/ttyACM0',
-            baudrate: int = 115200,
-            timeout: int = 10,
-            dsrdtr: bool = False,
+        self,
+        led_count: int = 100,
+        brightness: float = 1.0,
+        strip: int = 0,
+        pin: int = 5,
+        port: str = "/dev/ttyACM0",
+        baudrate: int = 115200,
+        timeout: int = 10,
+        dsrdtr: bool = False,
     ) -> None:
         """Set up a single FastLED strip.
 
@@ -79,7 +79,7 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
         # Delay startup by 1 second to prevent silent failures when it looks like the data sent.
         # All pending actions will be queued up to run as soon as available.
         threading.Timer(1, self._init).start()
-        logger.info(f'Initialized LED manager for pin {self.pin} on {self.port}')
+        logger.info(f"Initialized LED manager for pin {self.pin} on {self.port}")
 
     def __getitem__(self, index: int | slice) -> int:
         """Find LED color at a specific LED position."""
@@ -91,9 +91,9 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
         return len(self._colors)
 
     def __setitem__(
-            self,
-            index: int | slice,
-            color: Colors | ColorUnion | Sequence[ColorUnion],
+        self,
+        index: int | slice,
+        color: Colors | ColorUnion | Sequence[ColorUnion],
     ) -> None:
         """Set color at a specific LED position."""
         color = color_utils.parse_color(color)
@@ -111,7 +111,7 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
             self._ready = True
             self._op_init_strip()
             # Slight delay to ensure strip is ready before sending messages.
-            time.sleep(.1)
+            time.sleep(0.1)
             self._op_fill_leds(Colors.BLACK.value, show=True)
             for values, start in self._pending:
                 self._write(*values, start=start)
@@ -183,10 +183,10 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
         )
 
     def _set_color(
-            self,
-            index: int,
-            color: Colors | ColorUnion,
-            show: bool = True,
+        self,
+        index: int,
+        color: Colors | ColorUnion,
+        show: bool = True,
     ) -> bool:
         """Set color at a specific LED position, show change, and return true if color was changed.
 
@@ -209,15 +209,15 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
         if start:
             msg = OP_MAGIC
         else:
-            msg = b''
+            msg = b""
         for value in values:
-            msg += value.to_bytes(length=1, byteorder='little', signed=False)
+            msg += value.to_bytes(length=1, byteorder="little", signed=False)
         self._serial.write(msg)
 
     def fill(
-            self,
-            color: Colors | ColorUnion,
-            show: bool = True,
+        self,
+        color: Colors | ColorUnion,
+        show: bool = True,
     ) -> None:
         """Fill entire strip with a single color."""
         color = color_utils.parse_color(color)
@@ -231,24 +231,24 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
         # Required arguments.
         led_count = data.get(KEY_LED_COUNT)
         if not led_count or not isinstance(led_count, int):
-            raise CollectionValueError('invalid-led-manager-led-count')
+            raise CollectionValueError("invalid-led-manager-led-count")
         pin = data.get(KEY_PIN)
         if not isinstance(pin, int):
-            raise CollectionValueError('invalid-led-manager-pin')
+            raise CollectionValueError("invalid-led-manager-pin")
 
         # Optional arguments.
         brightness = data.get(KEY_BRIGHTNESS, 1.0)
         if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
-            raise CollectionValueError('invalid-led-manager-brightness')
+            raise CollectionValueError("invalid-led-manager-brightness")
         strip = data.get(KEY_STRIP, 0)
         if not isinstance(strip, int) or strip < 0:
-            raise CollectionValueError('invalid-led-manager-strip')
-        port = data.get(KEY_PORT, '/dev/ttyACM0')
+            raise CollectionValueError("invalid-led-manager-strip")
+        port = data.get(KEY_PORT, "/dev/ttyACM0")
         if not isinstance(port, str):
-            raise CollectionValueError('invalid-led-manager-port')
+            raise CollectionValueError("invalid-led-manager-port")
         baudrate = data.get(KEY_BAUD, 115200)
         if not isinstance(baudrate, int):
-            raise CollectionValueError('invalid-led-manager-baud')
+            raise CollectionValueError("invalid-led-manager-baud")
 
         return SerialManager(
             led_count=led_count,
@@ -260,10 +260,10 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
         )
 
     def set_brightness(
-            self,
-            brightness: float = 1.0,
-            show: bool = True,
-            save: bool = False,
+        self,
+        brightness: float = 1.0,
+        show: bool = True,
+        save: bool = False,
     ) -> None:
         """Set LED brightness for entire strip."""
         brightness = min(max(0.0, brightness), 1.0)
@@ -279,7 +279,7 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
 
     def teardown(self) -> None:
         """Clear LED states, and release resources."""
-        logger.info(f'Tearing down LED manager for pin {self.pin} on {self.port}')
+        logger.info(f"Tearing down LED manager for pin {self.pin} on {self.port}")
         self._serial.reset_output_buffer()
         self._op_fill_leds(Colors.BLACK.value)
         self._serial.close()
@@ -293,12 +293,12 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
             KEY_PIN: self.pin,
             KEY_PORT: self.port,
             KEY_BAUD: self.baudrate,
-            KEY_TYPE: 'Serial',
+            KEY_TYPE: "Serial",
         }
 
     def update(
-            self,
-            new_values: dict,
+        self,
+        new_values: dict,
     ) -> dict:
         """Update the configuration of the LED manager.
 
@@ -308,7 +308,7 @@ class SerialManager(LEDMicroManager):  # Approved override of the default variab
         Returns:
             Final manager configuration with the updated values.
         """
-        invalid_prefix = 'invalid-lighting-manager'
+        invalid_prefix = "invalid-lighting-manager"
         brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float, nullable=True, error_prefix=invalid_prefix)
         if brightness is not None:
             self.set_brightness(brightness, save=True)
