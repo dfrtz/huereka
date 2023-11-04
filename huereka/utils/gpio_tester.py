@@ -5,7 +5,7 @@
 import argparse
 import time
 
-from RPi import GPIO
+from RPi import GPIO  # pylint: disable=import-error
 
 
 def parse_args() -> argparse.Namespace:
