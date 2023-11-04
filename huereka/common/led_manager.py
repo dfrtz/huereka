@@ -26,7 +26,7 @@ KEY_MODE = "mode"
 KEY_STATUS = "status"
 
 # Based on max speed without flickering on a 12V strand of 100 WS2811 LEDs with 5V signal.
-DEFAULT_LED_UPDATE_DELAY = 0.01125
+DEFAULT_LED_UPDATE_DELAY = 0.0125
 
 MODE_OFF = 0
 MODE_ON = 1
