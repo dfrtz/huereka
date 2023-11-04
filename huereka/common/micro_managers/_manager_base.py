@@ -16,7 +16,7 @@ from huereka.common.color_utils import Colors
 logger = logging.getLogger(__name__)
 
 # Based on max speed without flickering on a 12V strand of 100 WS2811 LEDs with 5V signal.
-DEFAULT_LED_UPDATE_DELAY = 0.01125
+DEFAULT_LED_UPDATE_DELAY = 0.0125
 KEY_LED_COUNT = "led_count"
 KEY_BRIGHTNESS = "brightness"
 KEY_TYPE = "type"
