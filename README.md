@@ -88,7 +88,7 @@ any specific new features being added.
 [Set up Huereka LED Test Hardware](SETUP.md#set-up-huereka-testing-hardware)  
 [Set up Huereka Service to Start on Boot](SETUP.md#set-up-huereka-service-to-start-on-boot)  
 [Improve Raspberry Pi Boot Time](SETUP.md#improve-raspberry-pi-boot-time)  
-[uHuereka (Micro-Huereka) Set Up](uhuereka/SETUP.md)
+[uHuereka (Micro-Huereka) Set Up](uhuereka/SETUP.md)  
 [Other Set Up Guides](SETUP.md)
 
 

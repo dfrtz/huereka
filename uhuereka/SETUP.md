@@ -9,22 +9,33 @@ full size library.
 
 * [Requirements](#requirements)
 * [Recommendations](#recommendations)
-* [Download MicroPython](#download-micropython)
-* [Set Up MicroPython on Raspberry Pi Pico](#set-up-micropython-on-raspberry-pi-pico)
-* [Access MicroPython Environment on Microcontroller](#access-micropython-environment-on-microcontroller)
-* [Set Up Micropython Development Environment](#set-up-micropython-development-environment)
+* [MicroPython Setup](#micropython-setup)
+  * [Download MicroPython](#download-micropython)
+  * [Set Up MicroPython on RP2040 devices](#set-up-micropython-on-rp2040-devices)
+  * [Set Up MicroPython on ESP devices](#set-up-micropython-on-esp-devices)
+  * [Access MicroPython Environment on Microcontroller via GUI](#access-micropython-environment-on-microcontroller-via-gui)
+  * [Access MicroPython Environment on Microcontroller via CLI](#access-micropython-environment-on-microcontroller-via-cli)
+  * [Set Up Micropython Development Environment](#set-up-micropython-development-environment)
 
 
 ### Requirements
 
 * Microcontroller capable of running MicroPython
+* Wi-Fi capable microcontroller, or Wi-Fi adapter compatible with MicroPython, if using Wi-Fi features
 * Bluetooth capable microcontroller, or Bluetooth adapter compatible with MicroPython, if using bluetooth features
 
 
 ### Recommendations
 
-* Raspberry Pi Pico, Raspberry Pi Pico W, or similar
+* RP2040 device
+  * Raspberry Pi Pico (No Wireless)
+  * Raspberry Pi Pico W (Wireless)
+  * Seeed Studio XIAO RP2040 (No Wireless)
+* ESP32 device
+  * Seeed Studio XIAO ESP32-C3 (Wireless)
 
+
+## MicroPython Setup
 
 ### Download MicroPython
 
@@ -32,14 +43,47 @@ Find and download a bootloader from official MicroPython repositories for your h
 https://micropython.org/download/
 
 
-### Set Up MicroPython on Raspberry Pi Pico
+### Set Up MicroPython on RP2040 devices
 
 1. Hold down BOOTSEL button and plug in to computer. Release button after plugged in.
 
 2. Open the Rpi Pico like a disk drive, and copy .uf2 firmware into directory. Will auto reboot after upload.
 
 
-### Access MicroPython Environment on Microcontroller
+### Set Up MicroPython on ESP devices
+
+Installation may very from device to device. General guidelines below are based off ESP32-C3 device.
+For full information on how to use 'esptool', refer to:  
+https://github.com/espressif/esptool
+
+1. Ensure local development is set up and active per [Set Up Micropython Development Environment](../SETUP.md#set-up-huereka-development-environment)
+
+2. Install `esptool`.
+   ```bash
+   pip install esptool
+   ```
+
+3. Hold down BOOT button and plug in to computer. Release button after plugged in.
+
+4. Verify the device is found:
+   ```bash
+   esptool.py flash_id
+   ```
+
+5. If the device is found and correct, collect the serial port value and continue. If not, troubleshoot device.
+
+6. Follow the instructions for installation for your device from:
+    https://micropython.org/download/
+
+
+### Access MicroPython Environment on Microcontroller via GUI
+
+Thonny provides an interactive IDE with REPL CLI built in. It can also be used to manage the files saved to the devices.
+For more information on installing and using Thonny, visit:  
+https://thonny.org/
+
+
+### Access MicroPython Environment on Microcontroller via CLI
 
 1. Ensure local development is set up and active per [Set Up Micropython Development Environment](../SETUP.md#set-up-huereka-development-environment)
 
