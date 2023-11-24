@@ -57,7 +57,7 @@ class LEDManager(CollectionEntry):
             mode: Activity mode for the schedule as 0, 1 (off, on).
             micromanager: Low level manager that controls connectivity and messaging to LED hardware.
         """
-        super().__init__(name, uuid)
+        super().__init__(uuid=uuid, name=name)
         self._led_manager = micromanager
         self._mode = mode
         self._status = STATUS_OFF

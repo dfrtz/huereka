@@ -331,7 +331,7 @@ class LightingSchedule(CollectionEntry):
             brightness: Brightness as a percent between 0.0 and 1.0.
                 Overrides LED manager brightness. Defaults to -1 to indicate override being disabled.
         """
-        super().__init__(name, uuid)
+        super().__init__(uuid=uuid, name=name)
         self._mode = MODE_OFF
         self._status = STATUS_OFF
         self.manager = manager
