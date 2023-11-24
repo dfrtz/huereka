@@ -34,7 +34,7 @@ class Color(CollectionEntry):
             value: Numerical value, or string numerical value, representing raw color.
             uuid: Unique identifier.
         """
-        super().__init__(name, uuid)
+        super().__init__(uuid=uuid, name=name)
         self._color = color_utils.parse_color(value)
 
     def __eq__(self, other: Any) -> bool:

@@ -178,12 +178,12 @@ class Collection(metaclass=abc.ABCMeta):
 class CollectionEntry:
     """Base class for loading and storing collection entries."""
 
-    def __init__(self, name: str, uuid: str) -> None:
+    def __init__(self, uuid: str | None = None, name: str | None = None) -> None:
         """Set up the base collection entry values.
 
         Args:
+            uuid: Universally unique identifier.
             name: Human readable name used to store/reference in collections.
-            uuid: Unique identifier.
         """
         self.uuid = uuid if uuid else str(uuid4())
         self.name = name or f"{self.__class__.__name__}_{self.uuid}"
@@ -212,7 +212,6 @@ class CollectionEntry:
             Instantiated entry with the given attributes.
         """
 
-    @abc.abstractmethod
     def to_json(self, save_only: bool = False) -> dict:
         """Convert the entry into a JSON compatible type.
 
@@ -222,6 +221,10 @@ class CollectionEntry:
         Returns:
             Mapping of the instance attributes.
         """
+        return {
+            KEY_ID: self.uuid,
+            KEY_NAME: self.name,
+        }
 
 
 class CollectionValueError(response_utils.APIError, ValueError):

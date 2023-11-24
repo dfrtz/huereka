@@ -50,7 +50,7 @@ class ColorProfile(CollectionEntry):
             mode: Value representing enabled color pattern modes.
                 Can be combined via bitwise operations. e.g. MODE_REPEAT | MODE_MIRROR == MODE_REPEAT AND MODE_MIRROR
         """
-        super().__init__(name, uuid)
+        super().__init__(uuid=uuid, name=name)
         self._corrected_colors = tuple()
         self._mode = mode
 
