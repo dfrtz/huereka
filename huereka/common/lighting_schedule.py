@@ -285,6 +285,8 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         valid_states = (STATUS_OFF, STATUS_ON)
         if status not in valid_states:
             raise ValueError(f"Valid states are: {valid_states}")
+        if status == STATUS_ON and self.mode == MODE_OFF:
+            raise ValueError("Status may not be set to on while mode is set to off")
         self._status = status
 
     def to_json(self, save_only: bool = False) -> dict:
