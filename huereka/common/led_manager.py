@@ -262,7 +262,7 @@ class LEDManagers(Collection):
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
-    collection_help: str = "LED manager"
+    collection_help: str = "LED managers"
     entry_cls: str = LEDManager
 
     @classmethod
@@ -361,25 +361,6 @@ class LEDManagers(Collection):
             for uuid in list(cls._collection.keys()):
                 manager: LEDManager = cls.remove(uuid)
                 manager.teardown()
-
-    @classmethod
-    def update(
-        cls,
-        uuid: str,
-        new_values: dict,
-    ) -> dict:
-        """Update the values of an LED manager.
-
-        Args:
-            uuid: ID of the original manager to update.
-            new_values: New attributes to set on the manager.
-
-        Returns:
-            Final manager configuration with the updated values.
-        """
-        with cls._collection_lock:
-            result = cls.get(uuid).update(new_values)
-        return result
 
     @classmethod
     def validate_entry(cls, data: dict, index: int) -> bool:

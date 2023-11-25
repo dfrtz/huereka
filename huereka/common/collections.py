@@ -28,12 +28,18 @@ class Collection(metaclass=abc.ABCMeta):
     # Abstract here to enforce each class declare and not share. Should be replaced with: threading.Condition()
     _collection_lock: threading.Condition = abc.abstractproperty()
     # Abstract here to enforce each class declare and not share. Should be replaced with: None
+    # First load will set the URI for all future actions.
     _collection_uri: str = abc.abstractproperty(str)
 
     # Text used when display helper/logging messages. e.g. 'user documents'
     collection_help: str = abc.abstractproperty(str)
     # Class used to instantiate entries on load.
     entry_cls: Type[CollectionEntry] = abc.abstractproperty()
+
+    @classmethod
+    def collection_help_api_name(cls) -> str:
+        """Provide a consistent, machine/API style, version of the collection help."""
+        return cls.collection_help.lower().replace(" ", "_")
 
     @classmethod
     def get(cls, key: str) -> CollectionEntry:
@@ -51,15 +57,18 @@ class Collection(metaclass=abc.ABCMeta):
         """
         entry = cls._collection.get(key)
         if not entry:
-            raise response_utils.APIError(f'missing-{cls.collection_help.replace(" ", "-")}', key, code=404)
+            raise response_utils.APIError(f'missing-{cls.collection_help_api_name()}', key, code=404)
         return entry
 
     @classmethod
-    def load(cls, data: str | list[dict]) -> None:
+    def load(cls, data: str | list[dict]) -> tuple[list[CollectionEntry], list[tuple[int, Exception]]]:
         """Initialize the entry cache by loading saved configurations.
 
         Args:
             data: Collection entry data to load as JSON string, JSON file path, or pre-structured python objects.
+
+        Returns:
+            Any entries that auto generated values (such as ID), and any errors that occurred while loading.
         """
         loaded_data = []
         if isinstance(data, str):
@@ -67,30 +76,36 @@ class Collection(metaclass=abc.ABCMeta):
                 try:
                     loaded_data = json.loads(data)
                 except Exception:  # pylint: disable=broad-except
-                    logger.exception(f"Failed to load {cls.collection_help}s from text")
+                    logger.exception(f"Failed to load {cls.collection_help} from text")
             elif data.startswith(("/", "file://")):
-                data = data.removeprefix("file://")
                 cls._collection_uri = data
+                data = data.removeprefix("file://")
                 try:
                     with open(data, "rt", encoding="utf-8") as file_in:
                         try:
                             loaded_data = json.load(file_in)
-                            logger.info(f"Loaded {cls.collection_help}s from {cls._collection_uri}")
+                            logger.info(f"Loaded {cls.collection_help} from {cls._collection_uri}")
                         except Exception:  # pylint: disable=broad-except
-                            logger.exception(f"Failed to load {cls.collection_help}s from local file {data}")
+                            logger.exception(f"Failed to load {cls.collection_help} from local file {data}")
                 except FileNotFoundError:
-                    logger.warning(f"Skipping {cls.collection_help}s load, file not found {data}")
+                    logger.warning(f"Skipping {cls.collection_help} load, file not found {data}")
         elif isinstance(data, list):
             loaded_data = data
+        generated = []
+        errors = []
         for index, entry_config in enumerate(loaded_data):
             if not cls.validate_entry(entry_config, index):
                 continue
             try:
                 entry = cls.entry_cls.from_json(entry_config)
                 cls.register(entry)
-            except Exception:  # pylint: disable=broad-except
+                if not entry_config.get(KEY_ID):
+                    generated.append(entry)
+            except Exception as error:  # pylint: disable=broad-except
+                errors.append((index, error))
                 logger.exception(f"Skipping invalid {cls.collection_help} setup at index {index}")
         cls.post_load()
+        return generated, errors
 
     @classmethod
     def post_load(cls) -> None:
@@ -107,7 +122,7 @@ class Collection(metaclass=abc.ABCMeta):
         with cls._collection_lock:
             uuid = entry.uuid
             if uuid in cls._collection:
-                raise response_utils.APIError(f'duplicate-{cls.collection_help.replace(" ", "-")}', uuid, code=422)
+                raise response_utils.APIError(f'duplicate-{cls.collection_help_api_name()}', uuid, code=422)
             cls._collection[uuid] = entry
             logger.debug(f"Registered {cls.collection_help} {entry.uuid} {entry.name}")
 
@@ -123,22 +138,29 @@ class Collection(metaclass=abc.ABCMeta):
         """
         with cls._collection_lock:
             if key not in cls._collection:
-                raise response_utils.APIError(f'missing-{cls.collection_help.replace(" ", "-")}', key, code=404)
+                raise response_utils.APIError(f'missing-{cls.collection_help_api_name()}', key, code=404)
             return cls._collection.pop(key)
 
     @classmethod
     def save(cls) -> None:
         """Persist the current entries to storage."""
         if cls._collection_uri is not None:
-            os.makedirs(os.path.dirname(cls._collection_uri), exist_ok=True)
-            with cls._collection_lock:
-                # Write to a temporary file, and then move to expected file, so that if for any reason
-                # it is interrupted, the original remains intact and the user can decide which to load.
-                tmp_path = f"{cls._collection_uri}.tmp"
-                with open(tmp_path, "w+", encoding="utf-8") as file_out:
-                    json.dump(cls.to_json(save_only=True), file_out, indent=2)
-                shutil.move(tmp_path, cls._collection_uri)
-                logger.info(f"Saved {cls.collection_help}s to {cls._collection_uri}")
+            uri = cls._collection_uri
+            if uri.startswith(("/", "file://")):
+                uri = uri.removeprefix("file://")
+                os.makedirs(os.path.dirname(uri), exist_ok=True)
+                with cls._collection_lock:
+                    # Write to a temporary file, and then move to expected file, so that if for any reason
+                    # it is interrupted, the original remains intact and the user can decide which to load.
+                    tmp_path = f"{uri}.tmp"
+                    with open(tmp_path, "w+", encoding="utf-8") as file_out:
+                        json.dump(cls.to_json(save_only=True), file_out, indent=2)
+                    shutil.move(tmp_path, uri)
+                    logger.info(f"Saved {cls.collection_help} to {uri}")
+
+    @classmethod
+    def teardown(cls) -> None:
+        """Clear all states, and release resources."""
 
     @classmethod
     def to_json(cls, save_only: bool = False) -> list[dict]:
@@ -154,10 +176,29 @@ class Collection(metaclass=abc.ABCMeta):
             return [entry.to_json(save_only=save_only) for entry in cls._collection.values()]
 
     @classmethod
+    def update(
+        cls,
+        uuid: str,
+        new_values: dict,
+    ) -> dict:
+        """Update the values of an entry.
+
+        Args:
+            uuid: ID of the original entry to update.
+            new_values: New attributes to set on the entry.
+
+        Returns:
+            Final configuration with the updated values.
+        """
+        with cls._collection_lock:
+            result = cls.get(uuid).update(new_values)
+        return result
+
+    @classmethod
     def validate_entry(
         cls,
-        data: dict,  # Argument used by subclass. pylint: disable=unused-argument
-        index: int,  # Argument used by subclass. pylint: disable=unused-argument
+        data: dict,
+        index: int,
     ) -> bool:
         """Additional confirmation of entry values before load.
 
@@ -225,6 +266,20 @@ class CollectionEntry:
             KEY_ID: self.uuid,
             KEY_NAME: self.name,
         }
+
+    def update(
+        self,
+        new_values: dict,
+    ) -> dict:
+        """Update the values of an entry.
+
+        Args:
+            new_values: New attributes to set on the entry.
+
+        Returns:
+            Final configuration with the updated values.
+        """
+        raise NotImplemented(f"{self.__class__} does not allow updates")
 
 
 class CollectionValueError(response_utils.APIError, ValueError):
