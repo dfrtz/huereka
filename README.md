@@ -17,7 +17,7 @@
 [![license: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](LICENSE)
 
 
-### Home lighting and automation platform.
+### Home automation platform.
 
 Huereka! is a home-grown automation platform for hobbyists. Originally a way to control home decorative lighting,
 such as RGB holiday lights, it also allows control of other basic electronic devices via various microcontrollers.
@@ -88,7 +88,7 @@ any specific new features being added.
 [Set up Huereka LED Test Hardware](SETUP.md#set-up-huereka-testing-hardware)  
 [Set up Huereka Service to Start on Boot](SETUP.md#set-up-huereka-service-to-start-on-boot)  
 [Improve Raspberry Pi Boot Time](SETUP.md#improve-raspberry-pi-boot-time)  
-[uHuereka (Micro-Huereka) Set Up](uhuereka/SETUP.md)  
+[uHuereka (Micro-Huereka) Set Up](uhuereka/README.md)  
 [Other Set Up Guides](SETUP.md)
 
 

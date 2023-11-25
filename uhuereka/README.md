@@ -9,12 +9,17 @@ full size library.
 
 * [Requirements](#requirements)
 * [Recommendations](#recommendations)
-* [MicroPython Setup](#micropython-setup)
+* [MicroPython Setups](#micropython-setups)
   * [Download MicroPython](#download-micropython)
   * [Set Up MicroPython on RP2040 devices](#set-up-micropython-on-rp2040-devices)
   * [Set Up MicroPython on ESP devices](#set-up-micropython-on-esp-devices)
+* [uHuereka Setups](#uhuereka-setups)
+  * [Set Up uHuereka on Host](#set-up-uhuereka-on-host)
+  * [Set Up uHuereka on Microcontroller](#set-up-uhuereka-on-microcontroller)
+* [Accessing MicroPython Environments](#accessing-micropython-environments)
   * [Access MicroPython Environment on Microcontroller via GUI](#access-micropython-environment-on-microcontroller-via-gui)
   * [Access MicroPython Environment on Microcontroller via CLI](#access-micropython-environment-on-microcontroller-via-cli)
+* [Advanced Setups](#advanced-setups)
   * [Set Up Micropython Development Environment](#set-up-micropython-development-environment)
 
 
@@ -35,13 +40,12 @@ full size library.
   * Seeed Studio XIAO ESP32-C3 (Wireless)
 
 
-## MicroPython Setup
+## MicroPython Setups
 
 ### Download MicroPython
 
 Find and download a bootloader from official MicroPython repositories for your hardware:  
 https://micropython.org/download/
-
 
 ### Set Up MicroPython on RP2040 devices
 
@@ -49,14 +53,13 @@ https://micropython.org/download/
 
 2. Open the Rpi Pico like a disk drive, and copy .uf2 firmware into directory. Will auto reboot after upload.
 
-
 ### Set Up MicroPython on ESP devices
 
 Installation may very from device to device. General guidelines below are based off ESP32-C3 device.
 For full information on how to use 'esptool', refer to:  
 https://github.com/espressif/esptool
 
-1. Ensure local development is set up and active per [Set Up Micropython Development Environment](../SETUP.md#set-up-huereka-development-environment)
+1. Ensure local development is set up and active per [Set Up Huereka Development Environment](../SETUP.md#set-up-huereka-development-environment)
 
 2. Install `esptool`.
    ```bash
@@ -76,34 +79,75 @@ https://github.com/espressif/esptool
     https://micropython.org/download/
 
 
+## uHuereka Setups
+
+### Set Up uHuereka on Host
+
+1. Ensure local development is set up and active per [Set Up Huereka Development Environment](../SETUP.md#set-up-huereka-development-environment)
+
+2. Install `mpremote` and `rshell` for managing files and dependencies on the microcontrollers.
+   ```bash
+   pip install mpremote rshell
+   ```
+
+### Set Up uHuereka on Microcontroller
+
+1. Ensure microcontroller access via CLI is ready per [Set Up uHuereka on Host](#set-up-uhuereka-on-host)
+
+2. Optional: Add a Wi-Fi config before install/sync to automatically connect on boot.
+   If no config is added, it will automatically start a temporary Wi-Fi network for direct connection and configuration.
+   To pre-configure, add a `wifi.json` under `uhuereka/src/`:
+   ```bash
+   [
+     {
+       "ssid": "<network name>",
+       "password": "<password>"
+     }
+   ]
+   ```
+
+3. Optional: Add a manager config to automatically configure device on boot.
+   If no config is added, managers will have to be configured manually through the API or a text editor.
+   To pre-configure, add a `power_managers.json` under `src/`. Examples can be found or copied from `examples/`.
+   ```bash
+   # Example to set up an ESP32-C3 device with 2 power managers on pins 2 and 3:
+   cp uhuereka/examples/power_managers_esp32-c3.json uhuereka/src/power_managers.json
+   ```
+
+4. Run installer to copy over both uHuereka source, and install required MicroPython dependencies.
+   ```bash
+   uhuereka/install.sh --device <USB port microctonroller is connected to> --src --deps
+   # Example:
+   uhuereka/install.sh --device /dev/ttyUSB0 --src --deps
+   ```
+
+
+## Accessing MicroPython Environments
+
 ### Access MicroPython Environment on Microcontroller via GUI
 
 Thonny provides an interactive IDE with REPL CLI built in. It can also be used to manage the files saved to the devices.
 For more information on installing and using Thonny, visit:  
 https://thonny.org/
 
-
 ### Access MicroPython Environment on Microcontroller via CLI
 
-1. Ensure local development is set up and active per [Set Up Micropython Development Environment](../SETUP.md#set-up-huereka-development-environment)
+1. Ensure microcontroller access via CLI is ready per [Set Up uHuereka on Host](#set-up-uhuereka-on-host)
 
-2. Install `rshell`.
-   ```bash
-   pip install rshell
-   ```
-
-3. Open rshell prompt:
+2. Open rshell prompt:
    ```bash
    rshell
    ```
 
-4. Verify microcontroller is visible:
+3. Verify microcontroller is visible:
    ```bash
    boards
    ```
 
-5. If available, you can now manage files on the device from `/pyboard`, or run other commands available in `help`.
+4. If available, you can now manage files on the device from `/pyboard`, or run other commands available in `help`.
 
+
+## Advanced Setups
 
 ### Set Up Micropython Development Environment
 
