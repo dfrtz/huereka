@@ -476,7 +476,7 @@ class LightingSchedules(Collection):
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
-    collection_help: str = "lighting schedule"
+    collection_help: str = "lighting schedules"
     entry_cls: str = LightingSchedule
 
     @classmethod

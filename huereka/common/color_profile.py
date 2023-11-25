@@ -232,7 +232,7 @@ class ColorProfiles(Collection):
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
-    collection_help: str = "color profile"
+    collection_help: str = "color profiles"
     entry_cls: str = ColorProfile
 
     @classmethod

@@ -92,7 +92,7 @@ class Colors(Collection):
     _collection_lock: threading.Condition = threading.Condition()
     _collection_uri: str = None
 
-    collection_help: str = "color"
+    collection_help: str = "colors"
     entry_cls: str = Color
 
     @classmethod
