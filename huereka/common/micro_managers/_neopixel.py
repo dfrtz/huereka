@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Sequence
 
-import board
-import neopixel
 from adafruit_pixelbuf import ColorUnion
 from microcontroller import Pin
 
@@ -22,6 +20,15 @@ from huereka.common.micro_managers._manager_base import LEDMicroManager
 
 logger = logging.getLogger(__name__)
 
+try:
+    import board
+    import neopixel
+
+    # Default to RPi pin D18 to match recommended setup.
+    DEFAULT_PIN = board.D18
+except NotImplementedError:
+    DEFAULT_PIN = -1
+    logger.warning("Unable to detect board type, defaulting LEDMicroManager pin to -1 and disabling NeoPixel support")
 KEY_PIXEL_ORDER = "pixel_order"
 
 
@@ -33,7 +40,7 @@ class NeoPixelManager(LEDMicroManager):
         led_count: int = 100,
         brightness: float = 1.0,
         pixel_order: str = "RGB",
-        pin: Pin = board.D18,
+        pin: Pin = DEFAULT_PIN,
     ) -> None:
         """Set up a single NeoPixel LED strip.
 
