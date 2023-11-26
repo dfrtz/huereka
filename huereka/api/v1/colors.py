@@ -3,9 +3,9 @@
 from flask import request
 
 from huereka.api.v1 import api
-from huereka.common import response_utils as responses
 from huereka.common.colors import Color
 from huereka.common.colors import Colors
+from huereka.shared import responses
 
 
 @api.route("/colors", methods=["GET"])

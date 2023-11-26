@@ -5,7 +5,7 @@ import os
 from flask import Blueprint
 
 from huereka.common import import_utils
-from huereka.common import response_utils as responses
+from huereka.shared import responses
 
 api = Blueprint("v1_api", __name__)
 
