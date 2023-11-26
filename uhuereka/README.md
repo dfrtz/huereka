@@ -1,11 +1,16 @@
 # uHuereka
 
-uHuereka (pronounced Micro-Huereka) is a miniature version of Huereka designed for MicroPython. It is designed
+uHuereka (pronounced Micro-Huereka) is a miniaturized version of Huereka designed for MicroPython. It is designed
 to run on microcontrollers with low memory, CPU, etc., and only contains minimal features compared to the
 full size library.
 
+### READ THIS NOTICE BEFORE CONTINUING
 
-#### Table Of Contents
+> **CAUTION: Improper grounding, voltage, and other interactions with electricity, can cause personal injury or
+damage to your surroundings. By using this guide you agree to take proper precautions and assume full responsibility.**
+
+
+### Table Of Contents
 
 * [Requirements](#requirements)
 * [Recommendations](#recommendations)
@@ -51,11 +56,11 @@ https://micropython.org/download/
 
 1. Hold down BOOTSEL button and plug in to computer. Release button after plugged in.
 
-2. Open the Rpi Pico like a disk drive, and copy .uf2 firmware into directory. Will auto reboot after upload.
+2. Open the RP2040 device like a disk drive, and copy the .uf2 firmware directly to it. Will auto reboot after upload.
 
 ### Set Up MicroPython on ESP devices
 
-Installation may very from device to device. General guidelines below are based off ESP32-C3 device.
+Installation may very from device to device. General guidelines below are based off ESP32 like device.
 For full information on how to use 'esptool', refer to:  
 https://github.com/espressif/esptool
 
@@ -96,7 +101,7 @@ https://github.com/espressif/esptool
 
 2. Optional: Add a Wi-Fi config before install/sync to automatically connect on boot.
    If no config is added, it will automatically start a temporary Wi-Fi network for direct connection and configuration.
-   To pre-configure, add a `wifi.json` under `uhuereka/src/`:
+   To pre-configure, add a `wifi.json` under `src/`:
    ```bash
    [
      {
@@ -110,13 +115,13 @@ https://github.com/espressif/esptool
    If no config is added, managers will have to be configured manually through the API or a text editor.
    To pre-configure, add a `power_managers.json` under `src/`. Examples can be found or copied from `examples/`.
    ```bash
-   # Example to set up an ESP32-C3 device with 2 power managers on pins 2 and 3:
+   # Example to set up an ESP32-C3 device with 2 power toggle managers on pins 2 and 3:
    cp uhuereka/examples/power_managers_esp32-c3.json uhuereka/src/power_managers.json
    ```
 
-4. Run installer to copy over both uHuereka source, and install required MicroPython dependencies.
+4. Run installer to copy over uHuereka source and install required MicroPython dependencies.
    ```bash
-   uhuereka/install.sh --device <USB port microctonroller is connected to> --src --deps
+   uhuereka/install.sh --device <USB port microcontroller is connected to> --src --deps
    # Example:
    uhuereka/install.sh --device /dev/ttyUSB0 --src --deps
    ```
@@ -137,6 +142,10 @@ https://thonny.org/
 2. Open rshell prompt:
    ```bash
    rshell
+   # With device pre-specified
+   rshell --port <USB port microcontroller is connected to>
+   # Example:
+   rshell --port /dev/ttyUSB0
    ```
 
 3. Verify microcontroller is visible:

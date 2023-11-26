@@ -1,10 +1,13 @@
-# READ THIS NOTICE
+### READ THIS NOTICE
 
-**CAUTION: Improper grounding, voltage, and other interactions with electricity, can cause personal injury or
+> **CAUTION: Improper grounding, voltage, and other interactions with electricity, can cause personal injury or
 damage to your surroundings. By using this guide you agree to take proper precautions and assume full responsibility.**
 
-**CAUTION: Improper use of 'dd' can overwrite any partition on your system. Do not proceed with any
+> **CAUTION: Improper use of 'dd' can overwrite any partition on your system. Do not proceed with any
 commands without absolute certainty they are targeting the correct partition.**
+
+> **CAUTION: Before applying any optimizations, understand the risks. These may lead to an un-bootable system
+if applied improperly. Not all settings are appropriate for all use cases either.**
 
 This guide was written and tested on Raspberry Pi OS Lite (2022-09-22), however
 the same steps (should) work in any Debian based environment with minimal modification. Other
@@ -12,7 +15,7 @@ Linux distros will require medium to heavy modification of the commands such as 
 dependencies. Your mileage may vary.
 
 
-#### Table Of Contents
+### Table Of Contents
 
 * [Download Raspberry Pi OS](#download-raspberry-pi-os-raspbian-image)
 * [Installing OS](#installing-the-operating-system)
@@ -25,6 +28,7 @@ dependencies. Your mileage may vary.
 * [Set up Serial Hardware Alias](#set-up-serial-hardware-alias)
 * [Set up Huereka Service to Start on Boot](#set-up-huereka-service-to-start-on-boot)
 * [Improve Raspberry Pi Boot Time](#improve-raspberry-pi-boot-time)
+* [uHuereka Setup](uhuereka/README.md)
 
 
 ### Download Raspberry Pi OS (Raspbian) Image
@@ -407,7 +411,7 @@ static `/dev/arduino` alias on a Raspberry Pi, however they can be used for any 
 5. Create a new service file under `/etc/systemd/system/huereka.service`:
     ```
     [Unit]
-    Description=GPIO LED manager software
+    Description=Home Automation Software
 
     [Service]
     ExecStart=/home/huereka/huereka.sh
