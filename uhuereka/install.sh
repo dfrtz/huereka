@@ -14,6 +14,7 @@ install_src="false"
 install_dependencies="false"
 no_ssl="false"
 dry_run="false"
+cmd_prefix=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -54,21 +55,23 @@ fi
 
 if [ "${dry_run}" == "true" ]; then
   echo "Dry running commands without executing."
-  mpremote_bin="echo ${mpremote_bin}"
-  rshell_bin="echo ${rshell_bin}"
+  cmd_prefix="echo"
 fi
 
 if [ "${install_dependencies}" == "true" ]; then
-  $mpremote_bin connect /dev/cu.usbmodem14201 mip install logging
-  $mpremote_bin connect /dev/cu.usbmodem14201 mip install pathlib
-  $mpremote_bin connect /dev/cu.usbmodem14201 mip install time
-  $mpremote_bin connect /dev/cu.usbmodem14201 mip install github:miguelgrinberg/microdot/src/microdot.py
+  $cmd_prefix $mpremote_bin connect ${device} mip install logging
+  $cmd_prefix $mpremote_bin connect ${device} mip install pathlib
+  $cmd_prefix $mpremote_bin connect ${device} mip install time
+  $cmd_prefix $mpremote_bin connect ${device} mip install github:miguelgrinberg/microdot/src/microdot.py
 fi
 
 if [ "${install_src}" == "true" ]; then
-  $rshell_bin --port /dev/cu.usbmodem14201 rsync ${script_root}/src/ /pyboard/
+  $cmd_prefix $rshell_bin --port ${device} rsync ${script_root}/src/ /pyboard/
+
+  # Cleanup any CPython files from the shared location before pushing in case project was run locally.
+  $cmd_prefix rm -r ${project_root}/huereka/shared/__pycache__ || true
   # Rsync with folders only works to existing folders, must create tree manually first for nested sync.
-  $rshell_bin --port /dev/cu.usbmodem14201 mkdir /pyboard/huereka
-  $rshell_bin --port /dev/cu.usbmodem14201 mkdir /pyboard/huereka/shared
-  $rshell_bin --port /dev/cu.usbmodem14201 rsync ${project_root}/huereka/shared/ /pyboard/huereka/shared/
+  $cmd_prefix $rshell_bin --port ${device} mkdir /pyboard/huereka
+  $cmd_prefix $rshell_bin --port ${device} mkdir /pyboard/huereka/shared
+  $cmd_prefix $rshell_bin --port ${device} rsync ${project_root}/huereka/shared/ /pyboard/huereka/shared/
 fi

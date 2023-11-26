@@ -1,4 +1,7 @@
-"""Functions and classes for providing consistent JSON responses from an API."""
+"""Functions and classes for providing consistent JSON responses from an API.
+
+N.B. This entire library must remain compatible with usage in CPython and MicroPython.
+"""
 
 from __future__ import annotations
 

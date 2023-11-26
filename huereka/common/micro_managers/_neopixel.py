@@ -9,14 +9,14 @@ from adafruit_pixelbuf import ColorUnion
 from microcontroller import Pin
 
 from huereka.common import color_utils
-from huereka.common.collections import CollectionValueError
-from huereka.common.collections import get_and_validate
 from huereka.common.color_utils import Colors
 from huereka.common.micro_managers._manager_base import KEY_BRIGHTNESS
 from huereka.common.micro_managers._manager_base import KEY_LED_COUNT
 from huereka.common.micro_managers._manager_base import KEY_PIN
 from huereka.common.micro_managers._manager_base import KEY_TYPE
 from huereka.common.micro_managers._manager_base import LEDMicroManager
+from huereka.shared.collections import CollectionValueError
+from huereka.shared.collections import get_and_validate
 
 logger = logging.getLogger(__name__)
 
@@ -166,13 +166,12 @@ class NeoPixelManager(LEDMicroManager):
         Returns:
             Final manager configuration with the updated values.
         """
-        invalid_prefix = "invalid-lighting-manager"
-        led_count = get_and_validate(new_values, KEY_LED_COUNT, int, nullable=True, error_prefix=invalid_prefix)
-        brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float, nullable=True, error_prefix=invalid_prefix)
+        led_count = get_and_validate(new_values, KEY_LED_COUNT, int)
+        brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float)
         if brightness is not None:
             self.set_brightness(brightness, save=True)
-        pixel_order = get_and_validate(new_values, KEY_PIXEL_ORDER, str, nullable=True, error_prefix=invalid_prefix)
-        pin = get_and_validate(new_values, KEY_PIN, int, nullable=True, error_prefix=invalid_prefix)
+        pixel_order = get_and_validate(new_values, KEY_PIXEL_ORDER, str)
+        pin = get_and_validate(new_values, KEY_PIN, int)
         if pin is not None:
             self.led_pin = Pin(pin)
         if led_count is not None:

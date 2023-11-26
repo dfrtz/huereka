@@ -7,10 +7,10 @@ import threading
 from typing import Any
 
 from huereka.common import color_utils
-from huereka.common.collections import KEY_ID
-from huereka.common.collections import Collection
-from huereka.common.collections import CollectionEntry
-from huereka.common.collections import CollectionValueError
+from huereka.shared.collections import KEY_ID
+from huereka.shared.collections import Collection
+from huereka.shared.collections import CollectionEntry
+from huereka.shared.collections import CollectionValueError
 
 logger = logging.getLogger(__name__)
 
