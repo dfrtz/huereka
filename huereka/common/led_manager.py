@@ -9,16 +9,16 @@ from typing import Sequence
 from adafruit_pixelbuf import ColorUnion
 
 from huereka.common import micro_managers
-from huereka.common.collections import KEY_ID
-from huereka.common.collections import KEY_NAME
-from huereka.common.collections import Collection
-from huereka.common.collections import CollectionEntry
-from huereka.common.collections import CollectionValueError
-from huereka.common.collections import get_and_validate
 from huereka.common.color_utils import Colors
 from huereka.common.micro_managers import KEY_PIN
 from huereka.common.micro_managers import KEY_PORT
 from huereka.common.micro_managers import KEY_TYPE
+from huereka.shared.collections import KEY_ID
+from huereka.shared.collections import KEY_NAME
+from huereka.shared.collections import Collection
+from huereka.shared.collections import CollectionEntry
+from huereka.shared.collections import CollectionValueError
+from huereka.shared.collections import get_and_validate
 
 logger = logging.getLogger(__name__)
 
@@ -246,11 +246,10 @@ class LEDManager(CollectionEntry):
         Returns:
             Final manager configuration with the updated values.
         """
-        invalid_prefix = "invalid-lighting-manager"
-        name = get_and_validate(new_values, KEY_NAME, str, nullable=True, error_prefix=invalid_prefix)
+        name = get_and_validate(new_values, KEY_NAME, str)
         if name is not None and name != self.name:
             self.name = name
-        mode = get_and_validate(new_values, KEY_MODE, int, nullable=True, error_prefix=invalid_prefix)
+        mode = get_and_validate(new_values, KEY_MODE, int)
         if mode is not None and mode != self.mode:
             self.mode = mode
         self._led_manager.update(new_values)

@@ -11,12 +11,12 @@ from typing import Any
 from huereka.common import color_profile
 from huereka.common import color_utils
 from huereka.common import led_manager
-from huereka.common.collections import KEY_ID
-from huereka.common.collections import Collection
-from huereka.common.collections import CollectionEntry
-from huereka.common.collections import CollectionValueError
-from huereka.common.collections import get_and_validate
 from huereka.shared import responses
+from huereka.shared.collections import KEY_ID
+from huereka.shared.collections import Collection
+from huereka.shared.collections import CollectionEntry
+from huereka.shared.collections import CollectionValueError
+from huereka.shared.collections import get_and_validate
 
 logger = logging.getLogger(__name__)
 
@@ -568,23 +568,22 @@ class LightingSchedules(Collection):
         """
         with cls._collection_lock:
             schedule = cls.get(uuid)
-            invalid_prefix = "invalid-lighting-schedule"
-            name = get_and_validate(new_values, KEY_NAME, str, nullable=True, error_prefix=invalid_prefix)
+            name = get_and_validate(new_values, KEY_NAME, str)
             if name is not None and name != schedule.name:
                 schedule.name = name
-            routines = get_and_validate(new_values, KEY_ROUTINES, list, nullable=True, error_prefix=invalid_prefix)
+            routines = get_and_validate(new_values, KEY_ROUTINES, list)
             if routines is not None:
                 try:
                     schedule.routines = [LightingRoutine.from_json(routine) for routine in routines]
                 except Exception as error:  # pylint: disable=broad-except
-                    raise CollectionValueError(f"{invalid_prefix}-routines") from error
-            mode = get_and_validate(new_values, KEY_MODE, int, nullable=True, error_prefix=invalid_prefix)
+                    raise CollectionValueError("invalid-lighting-schedule-routines") from error
+            mode = get_and_validate(new_values, KEY_MODE, int)
             if mode is not None:
                 schedule.mode = mode
-            led_delay = get_and_validate(new_values, KEY_LED_DELAY, float, nullable=True, error_prefix=invalid_prefix)
+            led_delay = get_and_validate(new_values, KEY_LED_DELAY, float)
             if led_delay is not None:
                 schedule.led_delay = led_delay
-            brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float, nullable=True, error_prefix=invalid_prefix)
+            brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float)
             if brightness is not None:
                 schedule.brightness = brightness
             result = schedule.to_json()

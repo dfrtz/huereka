@@ -1,17 +1,21 @@
-"""Thread safe helpers for managing API collections."""
+"""Managers for storing and accessing API collections.
+
+N.B. This entire library must remain compatible with usage in CPython and MicroPython.
+"""
 
 from __future__ import annotations
 
 import abc
+import binascii
 import json
 import logging
 import os
-import shutil
-import threading
+import pathlib
+from types import TracebackType
 from typing import Any
-from typing import Type
-from uuid import uuid4
+from typing import Callable
 
+from huereka.shared import environments
 from huereka.shared import responses
 
 logger = logging.getLogger(__name__)
@@ -20,21 +24,24 @@ KEY_ID = "id"
 KEY_NAME = "name"
 
 
-class Collection(metaclass=abc.ABCMeta):
-    """Base singleton class for managing reusable collection entries in a thread safe manner."""
+class Collection(abc.ABC):
+    """Base singleton class for managing reusable collection entries."""
 
-    # Abstract here to enforce each class declare and not share. Should be replaced with: {}
-    _collection: dict[str, CollectionEntry] = abc.abstractproperty()
-    # Abstract here to enforce each class declare and not share. Should be replaced with: threading.Condition()
-    _collection_lock: threading.Condition = abc.abstractproperty()
-    # Abstract here to enforce each class declare and not share. Should be replaced with: None
+    # Base values are not implemented here to enforce each class declare concrete instances and not share.
+
+    # Base collection mapping. Should be replaced with: {}
+    _collection: dict[str, CollectionEntry] = abc.abstractproperty(dict)
+    # Shared lock across threads. Should be replaced with: threading.Condition() or threading.Lock() on systems where
+    # multithreading is used, or DisabledCollectionLock() on systems where multithreading is not supported or used.
+    _collection_lock: Any = abc.abstractproperty()
+    # Location where the collection is stored. Should be replaced with: None
     # First load will set the URI for all future actions.
     _collection_uri: str = abc.abstractproperty(str)
 
-    # Text used when display helper/logging messages. e.g. 'user documents'
+    # Text used when displaying helper/logging messages. e.g. 'user documents'
     collection_help: str = abc.abstractproperty(str)
     # Class used to instantiate entries on load.
-    entry_cls: Type[CollectionEntry] = abc.abstractproperty()
+    entry_cls: type[CollectionEntry] = abc.abstractproperty(type)
 
     @classmethod
     def collection_help_api_name(cls) -> str:
@@ -72,23 +79,9 @@ class Collection(metaclass=abc.ABCMeta):
         """
         loaded_data = []
         if isinstance(data, str):
-            if data.startswith("["):
-                try:
-                    loaded_data = json.loads(data)
-                except Exception:  # pylint: disable=broad-except
-                    logger.exception(f"Failed to load {cls.collection_help} from text")
-            elif data.startswith(("/", "file://")):
-                cls._collection_uri = data
-                data = data.removeprefix("file://")
-                try:
-                    with open(data, "rt", encoding="utf-8") as file_in:
-                        try:
-                            loaded_data = json.load(file_in)
-                            logger.info(f"Loaded {cls.collection_help} from {cls._collection_uri}")
-                        except Exception:  # pylint: disable=broad-except
-                            logger.exception(f"Failed to load {cls.collection_help} from local file {data}")
-                except FileNotFoundError:
-                    logger.warning(f"Skipping {cls.collection_help} load, file not found {data}")
+            string_result = cls._load_str(data)
+            if string_result is not None:
+                loaded_data = string_result
         elif isinstance(data, list):
             loaded_data = data
         generated = []
@@ -103,9 +96,35 @@ class Collection(metaclass=abc.ABCMeta):
                     generated.append(entry)
             except Exception as error:  # pylint: disable=broad-except
                 errors.append((index, error))
-                logger.exception(f"Skipping invalid {cls.collection_help} setup at index {index}")
+                logger.exception(f"Skipping invalid {cls.collection_help} setup at index {index}", exc_info=error)
         cls.post_load()
         return generated, errors
+
+    @classmethod
+    def _load_str(cls, data: str | list[dict]) -> list | None:
+        """Load collection configuration from a string."""
+        loaded_data = None
+        if data.startswith("["):
+            try:
+                loaded_data = json.loads(data)
+            except Exception as error:  # pylint: disable=broad-except
+                logger.exception(f"Failed to load {cls.collection_help} from text", exc_info=error)
+        elif data.startswith("/") or data.startswith("file://"):
+            cls._collection_uri = data
+            data = data.replace("file://", "")
+            try:
+                with open(data, "rt", encoding="utf-8") as file_in:
+                    try:
+                        loaded_data = json.load(file_in)
+                        logger.info(f"Loaded {len(loaded_data)} {cls.collection_help} from {cls._collection_uri}")
+                    except Exception as error:  # pylint: disable=broad-except
+                        logger.exception(f"Failed to load {cls.collection_help} from local file {data}", exc_info=error)
+            except OSError as error:
+                if error.errno == 2:
+                    logger.warning(f"Skipping {cls.collection_help} load, file not found {data}")
+                else:
+                    raise error
+        return loaded_data
 
     @classmethod
     def post_load(cls) -> None:
@@ -146,16 +165,24 @@ class Collection(metaclass=abc.ABCMeta):
         """Persist the current entries to storage."""
         if cls._collection_uri is not None:
             uri = cls._collection_uri
-            if uri.startswith(("/", "file://")):
-                uri = uri.removeprefix("file://")
-                os.makedirs(os.path.dirname(uri), exist_ok=True)
+            if uri.startswith("/") or uri.startswith("file://"):
+                uri = uri.replace("file://", "")
+
+                path = pathlib.Path(uri)
+                path.parent.mkdir(parents=True, exist_ok=True)
+
                 with cls._collection_lock:
                     # Write to a temporary file, and then move to expected file, so that if for any reason
                     # it is interrupted, the original remains intact and the user can decide which to load.
                     tmp_path = f"{uri}.tmp"
                     with open(tmp_path, "w+", encoding="utf-8") as file_out:
-                        json.dump(cls.to_json(save_only=True), file_out, indent=2)
-                    shutil.move(tmp_path, uri)
+                        # Use pretty-print in standard environments to simplify manual reviews of collections,
+                        # since their collections are typically large. MicroPython does not support pretty-printing.
+                        if environments.is_micro_python():
+                            json.dump(cls.to_json(save_only=True), file_out)
+                        else:
+                            json.dump(cls.to_json(save_only=True), file_out, indent=2)
+                    os.rename(tmp_path, uri)
                     logger.info(f"Saved {cls.collection_help} to {uri}")
 
     @classmethod
@@ -216,8 +243,8 @@ class Collection(metaclass=abc.ABCMeta):
         return True
 
 
-class CollectionEntry:
-    """Base class for loading and storing collection entries."""
+class CollectionEntry(abc.ABC):
+    """Base for loading and storing collection entries."""
 
     def __init__(self, uuid: str | None = None, name: str | None = None) -> None:
         """Set up the base collection entry values.
@@ -296,29 +323,106 @@ class CollectionValueError(responses.APIError):
         super().__init__(error, data, code=code)
 
 
-def get_and_validate(
+class DisabledCollectionLock:
+    """Simulated lock object without locking capabilities to allow collection usage in various environments.
+
+    Prefer to use threading.Lock where possible. Using this will remove all multithreading safety from the object,
+    and require access to be manually protected by callers.
+    """
+
+    def __enter__(self) -> DisabledCollectionLock:
+        """Placeholder to return this instance when lock context is entered."""
+        return self
+
+    def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType) -> None:
+        """Placeholder for exit actions when lock context is exited."""
+
+
+def get_and_validate(  # Allow complex combinations to validate values consistently. pylint: disable=too-many-arguments
     data: dict,
     key: str,
-    expected_type: Any,
-    nullable: bool = False,
-    error_prefix: str = "invalid",
+    expected_type: type | None = None,
+    expected_choices: list | tuple | None = None,
+    nullable: bool = True,
+    validator: Callable | None = None,
+    validation_error: str = "invalid-value",
+    validation_message: str = "Invalid value",
 ) -> Any:
-    """Retrieve data and validate type.
+    """Retrieve and validate data.
 
     Args:
         data: Mapping of key value pairs available to a collection.
         key: Name of the value to pull from the data.
         expected_type: Instance type that the value should be, such as int or bool.
+        expected_choices: Possible valid choices.
         nullable: Whether the value is allowed to be null.
-        error_prefix: Prefix to add to the exception message if the value is invalid.
+        validator: Custom function that returns true if the value is valid, false otherwise.
+        validation_error: Custom error type that will display if the custom validator fails validation.
+        validation_message: Custom error message that will display if the custom validator fails validation.
 
     Returns:
         Final value pulled from the data if valid.
 
     Raises:
-        CollectionValueError if the data type is invalid.
+        CollectionValueError if the data fails to meet all the required criteria.
     """
     value = data.get(key)
-    if (value is None and not nullable) or (value is not None and not isinstance(value, expected_type)):
-        raise CollectionValueError(f"{error_prefix}-{key}")
+    if value is None and nullable:
+        return value
+    if value is None:
+        raise CollectionValueError(
+            "not-nullable",
+            data={
+                "key": key,
+            },
+        )
+    if expected_type is not None and not isinstance(value, expected_type):
+        raise CollectionValueError(
+            "invalid-type",
+            data={
+                "key": key,
+                "value": value,
+                "options": str(expected_type),
+            },
+        )
+    if expected_choices is not None and value not in expected_choices:
+        raise CollectionValueError(
+            "invalid-choice",
+            data={
+                "key": key,
+                "value": value,
+                "options": list(expected_choices),
+            },
+        )
+    if validator is not None and not validator(value):
+        raise CollectionValueError(
+            validation_error,
+            data={
+                "key": key,
+                "value": value,
+                "msg": validation_message,
+            },
+        )
     return value
+
+
+def uuid4() -> str:
+    """Generate a random RFC 4122 compliant UUID.
+
+    Returns:
+        128 bit (16 byte) Universally Unique IDentifier.
+    """
+    random = bytearray(os.urandom(16))
+    random[6] = (random[6] & 0x0F) | 0x40
+    random[8] = (random[8] & 0x3F) | 0x80
+    hex_values = binascii.hexlify(random).decode()
+    uuid = "-".join(
+        (
+            hex_values[0:8],
+            hex_values[8:12],
+            hex_values[12:16],
+            hex_values[16:20],
+            hex_values[20:32],
+        )
+    )
+    return uuid
