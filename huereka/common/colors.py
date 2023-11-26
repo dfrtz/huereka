@@ -106,20 +106,20 @@ class Colors(Collection):
     @classmethod
     def update(
         cls,
-        old_color: str,
+        uuid: str,
         new_values: dict,
     ) -> dict:
         """Update the values of a color.
 
         Args:
-            old_color: Name of the original color to update.
+            uuid: Name of the original color to update.
             new_values: New JSON like attributes to set on the color.
 
         Returns:
             Final color configuration with the updated values.
         """
         with cls._collection_lock:
-            color = cls.get(old_color)
+            color = cls.get(uuid)
             name = new_values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):

@@ -5,6 +5,7 @@
 set -e
 
 script_root="$(dirname $(readlink -f "$0"))"
+project_root="$(dirname ${script_root})"
 
 device=""
 rshell_bin="rshell"
@@ -66,4 +67,8 @@ fi
 
 if [ "${install_src}" == "true" ]; then
   $rshell_bin --port /dev/cu.usbmodem14201 rsync ${script_root}/src/ /pyboard/
+  # Rsync with folders only works to existing folders, must create tree manually first for nested sync.
+  $rshell_bin --port /dev/cu.usbmodem14201 mkdir /pyboard/huereka
+  $rshell_bin --port /dev/cu.usbmodem14201 mkdir /pyboard/huereka/shared
+  $rshell_bin --port /dev/cu.usbmodem14201 rsync ${project_root}/huereka/shared/ /pyboard/huereka/shared/
 fi

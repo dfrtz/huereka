@@ -2,26 +2,24 @@
 
 from __future__ import annotations
 
-import abc
-from http import HTTPStatus
 from typing import Any
 
-StatusOK = HTTPStatus.OK
-StatusInternalError = HTTPStatus.INTERNAL_SERVER_ERROR
-StatusNotFound = HTTPStatus.NOT_FOUND
-StatusNotAuthorized = HTTPStatus.UNAUTHORIZED
-StatusNotAllowed = HTTPStatus.METHOD_NOT_ALLOWED
-StatusInvalidRequest = HTTPStatus.BAD_REQUEST
-StatusInvalidData = HTTPStatus.UNPROCESSABLE_ENTITY
+STATUS_OK = 200
+STATUS_INVALID_REQUEST = 400
+STATUS_NOT_AUTHORIZED = 401
+STATUS_NOT_FOUND = 404
+STATUS_NOT_ALLOWED = 405
+STATUS_INVALID_DATA = 422
+INTERNAL_SERVER_ERROR = 500
 
 _status_texts = {
-    StatusOK: "ok",
-    StatusInternalError: "internal-error",
-    StatusNotAuthorized: "not-authorized",
-    StatusNotFound: "not-found",
-    StatusNotAllowed: "not-allowed",
-    StatusInvalidRequest: "invalid-request",
-    StatusInvalidData: "invalid-data",
+    STATUS_OK: "ok",
+    INTERNAL_SERVER_ERROR: "internal-error",
+    STATUS_NOT_AUTHORIZED: "not-authorized",
+    STATUS_NOT_FOUND: "not-found",
+    STATUS_NOT_ALLOWED: "not-allowed",
+    STATUS_INVALID_REQUEST: "invalid-request",
+    STATUS_INVALID_DATA: "invalid-data",
 }
 
 KEY_ERROR = "error"
@@ -29,7 +27,7 @@ KEY_ERROR_DATA = "error_data"
 KEY_RESULT = "result"
 
 
-class APIError(Exception, metaclass=abc.ABCMeta):
+class APIError(Exception):
     """Base class used to create standardized JSON API responses via error handlers."""
 
     def __init__(self, error: str, data: Any = None, code: int = 500) -> None:
@@ -80,7 +78,7 @@ def json_error(error: str | int | APIError | Exception, data: Any = None) -> dic
         if data is None:
             data = error.data
     else:
-        msg = status_text(StatusInternalError)
+        msg = status_text(INTERNAL_SERVER_ERROR)
 
     json_data = {KEY_ERROR: msg}
     if data is not None:
@@ -130,7 +128,7 @@ def invalid_data(data: Any = None) -> tuple[dict, int]:
     Returns:
         An error response body and 422 error code.
     """
-    return json_error(StatusInvalidData, data=data), StatusInvalidData
+    return json_error(STATUS_INVALID_DATA, data=data), STATUS_INVALID_DATA
 
 
 def invalid_request(data: Any = None) -> tuple[dict, int]:
@@ -142,7 +140,7 @@ def invalid_request(data: Any = None) -> tuple[dict, int]:
     Returns:
         An error response body and 400 error code.
     """
-    return json_error(StatusInvalidRequest, data=data), StatusInvalidRequest
+    return json_error(STATUS_INVALID_REQUEST, data=data), STATUS_INVALID_REQUEST
 
 
 def not_allowed() -> tuple[dict, int]:
@@ -151,7 +149,7 @@ def not_allowed() -> tuple[dict, int]:
     Returns:
         An error response body and 405 error code.
     """
-    return json_error(StatusNotAllowed), StatusNotAllowed
+    return json_error(STATUS_NOT_ALLOWED), STATUS_NOT_ALLOWED
 
 
 def not_authorized() -> tuple[dict, int]:
@@ -160,7 +158,7 @@ def not_authorized() -> tuple[dict, int]:
     Returns:
         And error response body and 401 error code.
     """
-    return json_error(StatusNotAuthorized), StatusNotAuthorized
+    return json_error(STATUS_NOT_AUTHORIZED), STATUS_NOT_AUTHORIZED
 
 
 def not_found() -> tuple[dict, int]:
@@ -169,7 +167,7 @@ def not_found() -> tuple[dict, int]:
     Returns:
         An error response body and 404 error code.
     """
-    return json_error(StatusNotFound), StatusNotFound
+    return json_error(STATUS_NOT_FOUND), STATUS_NOT_FOUND
 
 
 def ok(data: Any = "ok") -> tuple[dict, int]:  # Intentionally short name. pylint: disable=invalid-name
@@ -183,10 +181,10 @@ def ok(data: Any = "ok") -> tuple[dict, int]:  # Intentionally short name. pylin
     """
     try:
         response = json_result(data)
-        status_code = StatusOK
+        status_code = STATUS_OK
     except Exception as error:  # pylint: disable=broad-except
         response = json_error(error, data=data)
-        status_code = StatusInternalError
+        status_code = INTERNAL_SERVER_ERROR
     return response, status_code
 
 
@@ -199,4 +197,4 @@ def server_error(data: Any = None) -> tuple[dict, int]:
     Returns:
         An error response body and 500 error code.
     """
-    return json_error(StatusInternalError, data=data), StatusInternalError
+    return json_error(INTERNAL_SERVER_ERROR, data=data), INTERNAL_SERVER_ERROR

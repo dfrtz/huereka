@@ -11,12 +11,12 @@ from flask import Flask
 
 from huereka.api.v1 import api as v1_api
 from huereka.common import config_utils
-from huereka.common import response_utils as responses
 from huereka.common.color_profile import ColorProfiles
 from huereka.common.colors import Colors
 from huereka.common.led_manager import LEDManagers
 from huereka.common.lighting_schedule import LightingSchedules
 from huereka.common.lighting_schedule import start_schedule_watchdog
+from huereka.shared import responses
 
 app = Flask(__name__)
 app.secret_key = config_utils.SECRET_KEY

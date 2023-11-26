@@ -11,12 +11,12 @@ from typing import Any
 from huereka.common import color_profile
 from huereka.common import color_utils
 from huereka.common import led_manager
-from huereka.common import response_utils
 from huereka.common.collections import KEY_ID
 from huereka.common.collections import Collection
 from huereka.common.collections import CollectionEntry
 from huereka.common.collections import CollectionValueError
 from huereka.common.collections import get_and_validate
+from huereka.shared import responses
 
 logger = logging.getLogger(__name__)
 
@@ -620,7 +620,7 @@ class LightingSchedules(Collection):
                         cls.__schedules_applied__[schedule.manager] = color_profile.ColorProfiles.get(
                             color_profile.DEFAULT_PROFILE_OFF
                         )
-                except response_utils.APIError as error:
+                except responses.APIError as error:
                     if error.code != 404:
                         raise error
                     logger.warning(f"Skipping update of LEDs on non-existent manager {schedule.manager}")
@@ -630,7 +630,7 @@ class LightingSchedules(Collection):
                 else:
                     try:
                         profile = color_profile.ColorProfiles.get(routine.profile)
-                    except response_utils.APIError as error:
+                    except responses.APIError as error:
                         if error.code != 404:
                             raise error
                         # Fallback to off, the profile was not found.

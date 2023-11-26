@@ -12,7 +12,7 @@ from typing import Any
 from typing import Type
 from uuid import uuid4
 
-from huereka.common import response_utils
+from huereka.shared import responses
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class Collection(metaclass=abc.ABCMeta):
         """
         entry = cls._collection.get(key)
         if not entry:
-            raise response_utils.APIError(f'missing-{cls.collection_help_api_name()}', key, code=404)
+            raise responses.APIError(f"missing-{cls.collection_help_api_name()}", key, code=404)
         return entry
 
     @classmethod
@@ -122,7 +122,7 @@ class Collection(metaclass=abc.ABCMeta):
         with cls._collection_lock:
             uuid = entry.uuid
             if uuid in cls._collection:
-                raise response_utils.APIError(f'duplicate-{cls.collection_help_api_name()}', uuid, code=422)
+                raise responses.APIError(f"duplicate-{cls.collection_help_api_name()}", uuid, code=422)
             cls._collection[uuid] = entry
             logger.debug(f"Registered {cls.collection_help} {entry.uuid} {entry.name}")
 
@@ -138,7 +138,7 @@ class Collection(metaclass=abc.ABCMeta):
         """
         with cls._collection_lock:
             if key not in cls._collection:
-                raise response_utils.APIError(f'missing-{cls.collection_help_api_name()}', key, code=404)
+                raise responses.APIError(f"missing-{cls.collection_help_api_name()}", key, code=404)
             return cls._collection.pop(key)
 
     @classmethod
@@ -253,7 +253,10 @@ class CollectionEntry:
             Instantiated entry with the given attributes.
         """
 
-    def to_json(self, save_only: bool = False) -> dict:
+    def to_json(
+        self,
+        save_only: bool = False,  # Used by subclasses. pylint: disable=unused-argument
+    ) -> dict:
         """Convert the entry into a JSON compatible type.
 
         Args:
@@ -278,14 +281,17 @@ class CollectionEntry:
 
         Returns:
             Final configuration with the updated values.
+
+        Raises:
+            CollectionValueError if the class does not allow updates.
         """
-        raise NotImplemented(f"{self.__class__} does not allow updates")
+        raise CollectionValueError("no-updates-allowed", code=responses.STATUS_INVALID_DATA)
 
 
-class CollectionValueError(response_utils.APIError, ValueError):
+class CollectionValueError(responses.APIError):
     """Exception subclass to help identify failures that indicate a collection entry value was invalid."""
 
-    def __init__(self, error: str, data: Any = None, code: int = 422) -> None:
+    def __init__(self, error: str, data: Any = None, code: int = responses.STATUS_INVALID_DATA) -> None:
         """Set up the user details of the error."""
         super().__init__(error, data, code=code)
 

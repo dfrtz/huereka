@@ -252,20 +252,20 @@ class ColorProfiles(Collection):
     @classmethod
     def update(
         cls,
-        old_profile: str,
+        uuid: str,
         new_values: dict,
     ) -> dict:
         """Update the values of a color profile.
 
         Args:
-            old_profile: Name of the original profile to update.
+            uuid: Name of the original profile to update.
             new_values: New JSON like attributes to set on the profile.
 
         Returns:
             Final profile configuration with the updated values.
         """
         with cls._collection_lock:
-            profile = cls.get(old_profile)
+            profile = cls.get(uuid)
             name = new_values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):

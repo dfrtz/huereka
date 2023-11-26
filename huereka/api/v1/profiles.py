@@ -6,10 +6,10 @@ from flask import request
 
 from huereka.api.v1 import api
 from huereka.common import color_profile
-from huereka.common import response_utils as responses
 from huereka.common.color_profile import ColorProfile
 from huereka.common.color_profile import ColorProfiles
 from huereka.common.lighting_schedule import LightingSchedules
+from huereka.shared import responses
 
 logger = logging.getLogger(__name__)
 

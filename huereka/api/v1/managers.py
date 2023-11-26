@@ -3,10 +3,10 @@
 from flask import request
 
 from huereka.api.v1 import api
-from huereka.common import response_utils as responses
 from huereka.common.led_manager import LEDManager
 from huereka.common.led_manager import LEDManagers
 from huereka.common.lighting_schedule import LightingSchedules
+from huereka.shared import responses
 
 
 @api.route("/managers", methods=["GET"])
