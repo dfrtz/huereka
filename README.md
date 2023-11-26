@@ -1,4 +1,4 @@
-# Huereka
+# Huereka!
 
 [![os: linux](https://img.shields.io/badge/os-linux-blue)](https://docs.python.org/3.10/)
 [![raspberry-pi](https://img.shields.io/badge/-Raspberry_Pi-C51A4A?logo=Raspberry-Pi&logoColor=white)](https://www.raspberrypi.com/)
@@ -17,16 +17,17 @@
 [![license: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-lightgrey)](LICENSE)
 
 
-### Home automation platform.
+### Smart home automation platform.
 
 Huereka! is a home-grown automation platform for hobbyists. Originally a way to control home decorative lighting,
 such as RGB holiday lights, it also allows control of other basic electronic devices via various microcontrollers.
 
-> **Note**: This is a hobbyist home lighting and automation platform, and does provide any guarantees around
-any specific new features being added.
+> **Note**: This is a hobbyist home automation and lighting platform, and does provide any guarantees around
+new features being added, or bugs being fixed. Feel free to fork and share as you wish. Bugs and features are
+addressed on a best effort basis.
 
 
-## Table Of Contents
+### Table Of Contents
 
   * [Requirements](#requirements)
   * [Recommendations](#recommendations)
@@ -38,21 +39,29 @@ any specific new features being added.
 ### Requirements
 
 * Read [Neopixel Uberguide](https://learn.adafruit.com/adafruit-neopixel-uberguide) to understand best practices.
-* Python3.9+
-* Controller with GPIO pins
-* LED lights with WS2811 microcontrollers
-* If controlling 12V lights:
-  * Microcontroller with 5V GPIO pins, such as Arduino (Raspberry Pi only provides 3V)
-  * Alternatively, a 3V to 5V level shifter may be used for the data signal
-* Possibly required for 5V lights depending on light model and using a controller with 5V GPIO pins
-  * A 5V to 3V level shifter for data signal
+* Huereka
+  * Python3.9+
+  * Controller with GPIO pins
+  * LED lights with WS2811 microcontrollers
+  * If controlling 12V lights:
+    * Microcontroller with 5V GPIO pins, such as Arduino (Raspberry Pi only provides 3V)
+    * Alternatively, a 3V to 5V level shifter may be used for the data signal
+  * Possibly required for 5V lights depending on light model and using a controller with 5V GPIO pins
+    * A 5V to 3V level shifter for data signal
+* uHuereka
+  * MicroPython compatible microcontroller.
+  * Refer to [uHuereka Requirements](uhuereka/README.md#requirements) for more details.
+
 
 ### Recommendations
 
-* Raspberry Pi 3+ or equivalent hardware
+* Raspberry Pi 3+ or equivalent hardware for Huereka, or ESP32/RP2040+ for uHuereka.
+* Refer to [uHuereka Recommendations](uhuereka/README.md#recommendations) for more details.
 
 
 ### API Quick Start
+
+#### Huereka
 
 1. Read the NeoPixel Uberguide to understand the best practices:
 [Adafruit Neopixel Uberguide](https://learn.adafruit.com/adafruit-neopixel-uberguide)
@@ -83,6 +92,36 @@ any specific new features being added.
    performed and attempt the basic LED/GPIO tests.
 
 
+#### uHuereka
+
+1. Follow one of the [MicroPython Setups](uhuereka/README.md#micropython-setups) for your microcontroller.
+
+2. Find the new device address on the network via MicroPython console, router configuration, or `arp -a`.
+
+3. Attempt to check the status from an external client:
+    ```
+    curl -k http://<address>:443/health
+    ```
+
+3. Request the available managers:
+    ```
+    curl -k http://<address>:443/api/v1/managers
+    ```
+
+4. Turn one of the managers on:
+    ```
+    curl -k -X POST http://<address>:443/api/v1/managers/<uuid of manager> -d '{"mode":1}'
+    ```
+
+5. The connected LED to the pin should turn on if the setup is complete. If LED does not turn on,
+ensure the full setup has been performed and try again, or check the logs via MicroPython console.
+
+6. Turn off the manager:
+    ```
+    curl -k -X POST http://<address>:443/api/v1/managers/<uuid of manager> -d '{"mode":0}'
+    ```
+
+
 ### Additional Guides
 
 [Set up Huereka LED Test Hardware](SETUP.md#set-up-huereka-testing-hardware)  
@@ -94,9 +133,9 @@ any specific new features being added.
 
 ### Design Overview
 
-Huereka has a few components used to control the lighting hardware. The following is a high level overview of each
+Huereka has a few components used to control the automation hardware. The following is a high level overview of each
 core component, but each component may also contain smaller components not listed here. The overall flow can be
-summarized as: schedules wrap around routines, and routines wrap around profiles, and profiles wrap around LEDs.
+summarized as: schedules wrap around routines, and routines wrap around profiles, and profiles wrap around devices.
 
 **ColorProfile**: Saved collection of colors which can be used by lighting routines to make patterns
 - Colors: RGB colors to use when creating patterns
