@@ -5,6 +5,7 @@
 import argparse
 import logging
 import os
+import time
 from pathlib import Path
 
 from flask import Flask
@@ -85,6 +86,8 @@ def init_app(
     if not schedule_presets:
         schedule_presets = os.path.join(home, ".huereka", "lighting_schedules.json")
     LightingSchedules.load(schedule_presets)
+    # Slight delay to allow time for managers to set up (reset and init) before starting LED updates.
+    time.sleep(1)
     start_schedule_watchdog()
 
 
