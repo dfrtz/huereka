@@ -498,22 +498,24 @@ class LightingSchedules(Collection):
         ):
             led_delay = schedule.led_delay
         else:
-            led_delay = 0
-        # led_delay = schedule.led_delay
-        colors = color_utils.generate_pattern(profile.corrected_colors, len(manager))
+            led_delay = None
         if routine.brightness != BRIGHTNESS_DISABLED:
             brightness = routine.brightness
         elif schedule.brightness != BRIGHTNESS_DISABLED:
             brightness = schedule.brightness
         else:
             brightness = manager.brightness
+
+        colors = color_utils.generate_pattern(profile.corrected_colors, len(manager))
         manager.set_brightness(brightness, show=True, save=False)
-        time.sleep(0.01)
-        manager.set_colors(colors, delay=led_delay, show=True)
+        time.sleep(0.25)
+        time.sleep(led_delay or manager.led_delay)
+        manager.set_colors(colors, delay=0 if led_delay is None else max(led_delay, manager.led_delay), show=True)
         for old_schedule in cls._collection.values():
             old_schedule.status = STATUS_OFF
             for old_routine in old_schedule.routines:
                 old_routine.status = STATUS_OFF
+
         schedule.status = STATUS_ON
         routine.status = STATUS_ON
         # Copy the profile so that changes will be detected instead of comparing to self.

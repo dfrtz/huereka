@@ -24,8 +24,9 @@ logger = logging.getLogger(__name__)
 
 KEY_MODE = "mode"
 KEY_STATUS = "status"
+KEY_LED_DELAY = "led_delay"
 
-# Based on max speed without flickering on a 12V strand of 100 WS2811 LEDs with 5V signal.
+# Based on max speed without flickering/mis-coloring on a 12V strand of 250-300 WS2811 LEDs with 5V signal.
 DEFAULT_LED_UPDATE_DELAY = 0.0125
 
 MODE_OFF = 0
@@ -47,6 +48,7 @@ class LEDManager(CollectionEntry):
         name: str = None,
         uuid: str = None,
         mode: int = MODE_OFF,
+        led_delay: float = DEFAULT_LED_UPDATE_DELAY,
         micromanager: micro_managers.LEDMicroManager = None,
     ) -> None:
         """Set up a single LED chain/strip.
@@ -55,12 +57,15 @@ class LEDManager(CollectionEntry):
             name: Human readable name used to store/reference in collections.
             uuid: Unique identifier.
             mode: Activity mode for the schedule as 0, 1 (off, on).
+            led_delay: Minimum time delay allowed in seconds between individual LED updates during animations.
             micromanager: Low level manager that controls connectivity and messaging to LED hardware.
         """
         super().__init__(uuid=uuid, name=name)
-        self._led_manager = micromanager
-        self._mode = mode
+        self._mode = MODE_OFF
         self._status = STATUS_OFF
+        self._led_manager = micromanager
+        self.mode = mode
+        self.led_delay = led_delay
 
     def __getitem__(self, index: int | slice) -> int:
         """Find LED color at a specific LED position."""
@@ -112,6 +117,9 @@ class LEDManager(CollectionEntry):
         mode = data.get(KEY_MODE, MODE_OFF)
         if not isinstance(mode, int):
             raise CollectionValueError("invalid-led-manager-mode")
+        led_delay = data.get(KEY_LED_DELAY, DEFAULT_LED_UPDATE_DELAY)
+        if not isinstance(led_delay, float):
+            raise CollectionValueError("invalid-led-manager-led-delay")
         micromanager = None
         if manager_type.lower() == "neopixel":
             micromanager = micro_managers.NeoPixelManager.from_json(data)
@@ -161,7 +169,7 @@ class LEDManager(CollectionEntry):
         self,
         color: Colors | ColorUnion,
         index: int = -1,
-        delay: float = DEFAULT_LED_UPDATE_DELAY,
+        delay: float | None = None,
         show: bool = True,
     ) -> None:
         """Set LED color and immediately show change.
@@ -171,16 +179,16 @@ class LEDManager(CollectionEntry):
             index: Position of the LED in the chain. Defaults to -1 to fill all.
                 Disables delay.
             delay: Time to wait between each LED update in seconds.
-                Ignored if index >= 0.
+                Ignored if index >= 0. Defaults to manager delay. Overridden by manager delay if too low.
             show: Whether to show the change immediately, or delay until the next show() is called.
                 Ignored if delay > 0.
         """
-        self._led_manager.set_color(color, index, delay=delay, show=show)
+        self._led_manager.set_color(color, index, delay=delay if delay is not None else self.led_delay, show=show)
 
     def set_colors(
         self,
         colors: list[Colors | ColorUnion],
-        delay: float = DEFAULT_LED_UPDATE_DELAY,
+        delay: float | None = None,
         show: bool = True,
     ) -> None:
         """Set multiple LED colors simultaneously and show change.
@@ -188,11 +196,11 @@ class LEDManager(CollectionEntry):
         Args:
             colors: New colors to set, one per LED
             delay: Time to wait between each LED update in seconds.
-                Ignored if index >= 0.
+                Ignored if index >= 0. Defaults to manager delay. Overridden by manager delay if too low.
             show: Whether to show the change immediately, or delay until the next show() is called.
                 Ignored if delay > 0.
         """
-        self._led_manager.set_colors(colors, delay=delay, show=show)
+        self._led_manager.set_colors(colors, delay=delay if delay is not None else self.led_delay, show=show)
 
     def show(self) -> None:
         """Display all pending pixel changes since last show."""
@@ -230,6 +238,7 @@ class LEDManager(CollectionEntry):
         data[KEY_ID] = self.uuid
         data[KEY_NAME] = self.name
         data[KEY_MODE] = self.mode
+        data[KEY_LED_DELAY] = self.led_delay
         if not save_only:
             data[KEY_STATUS] = self.status
         return data
@@ -252,6 +261,9 @@ class LEDManager(CollectionEntry):
         mode = get_and_validate(new_values, KEY_MODE, int)
         if mode is not None and mode != self.mode:
             self.mode = mode
+        led_delay = get_and_validate(new_values, KEY_LED_DELAY, float)
+        if led_delay is not None:
+            self.led_delay = led_delay
         self._led_manager.update(new_values)
         return self.to_json()
 
@@ -317,7 +329,7 @@ class LEDManagers(Collection):
         cls,
         uuid: str,
         colors: list[Colors | ColorUnion],
-        delay: float = DEFAULT_LED_UPDATE_DELAY,
+        delay: float | None = None,
         show: bool = True,
     ) -> None:
         """Set colors and immediately show change.
@@ -326,6 +338,7 @@ class LEDManagers(Collection):
             uuid: ID of the manager to use to send the signal.
             colors: New colors to set, one per pin.
             delay: Time to wait between each LED update in seconds.
+                Defaults to manager delay. Overridden by manager delay if too low.
             show: Whether to show the change immediately, or delay until the next show() is called.
         """
         with cls._collection_lock:
