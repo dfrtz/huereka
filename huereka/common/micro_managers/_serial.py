@@ -242,27 +242,27 @@ class SerialManager(
         # Required arguments.
         led_count = data.get(KEY_LED_COUNT)
         if not led_count or not isinstance(led_count, int):
-            raise CollectionValueError("invalid-led-manager-led-count")
+            raise CollectionValueError("invalid-led_manager-led_count")
         pin = data.get(KEY_PIN)
         if not isinstance(pin, int):
-            raise CollectionValueError("invalid-led-manager-pin")
+            raise CollectionValueError("invalid-led_manager-pin")
 
         # Optional arguments.
         refresh_rate = data.get(KEY_REFRESH_RATE, DEFAULT_REFRESH_RATE)
         if not isinstance(refresh_rate, int):
-            raise CollectionValueError("invalid-led-manager-refresh_rate")
+            raise CollectionValueError("invalid-led_manager-refresh_rate")
         brightness = data.get(KEY_BRIGHTNESS, 1.0)
         if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
-            raise CollectionValueError("invalid-led-manager-brightness")
+            raise CollectionValueError("invalid-led_manager-brightness")
         strip = data.get(KEY_STRIP, 0)
         if not isinstance(strip, int) or strip < 0:
-            raise CollectionValueError("invalid-led-manager-strip")
+            raise CollectionValueError("invalid-led_manager-strip")
         port = data.get(KEY_PORT, "/dev/ttyACM0")
         if not isinstance(port, str):
-            raise CollectionValueError("invalid-led-manager-port")
+            raise CollectionValueError("invalid-led_manager-port")
         baudrate = data.get(KEY_BAUD, 115200)
         if not isinstance(baudrate, int):
-            raise CollectionValueError("invalid-led-manager-baud")
+            raise CollectionValueError("invalid-led_manager-baud")
 
         return SerialManager(
             led_count=led_count,

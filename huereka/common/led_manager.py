@@ -105,21 +105,21 @@ class LEDManager(CollectionEntry):
         # Required arguments.
         manager_type = data.get(KEY_TYPE)
         if not isinstance(manager_type, str) or manager_type.lower() not in ("neopixel", "serial"):
-            raise CollectionValueError("invalid-led-manager-type")
+            raise CollectionValueError("invalid-led_manager-type")
         uuid = data.get(KEY_ID)
         if not uuid or not isinstance(uuid, str):
-            raise CollectionValueError("invalid-led-manager-id")
+            raise CollectionValueError("invalid-led_manager-id")
 
         # Optional arguments.
         name = data.get(KEY_NAME)
         if not isinstance(uuid, str) and name is not None:
-            raise CollectionValueError("invalid-led-manager-name")
+            raise CollectionValueError("invalid-led_manager-name")
         mode = data.get(KEY_MODE, MODE_OFF)
         if not isinstance(mode, int):
-            raise CollectionValueError("invalid-led-manager-mode")
+            raise CollectionValueError("invalid-led_manager-mode")
         led_delay = data.get(KEY_LED_DELAY, DEFAULT_LED_UPDATE_DELAY)
         if not isinstance(led_delay, float):
-            raise CollectionValueError("invalid-led-manager-led-delay")
+            raise CollectionValueError("invalid-led_manager-led_delay")
         micromanager = None
         if manager_type.lower() == "neopixel":
             micromanager = micro_managers.NeoPixelManager.from_json(data)

@@ -108,25 +108,25 @@ class ColorProfile(CollectionEntry):
         # Required arguments.
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
-            raise CollectionValueError("invalid-color-profile-name")
+            raise CollectionValueError("invalid-color_profile-name")
 
         # Optional arguments.
         uuid = data.get(KEY_ID)
         if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError("invalid-color-profile-id")
+            raise CollectionValueError("invalid-color_profile-id")
         colors = data.get(KEY_COLORS, [])
         if not isinstance(colors, list):
-            raise CollectionValueError("invalid-color-profile-colors")
+            raise CollectionValueError("invalid-color_profile-colors")
         try:
             colors = [color_utils.parse_color(color) for color in colors]
         except Exception as error:  # pylint: disable=broad-except
-            raise CollectionValueError("invalid-color-profile-colors") from error
+            raise CollectionValueError("invalid-color_profile-colors") from error
         gamma_correction = data.get(KEY_GAMMA, DEFAULT_GAMMA_CORRECTION)
         if not isinstance(gamma_correction, float):
-            raise CollectionValueError("invalid-color-profile-gamma")
+            raise CollectionValueError("invalid-color_profile-gamma")
         mode = data.get(KEY_MODE, MODE_REPEAT)
         if not isinstance(mode, int):
-            raise CollectionValueError("invalid-color-profile-mode")
+            raise CollectionValueError("invalid-color_profile-mode")
 
         return ColorProfile(
             name,
@@ -269,27 +269,27 @@ class ColorProfiles(Collection):
             name = new_values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):
-                    raise CollectionValueError("invalid-color-profile-name")
+                    raise CollectionValueError("invalid-color_profile-name")
                 original_name = profile.name
                 profile.name = name
                 cls._collection[name] = cls._collection.pop(original_name)
             colors = new_values.get(KEY_COLORS)
             if colors is not None:
                 if not isinstance(colors, list):
-                    raise CollectionValueError("invalid-color-profile-colors")
+                    raise CollectionValueError("invalid-color_profile-colors")
                 try:
                     profile.colors = [color_utils.parse_color(color) for color in colors]
                 except Exception as error:  # pylint: disable=broad-except
-                    raise CollectionValueError("invalid-color-profile-colors") from error
+                    raise CollectionValueError("invalid-color_profile-colors") from error
             gamma_correction = new_values.get(KEY_GAMMA)
             if gamma_correction is not None:
                 if not isinstance(gamma_correction, float):
-                    raise CollectionValueError("invalid-color-profile-gamma")
+                    raise CollectionValueError("invalid-color_profile-gamma")
                 profile.gamma_correction = gamma_correction
             mode = new_values.get(KEY_MODE)
             if mode is not None:
                 if not isinstance(mode, int):
-                    raise CollectionValueError("invalid-color-profile-mode")
+                    raise CollectionValueError("invalid-color_profile-mode")
                 if mode == MODE_NONE:
                     profile.mode = MODE_NONE
                 else:

@@ -203,22 +203,22 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         # Optional arguments.
         profile = data.get(KEY_PROFILE)
         if not profile or not isinstance(profile, str):
-            raise CollectionValueError("invalid-lighting-routine-profile")
+            raise CollectionValueError("invalid-lighting_routine-profile")
         days = data.get(KEY_DAYS, DAYS_ALL)
         if not isinstance(days, int):
-            raise CollectionValueError("invalid-lighting-routine-days")
+            raise CollectionValueError("invalid-lighting_routine-days")
         start = data.get(KEY_START, 0)
         if not isinstance(start, (int, float, str)):
-            raise CollectionValueError("invalid-lighting-routine-start")
+            raise CollectionValueError("invalid-lighting_routine-start")
         end = data.get(KEY_END, 86400)
         if not isinstance(end, (int, float, str)):
-            raise CollectionValueError("invalid-lighting-routine-end")
+            raise CollectionValueError("invalid-lighting_routine-end")
         mode = data.get(KEY_MODE, MODE_ON)
         if not isinstance(mode, int):
-            raise CollectionValueError("invalid-lighting-routine-mode")
+            raise CollectionValueError("invalid-lighting_routine-mode")
         brightness = data.get(KEY_BRIGHTNESS, BRIGHTNESS_DISABLED)
         if not isinstance(brightness, float):
-            raise CollectionValueError("invalid-lighting-routine-brightness")
+            raise CollectionValueError("invalid-lighting_routine-brightness")
 
         return LightingRoutine(
             profile=profile,
@@ -380,28 +380,28 @@ class LightingSchedule(CollectionEntry):
         # Required arguments.
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
-            raise CollectionValueError("invalid-lighting-schedule-name")
+            raise CollectionValueError("invalid-lighting_schedule-name")
         manager = data.get(KEY_MANAGER)
         if not isinstance(manager, str):
-            raise CollectionValueError("invalid-lighting-schedule-manager")
+            raise CollectionValueError("invalid-lighting_schedule-manager")
 
         # Optional arguments.
         uuid = data.get(KEY_ID)
         if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError("invalid-lighting-schedule-id")
+            raise CollectionValueError("invalid-lighting_schedule-id")
         routines = data.get(KEY_ROUTINES, [])
         if not isinstance(routines, list):
-            raise CollectionValueError("invalid-lighting-schedule-routines")
+            raise CollectionValueError("invalid-lighting_schedule-routines")
         routines = [LightingRoutine.from_json(routine) for routine in routines]
         mode = data.get(KEY_MODE, MODE_OFF)
         if not isinstance(mode, int):
-            raise CollectionValueError("invalid-lighting-schedule-mode")
+            raise CollectionValueError("invalid-lighting_schedule-mode")
         led_delay = data.get(KEY_LED_DELAY, led_manager.DEFAULT_LED_UPDATE_DELAY)
         if not isinstance(led_delay, float):
-            raise CollectionValueError("invalid-lighting-schedule-led-delay")
+            raise CollectionValueError("invalid-lighting_schedule-led_delay")
         brightness = data.get(KEY_BRIGHTNESS, BRIGHTNESS_DISABLED)
         if not isinstance(led_delay, float):
-            raise CollectionValueError("invalid-lighting-schedule-led-brightness")
+            raise CollectionValueError("invalid-lighting_schedule-led_brightness")
 
         return LightingSchedule(
             name,
@@ -578,7 +578,7 @@ class LightingSchedules(Collection):
                 try:
                     schedule.routines = [LightingRoutine.from_json(routine) for routine in routines]
                 except Exception as error:  # pylint: disable=broad-except
-                    raise CollectionValueError("invalid-lighting-schedule-routines") from error
+                    raise CollectionValueError("invalid-lighting_schedule-routines") from error
             mode = get_and_validate(new_values, KEY_MODE, int)
             if mode is not None:
                 schedule.mode = mode
