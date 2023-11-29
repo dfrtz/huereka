@@ -24,7 +24,10 @@ from huereka.shared.collections import get_and_validate
 
 logger = logging.getLogger(__name__)
 
-OP_MAGIC = int(127).to_bytes(length=1, byteorder="little", signed=False)
+# Use FastLED default of 400 FPS (2.5 ms)
+DEFAULT_REFRESH_RATE = 2500
+
+OP_MAGIC = int(127).to_bytes(length=1, byteorder="big", signed=False)
 
 OP_INIT_STRIP = 1
 OP_SET_BRIGHTNESS = 32
@@ -34,6 +37,7 @@ OP_SHOW = 35
 OP_TEST = 77
 OP_RESET = 99
 
+KEY_REFRESH_RATE = "refresh_rate"
 KEY_STRIP = "strip"
 KEY_PORT = "port"
 KEY_BAUD = "baud"
@@ -50,6 +54,7 @@ class SerialManager(
         brightness: float = 1.0,
         strip: int = 0,
         pin: int = 5,
+        refresh_rate: int = DEFAULT_REFRESH_RATE,
         port: str = "/dev/ttyACM0",
         baudrate: int = 115200,
         timeout: int = 10,
@@ -62,6 +67,7 @@ class SerialManager(
             brightness: Default brightness as a percent between 0.0 and 1.0.
             strip: Index of the strip to initialize on the serial device.
             pin: GPIO pin on the serial device to use to send the signal.
+            refresh_rate: Refresh rate in microseconds (e.g. 5000 == 200 FPS, 16000 == ~60 FPS, 33000 == ~30 FPS, etc.).
             port: Location of the serial port to connect to.
             baudrate: Speed of the serial connection. Must match the configuration of the serial device.
             timeout: Amount of time in seconds to wait for a message to send before timing out.
@@ -73,12 +79,13 @@ class SerialManager(
         self._colors = [Colors.BLACK.value for _ in range(led_count)]
         self.strip = strip
         self.pin = pin
+        self.refresh_rate = refresh_rate
         self.port = port
         self.baudrate = baudrate
         self._serial = serial.Serial(self.port, self.baudrate, timeout=timeout, dsrdtr=dsrdtr)
-        # Delay startup by 1 second to prevent silent failures when it looks like the data sent.
+        # Delay startup by half a second to prevent silent failures when it looks like the data sent.
         # All pending actions will be queued up to run as soon as available.
-        threading.Timer(1, self._init).start()
+        threading.Timer(0.5, self._init).start()
         logger.info(f"Initialized LED manager for pin {self.pin} on {self.port}")
 
     def __getitem__(self, index: int | slice) -> int:
@@ -102,7 +109,7 @@ class SerialManager(
                 self._colors[index] = color
                 self._op_set_led(index, color, show=False)
 
-    def _init(self) -> None:
+    def _init(self, led_delay: float = DEFAULT_LED_UPDATE_DELAY) -> None:
         """Send operation to set up LED strip.
 
         Should be called by new thread due to delay operations to prevent blocking.
@@ -111,11 +118,11 @@ class SerialManager(
             self._ready = True
             self._op_init_strip()
             # Slight delay to ensure strip is ready before sending messages.
-            time.sleep(0.1)
+            time.sleep(led_delay)
             self._op_fill_leds(Colors.BLACK.value, show=True)
             for values, start in self._pending:
                 self._write(*values, start=start)
-                time.sleep(DEFAULT_LED_UPDATE_DELAY)
+                time.sleep(led_delay)
 
     def _op_init_strip(self) -> None:
         """Send operation to set up LED strip."""
@@ -123,7 +130,8 @@ class SerialManager(
             OP_INIT_STRIP,
             0,  # Placeholder for LED type.
             self.pin,
-            len(self),
+            len(self).to_bytes(length=2, byteorder="big", signed=False),
+            self.refresh_rate.to_bytes(length=2, byteorder="big", signed=False),
             0,  # No init animation.
         )
 
@@ -160,7 +168,7 @@ class SerialManager(
         self._write(
             OP_SET_LED,
             self.strip,
-            pos,
+            pos.to_bytes(length=2, byteorder="big", signed=False),
             color.red,
             color.green,
             color.blue,
@@ -201,8 +209,8 @@ class SerialManager(
                 self._op_set_led(index, color, show=show)
         return changed
 
-    def _write(self, *values: int, start: bool = True) -> None:
-        """Write out a set of values to the serial connection."""
+    def _write(self, *values: int | bytes, start: bool = True) -> None:
+        """Write out a set of unsigned, single byte, values to the serial connection."""
         if not self._ready:
             self._pending.append((values, start))
             return
@@ -211,7 +219,10 @@ class SerialManager(
         else:
             msg = b""
         for value in values:
-            msg += value.to_bytes(length=1, byteorder="little", signed=False)
+            if isinstance(value, bytes):
+                msg += value
+            else:
+                msg += value.to_bytes(length=1, byteorder="big", signed=False)
         self._serial.write(msg)
 
     def fill(
@@ -237,6 +248,9 @@ class SerialManager(
             raise CollectionValueError("invalid-led-manager-pin")
 
         # Optional arguments.
+        refresh_rate = data.get(KEY_REFRESH_RATE, DEFAULT_REFRESH_RATE)
+        if not isinstance(refresh_rate, int):
+            raise CollectionValueError("invalid-led-manager-refresh_rate")
         brightness = data.get(KEY_BRIGHTNESS, 1.0)
         if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
             raise CollectionValueError("invalid-led-manager-brightness")
@@ -255,6 +269,7 @@ class SerialManager(
             brightness=brightness,
             strip=strip,
             pin=pin,
+            refresh_rate=refresh_rate,
             port=port,
             baudrate=baudrate,
         )
@@ -291,6 +306,7 @@ class SerialManager(
             KEY_BRIGHTNESS: self.brightness,
             KEY_STRIP: self.strip,
             KEY_PIN: self.pin,
+            KEY_REFRESH_RATE: self.refresh_rate,
             KEY_PORT: self.port,
             KEY_BAUD: self.baudrate,
             KEY_TYPE: "Serial",
@@ -317,6 +333,9 @@ class SerialManager(
         pin = get_and_validate(new_values, KEY_PIN, int)
         if pin is not None:
             self.pin = pin
+        refresh_rate = get_and_validate(new_values, KEY_REFRESH_RATE, int)
+        if refresh_rate is not None:
+            self.refresh_rate = refresh_rate
         port = get_and_validate(new_values, KEY_PORT, str)
         if port is not None:
             self.port = port
