@@ -4,22 +4,29 @@
  * Uses native low level libraries such as FastLED in order to provide smooth animations. Although refresh rate
  * limiters are provided in a similar manner to FastLED, additional safeguards in the driver code are recommended
  * to ensure best results.
+ *
+ * Guidelines for max speed of serial ops without flickering/mis-coloring on a 12V strand of WS2811 LEDs with 5V signal.
+ * 100 LEDS + 2500 refresh_rate (400 FPS): ~0.004 (250 OP/s)
+ * 200 LEDS + 2500 refresh_rate (400 FPS): ~0.008 (125 OP/s)
+ * 300 LEDS + 2500 refresh_rate (400 FPS): ~0.011 (90 OP/s)
  */
 
 #include <FastLED.h>
 
+// ~1024 limit for 4K RAM controllers; can be set higher if system has more memory. Each LED uses 3 bytes.
 #define MAX_LEDS 1024
 #define MAX_STRIPS 16
 #define LED_TYPE WS2811
 #define BAUD 115200
-#define BUFFER_SIZE 64
+#define BUFFER_SIZE 16
+#define MAGIC 127
+
+CRGB leds[MAX_LEDS]; // Shared LED array across strips to enforce strict memory usage and match FastLED design.
+int led_total = 0;
+int led_strips = 0;
 
 bool op_started = false;
 byte serial_buffer[BUFFER_SIZE];
-
-CRGB leds[MAX_LEDS]; // Shared LED array across strips to enforce strict memory usage.
-int led_total = 0;
-int led_strips = 0;
 
 /*
  * Stateful information about an LED strip
@@ -32,10 +39,10 @@ int led_strips = 0;
  * pending_show: Whether an outstanding show() request is waiting to run.
  */
 typedef struct led_strip {
-  int first_led;
-  int last_led;
+  uint16_t first_led;
+  uint16_t last_led;
   uint8_t brightness;
-  uint32_t refresh_rate;
+  uint16_t refresh_rate;
   uint32_t last_show;
   bool pending_show;
 } led_strip_t;
@@ -59,17 +66,7 @@ void(* reset) (void) = 0;
  * Returns number of bytes read if successful, or 0 if timeout is reached.
  */
 int buffer_read(int count) {
-  int waited = 0;
-  while (waited < 100) {
-    if (Serial.available() < count) {
-      delay(1);
-      waited += 1;
-      continue;
-    }
-    Serial.readBytes(serial_buffer, count);
-    return count;
-  }
-  return 0;
+  return Serial.readBytes(serial_buffer, count);
 }
 
 /*
@@ -81,11 +78,14 @@ int buffer_read(int count) {
  *
  * led_pin: GPIO pin where the LED data line is connected
  * led_count: Number of LEDs on the strip to reserve from the LED array.
+ * refresh: Refresh rate in microseconds (e.g. 5000 == 200 FPS, 16000 == ~60 FPS, 33000 == ~30 FPS, etc.).
  */
-void addLeds(uint8_t led_pin, int led_count) {
+void addLeds(uint8_t led_pin, uint16_t led_count, uint16_t refresh) {
   strips[led_strips].brightness = 255;
   strips[led_strips].first_led = led_total;
   strips[led_strips].last_led = led_total + led_count;
+  strips[led_strips].last_show = 0;
+  strips[led_strips].pending_show = true;
   for (int i = strips[led_strips].first_led; i < strips[led_strips].last_led; i++) {
     leds[i] = CRGB::Black;
   }
@@ -93,14 +93,11 @@ void addLeds(uint8_t led_pin, int led_count) {
   switch (led_pin) {
     case 5:
       FastLED.addLeds<LED_TYPE, 5>(leds, strips[led_strips].first_led, strips[led_strips].last_led);
-      setMaxRefreshRate(led_strips, FastLED[led_strips].getMaxRefreshRate(), true);
-      strips[led_strips].last_show = 0;
-      strips[led_strips].pending_show = false;
+      setMaxRefreshRate(led_strips, refresh, true);
       break;
     default:
       break;
   }
-  show(led_strips);
   led_total += led_count;
   led_strips++;
 }
@@ -119,22 +116,18 @@ void setBrightness(uint8_t strip, uint8_t brightness) {
  * Set the max refresh rate on an LED strip.
  *
  * strip: Which LED strip to adjust the refresh on (FastLED index).
- * refresh: Refresh rate in khz (e.g. 400 or 800).
+ * refresh: Refresh rate in microseconds (e.g. 5000 == 200 FPS, 16000 == ~60 FPS, 33000 == ~30 FPS, etc.).
  * constrain: Whether to enforce the value can only be set higher.
  */
 void setMaxRefreshRate(uint8_t strip, uint16_t refresh, bool constrain) {
-  if(constrain) {
-    if(refresh > 0) {
-      strips[strip].refresh_rate = ((1000000 / refresh) > strips[strip].refresh_rate) ? (1000000 / refresh) : strips[strip].refresh_rate;
-    }
-  } else if(refresh > 0) {
-    strips[strip].refresh_rate = 1000000 / refresh;
+  if (constrain) {
+    strips[strip].refresh_rate = (refresh > strips[strip].refresh_rate) ? refresh : strips[strip].refresh_rate;
   } else {
-    strips[strip].refresh_rate = 0;
+    strips[strip].refresh_rate = refresh;
   }
-  if (strips[strip].refresh_rate < 5000) {
-    // Hard cap at 200 FPS (1 frame per 500 usec).
-    strips[strip].refresh_rate = 5000;
+  if (strips[strip].refresh_rate < 2500) {
+    // Hard cap at 400 FPS (1 frame per 2500 usec/2.5 ms).
+    strips[strip].refresh_rate = 2500;
   }
 }
 
@@ -153,10 +146,21 @@ void show(uint8_t strip) {
  * strip: Which LED strip to apply the update to (FastLED index).
  */
 void showOrSkip(uint8_t strip) {
-  if ((micros() - strips[strip].last_show) < strips[strip].refresh_rate) {
+  uint32_t current = micros();
+  if (current < strips[strip].last_show) {
+    // Clock reset, update last show to tell if this is a valid next show.
+    if (current > strips[strip].refresh_rate) {
+      strips[strip].last_show = current - strips[strip].refresh_rate;
+    } else {
+      // Remaining delay after a rollover is what would be left from the total required delay minus all time passed.
+      // e.g., refresh rate (total time) - current time (time passed) - remaining time before rollover (time passed)
+      strips[strip].last_show = strips[strip].refresh_rate - (current - (4294967296 - strips[strip].last_show));
+    }
+  }
+  if ((current - strips[strip].last_show) < strips[strip].refresh_rate) {
     return;
   }
-  strips[strip].last_show = micros();
+  strips[strip].last_show = current;
   strips[strip].pending_show = false;
 
   CLEDController *ctlr = &FastLED[strip];
@@ -177,13 +181,13 @@ void listen() {
   // Drain buffer until the "magic" starter is found.
   if (!op_started && Serial.available() >= 1) {
     uint8_t magic = Serial.read();
-    if (magic != 127) {
+    if (magic != MAGIC) {
       return;
     }
     op_started = true;
   }
 
-  if (op_started && Serial.available() >= 2) {
+  if (op_started && Serial.available() >= 1) {
     op_started = false;
     uint8_t op = Serial.read();
     switch (op) {
@@ -225,12 +229,13 @@ void listen() {
  * Perform initialization of an LED strip's state on a specific pin from an op stored in the buffer.
  */
 void op_init_strip() {
-  if (buffer_read(4)) {
+  if (buffer_read(7)) {
     uint8_t led_type = serial_buffer[0];
     uint8_t led_pin = serial_buffer[1];
-    uint8_t led_count = serial_buffer[2];
-    uint8_t led_anim = serial_buffer[3];
-    addLeds(led_pin, led_count);
+    uint16_t led_count = ((uint16_t) serial_buffer[2] << 8) | (uint16_t) serial_buffer[3];
+    uint16_t refresh = ((uint16_t) serial_buffer[4] << 8) | (uint16_t) serial_buffer[5];
+    uint8_t led_anim = serial_buffer[6];
+    addLeds(led_pin, led_count, refresh);
     int stripIndex = led_strips - 1;
     switch (led_anim) {
       case 1:
@@ -280,13 +285,13 @@ void op_set_brightness() {
  * Set the color on a single LED on an LED strip from an op stored in the buffer.
  */
 void op_set_led() {
-  if (buffer_read(6)) {
+  if (buffer_read(7)) {
     uint8_t strip = serial_buffer[0];
-    uint8_t pos = serial_buffer[1];
-    leds[pos].r = serial_buffer[2];
-    leds[pos].g = serial_buffer[3];
-    leds[pos].b = serial_buffer[4];
-    if (serial_buffer[5]) {
+    uint16_t pos = ((uint16_t) serial_buffer[1] << 8) | (uint16_t) serial_buffer[2];
+    leds[pos].r = serial_buffer[3];
+    leds[pos].g = serial_buffer[4];
+    leds[pos].b = serial_buffer[5];
+    if (serial_buffer[6]) {
       show(strip);
     }
   }
@@ -339,7 +344,7 @@ void test_rainbow(uint8_t strip, uint8_t brightness, uint8_t saturation) {
     for (int i = strips[strip].first_led; i < strips[strip].last_led; i++) {
       leds[i] = CHSV(i - (j * 2), saturation, brightness);
     }
-    show(strip);
+    showOrSkip(strip);
     delay(33);
   }
 }
@@ -354,15 +359,15 @@ void test_red_alert(uint8_t strip) {
     leds[i] = CRGB(255, 0, 0); /* The higher the value 4 the less fade there is and vice versa */
   }
   setBrightness(strip, 0);
-  show(strip);
+  showOrSkip(strip);
   for (int i = 0; i <= 255; i++) {
     setBrightness(strip, i);
-    show(strip);
+    showOrSkip(strip);
     delay(16);
   }
   for (int i = 255; i >= 0; i--) {
     setBrightness(strip, i);
-    show(strip);
+    showOrSkip(strip);
     delay(16);
   }
 }
@@ -378,6 +383,8 @@ void test_red_alert(uint8_t strip) {
  */
 void setup() {
   Serial.begin(BAUD);
+  Serial.setTimeout(100);
+  //addLeds(5, 2500); // Uncomment to perform basic animation test.
 }
 
 /*
@@ -386,6 +393,7 @@ void setup() {
  * Called automatically by Arduino runtime after setup().
  */
 void loop() {
+  //test_rainbow(0, 128, 255); // Uncomment to perform basic animation test.
   listen();
   for (int i = 0; i < led_strips; i++) {
     if (strips[i].pending_show) {
