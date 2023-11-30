@@ -87,18 +87,18 @@ class NeoPixelManager(LEDMicroManager):
         # Required arguments.
         led_count = data.get(KEY_LED_COUNT)
         if not led_count or not isinstance(led_count, int):
-            raise CollectionValueError("invalid-led-manager-led-count")
+            raise CollectionValueError("invalid-led_manager-led_count")
         pin = data.get(KEY_PIN)
         if not isinstance(pin, int):
-            raise CollectionValueError("invalid-led-manager-pin")
+            raise CollectionValueError("invalid-led_manager-pin")
 
         # Optional arguments.
         brightness = data.get(KEY_BRIGHTNESS, 1.0)
         if not isinstance(brightness, float) or brightness < 0 or brightness > 1:
-            raise CollectionValueError("invalid-led-manager-brightness")
+            raise CollectionValueError("invalid-led_manager-brightness")
         pixel_order = data.get(KEY_PIXEL_ORDER, "RGB")
         if not isinstance(pixel_order, str) or pixel_order not in ("RGB", "RGBW"):
-            raise CollectionValueError("invalid-led-manager-pixel-order")
+            raise CollectionValueError("invalid-led_manager-pixel_order")
 
         return NeoPixelManager(
             led_count=led_count,
