@@ -85,10 +85,10 @@ int bufferRead(int count) {
 void addLeds(byte ledPin, unsigned int ledCount, unsigned int refresh) {
   strips[ledStrips].brightness = 255;
   strips[ledStrips].firstLED = ledTotal;
-  strips[ledStrips].lastLED = ledTotal + ledCount;
+  strips[ledStrips].lastLED = ledTotal + ledCount - 1; // Minus 1 due to 0 base offset for first strip.
   strips[ledStrips].lastShow = 0;
   strips[ledStrips].pendingShow = true;
-  for (int i = strips[ledStrips].firstLED; i < strips[ledStrips].lastLED; i++) {
+  for (int i = strips[ledStrips].firstLED; i <= strips[ledStrips].lastLED; i++) {
     leds[i] = CRGB::Black;
   }
   // Add pins here only as needed. Each pin takes ~1500 bytes.
@@ -258,7 +258,7 @@ void opInitStrip() {
 void opFillLeds() {
   if (bufferRead(5)) {
     byte strip = serialBuffer[0];
-    for (int i = strips[strip].firstLED; i < strips[strip].lastLED; i++) {
+    for (int i = strips[strip].firstLED; i <= strips[strip].lastLED; i++) {
       leds[i].r = serialBuffer[1];
       leds[i].g = serialBuffer[2];
       leds[i].b = serialBuffer[3];
@@ -290,9 +290,9 @@ void opSetLed() {
   if (bufferRead(7)) {
     byte strip = serialBuffer[0];
     unsigned int pos = ((unsigned int) serialBuffer[1] << 8) | (unsigned int) serialBuffer[2];
-    leds[pos].r = serialBuffer[3];
-    leds[pos].g = serialBuffer[4];
-    leds[pos].b = serialBuffer[5];
+    leds[strips[strip].firstLED + pos].r = serialBuffer[3];
+    leds[strips[strip].firstLED + pos].g = serialBuffer[4];
+    leds[strips[strip].firstLED + pos].b = serialBuffer[5];
     if (serialBuffer[6]) {
       show(strip);
     }
@@ -343,7 +343,7 @@ void opTest() {
 void testRainbow(byte strip, byte brightness, byte saturation) {
   strips[strip].brightness = brightness;
   for (int j = 0; j < 255; j++) {
-    for (int i = strips[strip].firstLED; i < strips[strip].lastLED; i++) {
+    for (int i = strips[strip].firstLED; i <= strips[strip].lastLED; i++) {
       leds[i] = CHSV(i - (j * 2), saturation, brightness);
     }
     showOrSkip(strip);
@@ -357,7 +357,7 @@ void testRainbow(byte strip, byte brightness, byte saturation) {
  * strip: Which LED strip to run the animation on (FastLED index).
  */
 void testRedAlert(byte strip) {
-  for (int i = strips[strip].firstLED; i < strips[strip].lastLED; i++) {
+  for (int i = strips[strip].firstLED; i <= strips[strip].lastLED; i++) {
     leds[i] = CRGB(255, 0, 0); /* The higher the value 4 the less fade there is and vice versa */
   }
   setBrightness(strip, 0);
