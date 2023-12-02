@@ -3,6 +3,7 @@
 """Huereka Serial Micro Manager tester."""
 
 import argparse
+import logging
 import time
 
 from huereka.common import color_utils
@@ -33,15 +34,18 @@ def console(
         for character in message.split():
             data += int(character).to_bytes(length=1, byteorder="little", signed=False)
         serial.write(data)
-        print("Sending", data)
+        logging.info(f"Sending {data}")
 
 
-def rotate_colors(
+def rotate_colors(  # Allow full control over setup and run time loop. pylint: disable=too-many-arguments
     port: str = "/dev/ttyACM0",
     baudrate: int = 115200,
     pin: int = 5,
     led_count: int = 100,
     colors: list[int] = None,
+    brightness: float = 0.25,
+    delay: float = 0.01,
+    max_cycles: int = 0,
 ) -> None:
     """Test LEDs by sending a rapid rotation of colors repeatedly.
 
@@ -51,42 +55,46 @@ def rotate_colors(
         pin: GPIO pin on the serial device to use to send the signal.
         led_count: How many LEDs are on the strip of lights.
         colors: Colors to display in rotation across LEDs.
+        brightness: Initial brightness level to set.
+        delay: Delay between sending LED updates to serial device in seconds.
+        max_cycles: Maximum number of full color test cycles to perform before exit.
     """
+    logging.info(f"Starting tests for {led_count} LEDs on pin {pin} with a {delay}s delay")
     manager = micro_managers.SerialManager(port=port, baudrate=baudrate, pin=pin, led_count=led_count)
     # Allow some time to set up before sending.
     time.sleep(2)
 
     colors = colors or [0xFF0000, 0x00FF00, 0x0000FF]
-    color_count = len(colors)
-    count = 0
+    cycle_count = 0
+    msg_count = 0
     start = time.time()
+    color_index = 0
     try:
-        brightness = 1.0
-        decreasing = False
         index = 0
-        manager.set_brightness(0.3)
+        manager.set_brightness(brightness)
         while True:
+            if max_cycles and cycle_count > max_cycles:
+                break
             if index == 0:
-                count += 1
-                manager.fill(0)
-                time.sleep(0.01)
+                logging.info(
+                    f"Starting new cycle for color {color_index} #{hex(colors[color_index]).removeprefix('0x').zfill(6)}"
+                )
 
-            # Delay the updates to just under 100 FPS to reduce likelihood of serial communications
-            # nuances impacting overall test (such as signal scrambling colors).
-            time.sleep(0.0105)
-            manager.set_color(colors[index % color_count], index=index, show=True)
-            index = 0 if index == led_count - 1 else index + 1
+            manager.set_color(colors[color_index], index=index, show=True)
+            index += 1
+            if index == led_count:
+                index = 0
+                color_index += 1
+                if color_index == len(colors):
+                    color_index = 0
+                    cycle_count += 1
 
-            brightness = brightness - (0.05 if decreasing else -0.05)
-            if brightness < 0:
-                brightness = 0
-                decreasing = False
-            elif brightness > 1:
-                brightness = 1
-                decreasing = True
-            count += 1
+            msg_count += 1
+            time.sleep(delay)
     except KeyboardInterrupt:
-        print("Sent", count, "messages to serial device in", time.time() - start, "seconds")
+        logging.info(f"Sent {msg_count} messages to serial device in {time.time() - start} seconds")
+    finally:
+        manager.teardown()
 
 
 def parse_args() -> argparse.Namespace:
@@ -120,10 +128,25 @@ def parse_args() -> argparse.Namespace:
         help="Colors to display. One color per LED in strand.",
     )
     parser.add_argument(
-        "--cli",
-        action="store_true",
-        default=100,
-        help="Enter a console to send manual messages, instead of automated color loop animation.",
+        "-b",
+        "--brightness",
+        type=float,
+        default=0.25,
+        help="Initial brightness level to set.",
+    )
+    parser.add_argument(
+        "-d",
+        "--delay",
+        type=float,
+        default=0.01,
+        help="Delay between sending LED updates to serial device in seconds.",
+    )
+    parser.add_argument(
+        "-m",
+        "--max-cycles",
+        type=int,
+        default=0,
+        help="Maximum number of full color test cycles to perform before exit.",
     )
     parser.add_argument(
         "--port",
@@ -134,6 +157,11 @@ def parse_args() -> argparse.Namespace:
         "--baud",
         default=115200,
         help="Speed of the serial connection. Must match the configuration of the serial device.",
+    )
+    parser.add_argument(
+        "--cli",
+        action="store_true",
+        help="Enter a console to send manual messages, instead of automated color loop animation.",
     )
     args = parser.parse_args()
     return args
@@ -156,8 +184,10 @@ def main() -> None:
             pin=args.pin,
             led_count=args.led_count,
             colors=args.colors,
+            brightness=args.brightness,
+            delay=args.delay,
         )
 
 
 if __name__ == "__main__":
-    rotate_colors()
+    main()
