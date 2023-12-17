@@ -126,7 +126,7 @@ class LEDManager(CollectionEntry):
         elif manager_type.lower() == "serial":
             micromanager = micro_managers.SerialManager.from_json(data)
 
-        return LEDManager(name=name, uuid=uuid, mode=mode, micromanager=micromanager)
+        return LEDManager(name=name, uuid=uuid, mode=mode, micromanager=micromanager, led_delay=led_delay)
 
     def off(self, show: bool = True) -> None:
         """Helper to disable (reduce brightness to 0) and immediately show change.
