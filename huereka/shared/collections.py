@@ -344,6 +344,7 @@ def get_and_validate(  # Allow complex combinations to validate values consisten
     expected_type: type | None = None,
     expected_choices: list | tuple | None = None,
     nullable: bool = True,
+    default: Any = None,
     validator: Callable | None = None,
     validation_error: str = "invalid-value",
     validation_message: str = "Invalid value",
@@ -356,6 +357,7 @@ def get_and_validate(  # Allow complex combinations to validate values consisten
         expected_type: Instance type that the value should be, such as int or bool.
         expected_choices: Possible valid choices.
         nullable: Whether the value is allowed to be null.
+        default: Value to use if the key is not found in the data.
         validator: Custom function that returns true if the value is valid, false otherwise.
         validation_error: Custom error type that will display if the custom validator fails validation.
         validation_message: Custom error message that will display if the custom validator fails validation.
@@ -366,7 +368,7 @@ def get_and_validate(  # Allow complex combinations to validate values consisten
     Raises:
         CollectionValueError if the data fails to meet all the required criteria.
     """
-    value = data.get(key)
+    value = data.get(key, default)
     if value is None and nullable:
         return value
     if value is None:
