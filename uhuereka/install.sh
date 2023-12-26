@@ -62,7 +62,7 @@ if [ "${install_dependencies}" == "true" ]; then
   $cmd_prefix $mpremote_bin connect ${device} mip install logging
   $cmd_prefix $mpremote_bin connect ${device} mip install pathlib
   $cmd_prefix $mpremote_bin connect ${device} mip install time
-  $cmd_prefix $mpremote_bin connect ${device} mip install github:miguelgrinberg/microdot/src/microdot.py
+  $cmd_prefix $mpremote_bin connect ${device} mip install https://raw.githubusercontent.com/miguelgrinberg/microdot/v1.3.4/src/microdot.py
 fi
 
 if [ "${install_src}" == "true" ]; then
