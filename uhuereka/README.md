@@ -38,8 +38,8 @@ damage to your surroundings. By using this guide you agree to take proper precau
 ### Recommendations
 
 * RP2040 device
-  * Raspberry Pi Pico (No Wireless)
   * Raspberry Pi Pico W (Wireless)
+  * Raspberry Pi Pico (No Wireless)
   * Seeed Studio XIAO RP2040 (No Wireless)
 * ESP32 device
   * Seeed Studio XIAO ESP32-C3 (Wireless)

@@ -15,6 +15,16 @@
 
 #include <FastLED.h>
 
+// Default pin used for primary/single LED strip implementations, and setup testing.
+// More pins can be added as needed, refer to addLeds() for details around compilation and memory limitations.
+// Default pin is 0 for the Raspberry Pi Pico. Change to other GPIO pin based on the the device.
+#define PRIMARY_LED_STRIP_PIN 0
+// Default serial is "Serial1" for UART. Change to "Serial" for USB.
+#define PRIMARY_SERIAL Serial1
+// Default UART pins are 16 (TX) and 17 (RX) for the Raspberry Pi Pico. Change to other GPIO pins based on the device.
+#define PRIMARY_SERIAL_TX_PIN 16
+#define PRIMARY_SERIAL_RX_PIN 17
+
 // ~1024 limit for 4K RAM controllers; can be set higher if system has more memory. Each LED uses 3 bytes.
 #define MAX_LEDS 1024
 #define MAX_STRIPS 16
@@ -68,7 +78,7 @@ void(* reset) (void) = 0;
  * Returns number of bytes read if successful, or 0 if timeout is reached.
  */
 int bufferRead(int count) {
-  return Serial.readBytes(serialBuffer, count);
+  return PRIMARY_SERIAL.readBytes(serialBuffer, count);
 }
 
 /*
@@ -93,8 +103,8 @@ void addLeds(byte ledPin, unsigned int ledCount, unsigned int refresh) {
   }
   // Add pins here only as needed. Each pin takes ~1500 bytes.
   switch (ledPin) {
-    case 5:
-      FastLED.addLeds<LED_TYPE, 5>(leds, strips[ledStrips].firstLED, strips[ledStrips].lastLED);
+    case PRIMARY_LED_STRIP_PIN:
+      FastLED.addLeds<LED_TYPE, PRIMARY_LED_STRIP_PIN>(leds, strips[ledStrips].firstLED, strips[ledStrips].lastLED);
       setMaxRefreshRate(ledStrips, refresh, true);
       break;
     default:
@@ -181,17 +191,17 @@ void showOrSkip(byte strip) {
  */
 void listen() {
   // Drain buffer until the "magic" starter is found.
-  if (!opStarted && Serial.available() >= 1) {
-    byte magic = Serial.read();
+  if (!opStarted && PRIMARY_SERIAL.available() >= 1) {
+    byte magic = PRIMARY_SERIAL.read();
     if (magic != MAGIC) {
       return;
     }
     opStarted = true;
   }
 
-  if (opStarted && Serial.available() >= 1) {
+  if (opStarted && PRIMARY_SERIAL.available() >= 1) {
     opStarted = false;
-    byte op = Serial.read();
+    byte op = PRIMARY_SERIAL.read();
     switch (op) {
       // Setup/initialization related ops.
       case 1:
@@ -384,9 +394,11 @@ void testRedAlert(byte strip) {
  * Called automatically by Arduino runtime.
  */
 void setup() {
-  Serial.begin(BAUD);
-  Serial.setTimeout(100);
-  //addLeds(5, 100, 2500); // Uncomment to perform basic animation test
+  gpio_set_function(PRIMARY_SERIAL_TX_PIN, GPIO_FUNC_UART);
+  gpio_set_function(PRIMARY_SERIAL_RX_PIN, GPIO_FUNC_UART);
+  PRIMARY_SERIAL.begin(BAUD);
+  PRIMARY_SERIAL.setTimeout(100);
+  // addLeds(PRIMARY_LED_STRIP_PIN, 100, 2500); // Uncomment to perform basic animation test
 }
 
 /*
@@ -395,7 +407,7 @@ void setup() {
  * Called automatically by Arduino runtime after setup().
  */
 void loop() {
-  //testRainbow(0, 128, 255); // Uncomment to perform basic animation test.
+  // testRainbow(PRIMARY_LED_STRIP_PIN, 128, 255); // Uncomment to perform basic animation test.
   listen();
   for (int i = 0; i < ledStrips; i++) {
     if (strips[i].pendingShow) {
