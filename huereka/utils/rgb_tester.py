@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-"""Huereka LED tester."""
+"""Huereka RGB LED tester."""
 
 import argparse
 import time
@@ -19,11 +19,18 @@ def parse_args() -> argparse.Namespace:
     Return:
         args: Namespace with the arguments.
     """
-    parser = argparse.ArgumentParser(description="Perform basic LED color test.")
+    parser = argparse.ArgumentParser(description="Perform basic RGB LED color test.")
     parser.add_argument(
         "length",
         type=int,
         help="Length of the LED strand.",
+    )
+    parser.add_argument(
+        "-b",
+        "--brightness",
+        type=float,
+        default=1.0,
+        help="Brightness of the LEDs. Ignored if fade is enabled.",
     )
     parser.add_argument(
         "-c",
@@ -66,11 +73,13 @@ def main() -> None:
     uuid = manager.uuid
     led_manager.LEDManagers.register(manager)
     print(f"Testing {len(colors)} LEDs. Press CTRL+C to stop...")
+    brightness = 1.0 if args.fade else args.brightness
+    brightness = max(0.0, min(1.0, brightness))
     try:
         for index, color in enumerate(colors):
             led_manager.LEDManagers.set_color(uuid, color, index=index, show=False)
+        led_manager.LEDManagers.set_brightness(uuid, brightness)
         led_manager.LEDManagers.show(uuid)
-        brightness = 1.0
         decreasing = True
         while True:
             if args.fade:

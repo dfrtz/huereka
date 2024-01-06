@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Huereka Serial Micro Manager tester."""
+"""Huereka Serial RGB LED tester."""
 
 import argparse
 import logging
@@ -103,7 +103,7 @@ def parse_args() -> argparse.Namespace:
     Return:
         args: Namespace with the arguments.
     """
-    parser = argparse.ArgumentParser(description="Perform basic LED color test on serial device.")
+    parser = argparse.ArgumentParser(description="Perform basic RGB LED color test on serial device.")
     parser.add_argument(
         "-l",
         "--length",
