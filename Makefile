@@ -15,9 +15,15 @@ setup:
 .PHONY: venv
 venv:
 	$(PYTHON_BIN) -m venv $(PROJECT_ROOT).venv && \
-	source $(PROJECT_ROOT).venv/bin/activate && \
+	ln -sfnv $(PROJECT_ROOT).venv/bin/activate $(PROJECT_ROOT)activate && \
+	source $(PROJECT_ROOT)activate && \
 	pip install -r requirements-dev.txt -r requirements.txt && \
-	echo $(PROJECT_ROOT) > .venv/lib/$(PYTHON_BIN)/site-packages/$(NAME).pth
+	echo $(PROJECT_ROOT) > $(PROJECT_ROOT).venv/lib/$(PYTHON_BIN)/site-packages/$(NAME).pth
+
+# Clean the python virtual environment.
+.PHONY: clean-venv
+clean-venv:
+	rm -r $(PROJECT_ROOT)activate $(PROJECT_ROOT).venv
 
 
 ##### Quality Assurance #####
