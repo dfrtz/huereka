@@ -341,6 +341,7 @@ class DisabledCollectionLock:
 def get_and_validate(  # Allow complex combinations to validate values consistently. pylint: disable=too-many-arguments
     data: dict,
     key: str,
+    *,
     expected_type: type | None = None,
     expected_choices: list | tuple | None = None,
     nullable: bool = True,

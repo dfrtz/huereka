@@ -38,6 +38,7 @@ def console(
 
 
 def rotate_colors(  # Allow full control over setup and run time loop. pylint: disable=too-many-arguments
+    *,
     port: str = "/dev/ttyACM0",
     baudrate: int = 115200,
     pin: int = 5,

@@ -50,6 +50,7 @@ class SerialManager(
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
         self,
+        *,
         led_count: int = 100,
         brightness: float = 1.0,
         strip: int = 0,
@@ -324,25 +325,25 @@ class SerialManager(
         Returns:
             Final manager configuration with the updated values.
         """
-        brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float)
+        brightness = get_and_validate(new_values, KEY_BRIGHTNESS, expected_type=float)
         if brightness is not None:
             self.set_brightness(brightness, save=True)
-        strip = get_and_validate(new_values, KEY_STRIP, int)
+        strip = get_and_validate(new_values, KEY_STRIP, expected_type=int)
         if strip is not None:
             self.strip = strip
-        pin = get_and_validate(new_values, KEY_PIN, int)
+        pin = get_and_validate(new_values, KEY_PIN, expected_type=int)
         if pin is not None:
             self.pin = pin
-        refresh_rate = get_and_validate(new_values, KEY_REFRESH_RATE, int)
+        refresh_rate = get_and_validate(new_values, KEY_REFRESH_RATE, expected_type=int)
         if refresh_rate is not None:
             self.refresh_rate = refresh_rate
-        port = get_and_validate(new_values, KEY_PORT, str)
+        port = get_and_validate(new_values, KEY_PORT, expected_type=str)
         if port is not None:
             self.port = port
-        baudrate = get_and_validate(new_values, KEY_BAUD, int)
+        baudrate = get_and_validate(new_values, KEY_BAUD, expected_type=int)
         if baudrate is not None:
             self.baudrate = baudrate
-        led_count = get_and_validate(new_values, KEY_LED_COUNT, int)
+        led_count = get_and_validate(new_values, KEY_LED_COUNT, expected_type=int)
         if led_count is not None:
             if led_count > len(self._colors):
                 self._colors = self._colors[:led_count]

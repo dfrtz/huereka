@@ -60,6 +60,7 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
         self,
+        *,
         profile: str = None,
         days: int | list[int] = DAYS_ALL,
         start: int | float | str = 0,
@@ -314,6 +315,7 @@ class LightingSchedule(CollectionEntry):
     def __init__(  # Approved override of default. pylint: disable=too-many-arguments
         self,
         name: str,
+        *,
         uuid: str = None,
         manager: str = "default",
         routines: list[LightingRoutine] = None,
@@ -460,7 +462,7 @@ class LightingSchedule(CollectionEntry):
 
 
 OffLightingRoutine = LightingRoutine(
-    color_profile.DEFAULT_PROFILE_OFF,
+    profile=color_profile.DEFAULT_PROFILE_OFF,
     days=DAYS_ALL,
     start=0,
     end=86400,
@@ -570,22 +572,22 @@ class LightingSchedules(Collection):
         """
         with cls._collection_lock:
             schedule = cls.get(uuid)
-            name = get_and_validate(new_values, KEY_NAME, str)
+            name = get_and_validate(new_values, KEY_NAME, expected_type=str)
             if name is not None and name != schedule.name:
                 schedule.name = name
-            routines = get_and_validate(new_values, KEY_ROUTINES, list)
+            routines = get_and_validate(new_values, KEY_ROUTINES, expected_type=list)
             if routines is not None:
                 try:
                     schedule.routines = [LightingRoutine.from_json(routine) for routine in routines]
                 except Exception as error:  # pylint: disable=broad-except
                     raise CollectionValueError("invalid-lighting_schedule-routines") from error
-            mode = get_and_validate(new_values, KEY_MODE, int)
+            mode = get_and_validate(new_values, KEY_MODE, expected_type=int)
             if mode is not None:
                 schedule.mode = mode
-            led_delay = get_and_validate(new_values, KEY_LED_DELAY, float)
+            led_delay = get_and_validate(new_values, KEY_LED_DELAY, expected_type=float)
             if led_delay is not None:
                 schedule.led_delay = led_delay
-            brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float)
+            brightness = get_and_validate(new_values, KEY_BRIGHTNESS, expected_type=float)
             if brightness is not None:
                 schedule.brightness = brightness
             result = schedule.to_json()

@@ -166,12 +166,12 @@ class NeoPixelManager(LEDMicroManager):
         Returns:
             Final manager configuration with the updated values.
         """
-        led_count = get_and_validate(new_values, KEY_LED_COUNT, int)
-        brightness = get_and_validate(new_values, KEY_BRIGHTNESS, float)
+        led_count = get_and_validate(new_values, KEY_LED_COUNT, expected_type=int)
+        brightness = get_and_validate(new_values, KEY_BRIGHTNESS, expected_type=float)
         if brightness is not None:
             self.set_brightness(brightness, save=True)
-        pixel_order = get_and_validate(new_values, KEY_PIXEL_ORDER, str)
-        pin = get_and_validate(new_values, KEY_PIN, int)
+        pixel_order = get_and_validate(new_values, KEY_PIXEL_ORDER, expected_type=str)
+        pin = get_and_validate(new_values, KEY_PIN, expected_type=int)
         if pin is not None:
             self.led_pin = Pin(pin)
         if led_count is not None:

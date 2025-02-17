@@ -255,13 +255,13 @@ class LEDManager(CollectionEntry):
         Returns:
             Final manager configuration with the updated values.
         """
-        name = get_and_validate(new_values, KEY_NAME, str)
+        name = get_and_validate(new_values, KEY_NAME, expected_type=str)
         if name is not None and name != self.name:
             self.name = name
-        mode = get_and_validate(new_values, KEY_MODE, int)
+        mode = get_and_validate(new_values, KEY_MODE, expected_type=int)
         if mode is not None and mode != self.mode:
             self.mode = mode
-        led_delay = get_and_validate(new_values, KEY_LED_DELAY, float)
+        led_delay = get_and_validate(new_values, KEY_LED_DELAY, expected_type=float)
         if led_delay is not None:
             self.led_delay = led_delay
         self._led_manager.update(new_values)
