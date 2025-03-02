@@ -1,6 +1,7 @@
 """Extensions for Microdot web servers."""
 
 import logging
+import pathlib
 import select
 import socket
 import time
@@ -8,16 +9,30 @@ from typing import Callable
 
 import microdot
 
+CONTENT_TYPES = {
+    "css": "text/css",
+    "html": "text/html",
+    "js": "application/javascript",
+    "plain": "text/plain",
+}
+
 logger = logging.getLogger(__name__)
 
 
 class Microdot(microdot.Microdot):
     """Microdot web server with additional state functionality."""
 
-    def __init__(self) -> None:
-        """Initialize Microdot web server."""
+    _watchdog: Callable | None = None
+
+    def __init__(self, *, static_root: str | None = None) -> None:
+        """Initialize Microdot web server.
+
+        Args:
+            static_root: Path to a folder to serve static web files from.
+        """
         super().__init__()
         self._next_watchdog_check = 0
+        self.static_root: str | None = static_root
 
     def _accept_connection(self) -> None:
         """Handle a single client connection."""
@@ -33,13 +48,29 @@ class Microdot(microdot.Microdot):
         else:
             microdot.create_thread(self.handle_request, sock, addr)
 
-    def _call_watchdog(self, delay: int, watchdog: Callable) -> None:
-        """Call a watchdog function and update the next expected run time if the minimum delay has passed."""
-        if watchdog is not None:
+    def _call_watchdogs(self, delay: int, watchdog: Callable) -> None:
+        """Call watchdog functions and update the next expected run time if the minimum delay has passed."""
+        if self._watchdog or watchdog:
             current_time = time.time()
             if current_time >= self._next_watchdog_check:
-                watchdog()
+                if self._watchdog:
+                    self._watchdog()
+                if watchdog:
+                    watchdog()
                 self._next_watchdog_check = current_time + delay
+
+    def _static(self, request: microdot.Request, path: str) -> tuple:
+        """Serve a static web file."""
+        extension = path.rsplit(".", 1)[-1]
+        full_path = f"{self.static_root}/{path}"
+        if (
+            not self.static_root
+            or ".." in path
+            or extension not in CONTENT_TYPES
+            or not pathlib.Path(full_path).exists()
+        ):
+            return "not-found", 404, {"Content-Type": "text/plain"}
+        return pathlib.Path(f"{self.static_root}/{path}").read_text(), 200, {"Content-Type": CONTENT_TYPES[extension]}
 
     def run(
         self,
@@ -90,8 +121,8 @@ class Microdot(microdot.Microdot):
                     self._accept_connection()
                     # Call between each request to prevent non-stop requests from bypassing watchdog.
                     # If watchdog ran recently, it will be skipped.
-                    self._call_watchdog(wait, watchdog)
-                self._call_watchdog(wait, watchdog)
+                    self._call_watchdogs(wait, watchdog)
+                self._call_watchdogs(wait, watchdog)
         finally:
             self.server.close()
             self.server = None

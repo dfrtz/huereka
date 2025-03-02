@@ -133,7 +133,7 @@ https://github.com/espressif/esptool
 
 Thonny provides an interactive IDE with REPL CLI built in. It can also be used to manage the files saved to the devices.
 For more information on installing and using Thonny, visit:  
-https://thonny.org/
+https://github.com/thonny/thonny
 
 ### Access MicroPython Environment on Microcontroller via CLI
 
