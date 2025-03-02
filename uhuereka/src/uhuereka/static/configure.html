@@ -1,0 +1,48 @@
+<html>
+<style>
+h1, h2, h3, h4, h5, p {text-align: center;}
+h1, h2 {color: #5e9ca0;}
+h3 {text-align: center; font-weight: normal;}
+table {margin-left: auto; margin-right: auto;}
+</style>
+
+<body style="max-width: 720px; margin-left: auto; margin-right: auto;">
+<h1>Network Setup</h1>
+<hr/>
+<h5 style="color: #ff0000;">
+    NOTICE: Your configuration, including password, will be saved to the device for future usage.
+    Ensure the device is secured!
+</h5>
+<hr/>
+<form id="form" action="configure" method="post">
+    <h2>Available Networks</h2>
+    <table>
+        <tr>
+            <th>Network</th>
+            <th>Signal Strength</th>
+            <th>Security</th>
+        </tr>
+        <tbody id="networks"></tbody>
+    </table>
+    <p><button id="refresh" onclick="load()" disabled>Refresh</button></p>
+    <h2>Connection Details</h2>
+    <table>
+        <tbody>
+        <tr>
+            <td>Password:</td>
+            <td><input name="password" type="password" required/></td>
+        </tr>
+        <tr>
+            <td>Device Name:</td>
+            <td><input id="hostname" name="hostname" type="text" pattern="[A-Za-z0-9-]{,32}"/></td>
+        </tr>
+        </tbody>
+    </table>
+    <p><button id="submit" type="submit" disabled>Save</button></p>
+</form>
+<h2>Status</h2>
+<h3 id="status">Choose a network, provide connection information, and press 'Save'.</h3>
+<script src="/static/configure.min.js"></script>
+<script>HOSTNAME=""; if (HOSTNAME) {document.getElementById("hostname").value = HOSTNAME;}</script>
+</body>
+</html>
