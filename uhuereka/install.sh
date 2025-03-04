@@ -8,7 +8,6 @@ script_root="$(dirname $(readlink -f "$0"))"
 project_root="$(dirname ${script_root})"
 
 device=""
-rshell_bin="rshell"
 mpremote_bin="mpremote"
 install_src="false"
 install_dependencies="false"
@@ -19,7 +18,7 @@ cmd_prefix=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --device)
-      if [ -z "$2" ]; then echo "Must provide a device port. Example: --device /dev/ttyACM0"; exit 1; fi
+      if [ -z "$2" ]; then echo "Must provide a device port. Example: --device /dev/ttyUSB0"; exit 1; fi
       device=$2
       shift
     ;;
@@ -44,7 +43,7 @@ done
 
 if [ -z "${device}" ]; then
   echo 'No device specified. Please provide a device to connect to with "--device".'
-  echo 'For help finding devices, try "esptool.py chip_id" or "rshell boards" depending on the microcontroller.'
+  echo 'For help finding devices, try "esptool.py chip_id" or "mpremote devs" depending on the microcontroller.'
   exit 1
 fi
 
@@ -66,12 +65,12 @@ if [ "${install_dependencies}" == "true" ]; then
 fi
 
 if [ "${install_src}" == "true" ]; then
-  $cmd_prefix $rshell_bin --port ${device} rsync ${script_root}/src/ /pyboard/
+  $cmd_prefix $mpremote_bin cp -r uhuereka/src/. :
 
   # Cleanup any CPython files from the shared location before pushing in case project was run locally.
   $cmd_prefix rm -r ${project_root}/huereka/shared/__pycache__ || true
-  # Rsync with folders only works to existing folders, must create tree manually first for nested sync.
-  $cmd_prefix $rshell_bin --port ${device} mkdir /pyboard/huereka
-  $cmd_prefix $rshell_bin --port ${device} mkdir /pyboard/huereka/shared
-  $cmd_prefix $rshell_bin --port ${device} rsync ${project_root}/huereka/shared/ /pyboard/huereka/shared/
+  # Sync with folders only works to existing folders, must create tree manually first for nested sync.
+  $cmd_prefix $mpremote_bin mkdir huereka
+  $cmd_prefix $mpremote_bin mkdir huereka/shared
+  $cmd_prefix $mpremote_bin cp -r huereka/shared/. :huereka/shared
 fi
