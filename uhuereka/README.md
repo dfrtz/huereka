@@ -90,9 +90,9 @@ https://github.com/espressif/esptool
 
 1. Ensure local development is set up and active per [Set Up Huereka Development Environment](../SETUP.md#set-up-huereka-development-environment)
 
-2. Install `mpremote` and `rshell` for managing files and dependencies on the microcontrollers.
+2. Install `mpremote` for managing files and dependencies on the microcontrollers.
    ```bash
-   pip install mpremote rshell
+   pip install mpremote
    ```
 
 ### Set Up uHuereka on Microcontroller
@@ -139,18 +139,18 @@ https://github.com/thonny/thonny
 
 1. Ensure microcontroller access via CLI is ready per [Set Up uHuereka on Host](#set-up-uhuereka-on-host)
 
-2. Open rshell prompt:
+2. Open mpremote REPL:
    ```bash
-   rshell
+   mpremote
    # With device pre-specified
-   rshell --port <USB port microcontroller is connected to>
+   mpremote connect <USB port microcontroller is connected to>
    # Example:
-   rshell --port /dev/ttyUSB0
+   mpremote connect /dev/ttyUSB0
    ```
 
-3. Verify microcontroller is visible:
-   ```bash
-   boards
+3. Verify microcontroller library access and model:
+   ```python
+   import os;os.uname()
    ```
 
 4. If available, you can now manage files on the device from `/pyboard`, or run other commands available in `help`.
