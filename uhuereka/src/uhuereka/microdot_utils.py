@@ -42,9 +42,9 @@ class Microdot(microdot.Microdot):
             if exc.errno == microdot.errno.ECONNABORTED:
                 return
             else:
-                logger.exception(str(exc))
+                logger.exception(f"Failed to accept connection {exc}", exc_info=exc)
         except Exception as exc:
-            logger.exception(str(exc))
+            logger.exception(f"Failed to accept connection {exc}", exc_info=exc)
         else:
             microdot.create_thread(self.handle_request, sock, addr)
 

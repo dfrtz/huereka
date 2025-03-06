@@ -97,7 +97,7 @@ class WLANConfigurationApp(microdot_utils.Microdot):
             try:
                 self._save_config(config)
             except Exception as error:
-                logger.exception(f"Failed to save new config: {error}")
+                logger.exception(f"Failed to save new config: {error}", exc_info=error)
                 return (
                     json.dumps({"error": f"Failed to save configuration: {error}"}),
                     200,
