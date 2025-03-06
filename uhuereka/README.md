@@ -106,7 +106,9 @@ https://github.com/espressif/esptool
    [
      {
        "ssid": "<network name>",
-       "password": "<password>"
+       "bssid": <hardware address to force connection to specific AP, or null>,
+       "password": "<password>",
+       "hostname": "<name of the host on the network>",
      }
    ]
    ```
