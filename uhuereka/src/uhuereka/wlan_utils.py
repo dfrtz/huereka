@@ -11,7 +11,7 @@ from typing import Callable
 import network
 from microdot import Request
 
-from uhuereka import microdot_utils
+from . import microdot_utils
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +36,20 @@ class WLANConfigurationApp(microdot_utils.Microdot):
             on_new_config: Callback to trigger after a new network configuration is created.
         """
         super().__init__(static_root=f"{pathlib.Path(__file__).parent}/static")
-        self._connected = False
         self.wlan = wlan
         self.config_path = config_path
         self.hostname = hostname
         self.on_new_config = on_new_config
-        self.route("/configure", methods=["GET"])(self._get_configure)
-        self.route("/configure", methods=["POST"])(self._post_configure)
-        self.route("/networks", methods=["GET"])(self._get_networks)
-        self.route("/static/<string:path>", methods=["GET"])(self._static)
+        self.get("/configure")(self._get_configure)
+        self.post("/configure")(self._post_configure)
+        self.get("/networks")(self._get_networks)
+        self.get("/static/<string:path>")(self._static)
+
+    def _after_request(self) -> None:
+        """Monitor for connection updates and shutdown server when connected to an external network."""
+        if self.wlan.isconnected():
+            self.shutdown()
+            self.server.close()
 
     def _get_configure(self, request: Request) -> tuple:
         """Serve the main configuration web page."""
@@ -104,7 +109,10 @@ class WLANConfigurationApp(microdot_utils.Microdot):
                     {"Content-Type": "application/json"},
                 )
             if self.on_new_config:
-                self.on_new_config(config)
+                try:
+                    self.on_new_config(config)
+                except Exception as error:
+                    logger.exception(f"Failed to run new config callback: {error}", exc_info=error)
             return (
                 json.dumps(
                     {
@@ -140,15 +148,6 @@ class WLANConfigurationApp(microdot_utils.Microdot):
             logger.info(f"Added new WLAN configuration for {config['ssid']}")
             profiles.append(config)
             save_config(self.config_path, profiles)
-
-    def _watchdog(self) -> None:
-        """Monitor for connection updates and shutdown server when connected to an external network."""
-        if self.wlan.isconnected():
-            # Delay connection detection by one pass to ensure responses are sent before shutdown.
-            if self._connected:
-                self.shutdown()
-                self.server.close()
-            self._connected = True
 
 
 def connect(
@@ -379,6 +378,6 @@ def _start_configurator(
     logger.info(f"Started WLAN AP for device configuration on: {host}:{port} SSID: {ssid} Password: {password}")
     logger.info(f"Connect to WLAN configuration page via browser at: http://{wlan_ap.ifconfig()[0]}:{port}/configure")
     wlan_ap_app = WLANConfigurationApp(wlan, config_path, hostname=hostname, on_new_config=on_new_config)
-    wlan_ap_app.run(host=host, port=port, wait=3)
+    wlan_ap_app.run(host=host, port=port)
     wlan_ap.active(False)
     logger.info(f"Shutdown WLAN AP due to successful connection to: {wlan.config('ssid')}")
