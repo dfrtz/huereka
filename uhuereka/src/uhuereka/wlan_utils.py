@@ -52,15 +52,15 @@ class WLANConfigurationApp(microdot_utils.Microdot):
     def _after_request(self) -> None:
         """Monitor for connection updates and shutdown server when connected to an external network."""
         if self.wlan.isconnected():
+            self.shutdown_requested = True
             self.shutdown()
-            self.server.close()
 
-    def _get_configure(self, request: Request) -> tuple:
+    async def _get_configure(self, request: Request) -> tuple:
         """Serve the main configuration web page."""
         content, code, content_type = self._static(request, "configure.html")
         return content.replace('HOSTNAME="";', f'HOSTNAME="{self.hostname}";'), code, content_type
 
-    def _get_networks(self, request: Request) -> tuple:
+    async def _get_networks(self, request: Request) -> tuple:
         """Serve the list of available networks."""
         logger.info("Scanning for available WLAN connections")
         self.wlan.active(True)
@@ -83,7 +83,7 @@ class WLANConfigurationApp(microdot_utils.Microdot):
         logger.info(f"Found {len(options)} available WLAN connections")
         return json.dumps(options), 200, {"Content-Type": "application/json"}
 
-    def _post_configure(self, request: Request) -> tuple:
+    async def _post_configure(self, request: Request) -> tuple:
         """Handle a request to update the network configuration."""
         form = request.form
         bssid = form.get("bssid")

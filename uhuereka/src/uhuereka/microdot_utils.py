@@ -1,11 +1,10 @@
 """Extensions for Microdot web servers."""
 
+import asyncio
 import logging
 import pathlib
-import select
-import socket
-import time
 from typing import Callable
+from typing import override
 
 import microdot
 
@@ -36,30 +35,6 @@ class Microdot(microdot.Microdot):
         """Callback to run after every request completes."""
         # No action by default.
 
-    def _accept_connection(self, after_request: Callable | None = None) -> None:
-        """Accept a single client connection."""
-        try:
-            sock, addr = self.server.accept()
-        except OSError as exc:
-            if exc.errno == microdot.errno.ECONNABORTED:
-                return
-            else:
-                logger.exception(f"Failed to accept connection: {exc}", exc_info=exc)
-        except Exception as exc:
-            logger.exception(f"Failed to accept connection: {exc}", exc_info=exc)
-        else:
-            microdot.create_thread(self._handle_request, sock, addr, after_request)
-
-    def _handle_request(
-        self,
-        sock: socket.socket,
-        addr: tuple[str, str],
-        after_request: Callable | None = None,
-    ) -> None:
-        """Handle a single request from a connection and perform post request actions."""
-        self.handle_request(sock, addr)
-        self._call_after_request_handlers(after_request)
-
     def _call_after_request_handlers(self, after_request: Callable) -> None:
         """Run all "after request" handlers."""
         try:
@@ -69,17 +44,14 @@ class Microdot(microdot.Microdot):
         except Exception as exc:
             logger.exception(f"Failed to handle after request callbacks: {exc}", exc_info=exc)
 
-    def _call_watchdog_handlers(self, watchdog: Callable | None, delay: int) -> None:
-        """Run all watchdog handlers if the minimum delay has passed, and update the next expected run time."""
-        if time.time() >= self._next_watchdog_check:
-            try:
-                self._watchdog()
-                if watchdog:
-                    watchdog()
-            except Exception as exc:
-                logger.exception(f"Failed to run watchdog callbacks: {exc}", exc_info=exc)
-            # Next run is always post + delay, instead of pre + delay, to prevent back to back runs.
-            self._next_watchdog_check = time.time() + delay
+    def _call_watchdog_handlers(self, watchdog: Callable | None) -> None:
+        """Run all watchdog handlers that are expected to execute periodically while server is running."""
+        try:
+            self._watchdog()
+            if watchdog:
+                watchdog()
+        except Exception as exc:
+            logger.exception(f"Failed to run watchdog callbacks: {exc}", exc_info=exc)
 
     def _static(self, request: microdot.Request, path: str) -> tuple:
         """Serve a static web file."""
@@ -104,12 +76,50 @@ class Microdot(microdot.Microdot):
         watchdog_interval: int = 5,
         after_request: Callable | None = None,
     ) -> None:
-        """Run Microdot web app with time limits to allow concurrent application behavior.
+        """Run Microdot web app with extra callbacks to allow concurrent application behavior.
 
-        Matches the design of Microdot.run() with the exception that listening for new connections is
-        time-limited between periodic application checks. This function is blocking, and will handle
-        connections in an endless loop, until shutdown is requested and the time limit is reached
-        between periodic application checks. See Microdot.run() for full details.
+        This function is blocking, and will handle connections in an endless loop,
+        until shutdown is requested. To start asynchronously, see `start_server()`.
+
+        Args:
+            host: The hostname or IP address of the network interface that will be listening for requests.
+            port: The port number to listen for requests.
+            debug: Whether the server logs debugging information.
+            ssl: An SSLContext instance if the server should use TLS.
+            watchdog: Non-interrupt function to run periodically to maintain application.
+            watchdog_interval: Time between client connections before temporarily releasing operations to watchdog.
+            after_request: Function to run after every request completes.
+        """
+        asyncio.get_event_loop().run_until_complete(
+            self.start_server(
+                host=host,
+                port=port,
+                debug=debug,
+                ssl=ssl,
+                watchdog=watchdog,
+                watchdog_interval=watchdog_interval,
+                after_request=after_request,
+            )
+        )
+
+    @override
+    def shutdown(self) -> None:
+        super().shutdown()
+        self.shutdown_requested = True
+
+    async def start_server(
+        self,
+        host: str = "0.0.0.0",
+        port: int = 5000,
+        debug: bool = False,
+        ssl: any = None,
+        watchdog: Callable | None = None,
+        watchdog_interval: int = 5,
+        after_request: Callable | None = None,
+    ) -> None:
+        """Start the Microdot web server as a coroutine.
+
+        This is blocking (if awaited) until the server is shutdown.
 
         Args:
             host: The hostname or IP address of the network interface that will be listening for requests.
@@ -121,34 +131,38 @@ class Microdot(microdot.Microdot):
             after_request: Function to run after every request completes.
         """
         self.debug = debug
-        self.shutdown_requested = False
 
-        self.server = socket.socket()
-        info = socket.getaddrinfo(host, port)
-        addr = info[0][-1]
+        async def _serve(reader: asyncio.streams.StreamReader, writer: asyncio.streams.StreamReader) -> None:
+            """Handle a single request from a connection and perform post request actions."""
+            await self.handle_request(reader, writer)
+            self._call_after_request_handlers(after_request)
+
+        async def _watchdog() -> None:
+            """Run the watchdogs in a background coroutine periodically."""
+            while not self.shutdown_requested:
+                self._call_watchdog_handlers(watchdog)
+                # Next run is always post + delay, instead of pre + delay, to prevent back to back runs.
+                await asyncio.sleep(watchdog_interval)
+
+        _watchdog_task = asyncio.create_task(_watchdog())
 
         if self.debug:
-            logger.info(f"Starting {microdot.concurrency_mode} server on {host}:{port}")
-        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server.bind(addr)
-        self.server.listen(5)
+            logger.info(f"Starting async server on {host}:{port}")
 
         if ssl:
-            self.server = ssl.wrap_socket(self.server, server_side=True)
+            self.server = await asyncio.start_server(_serve, host, port, ssl=ssl)
+        else:
+            self.server = await asyncio.start_server(_serve, host, port)
 
         try:
             while not self.shutdown_requested:
-                # Use select for periodic checks, instead of hardware/virtual IRQs, to maximize compatibility.
-                # Call watchdogs between each connection, as well as each connection batch, to prevent incoming
-                # requests from bypassing watchdog. If watchdog ran recently, it will be skipped.
-                ready, _, _ = select.select([self.server], [], [], watchdog_interval)
-                for _ in ready:
-                    self._accept_connection(after_request)
-                    self._call_watchdog_handlers(watchdog, watchdog_interval)
-                self._call_watchdog_handlers(watchdog, watchdog_interval)
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            pass
         finally:
-            self.server.close()
-            self.server = None
+            _watchdog_task.cancel()
+            self.shutdown()
+        await self.server.wait_closed()
 
     def _watchdog(self) -> None:
         """Callback to run periodically to maintain application."""

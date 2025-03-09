@@ -65,7 +65,8 @@ cython_debug/
 *.crt
 
 # Ignore all files created by users for their local setups.
-uhuereka/src/*.json
+uhuereka/**/*.json
+uhuereka/src/lib/microdot*
 
 # Local development helpers
 activate
