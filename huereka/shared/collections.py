@@ -10,12 +10,12 @@ import binascii
 import json
 import logging
 import os
-import pathlib
 from types import TracebackType
 from typing import Any
 from typing import Callable
 
 from huereka.shared import environments
+from huereka.shared import file_utils
 from huereka.shared import responses
 
 logger = logging.getLogger(__name__)
@@ -113,17 +113,16 @@ class Collection(abc.ABC):
             cls._collection_uri = data
             data = data.replace("file://", "")
             try:
-                with open(data, "rt", encoding="utf-8") as file_in:
-                    try:
-                        loaded_data = json.load(file_in)
-                        logger.info(f"Loaded {len(loaded_data)} {cls.collection_help} from {cls._collection_uri}")
-                    except Exception as error:  # pylint: disable=broad-except
-                        logger.exception(f"Failed to load {cls.collection_help} from local file {data}", exc_info=error)
+                loaded_data = file_utils.load_json(data)
+                logger.info(f"Loaded {len(loaded_data)} {cls.collection_help} from {cls._collection_uri}")
             except OSError as error:
                 if error.errno == 2:
                     logger.warning(f"Skipping {cls.collection_help} load, file not found {data}")
                 else:
                     raise error
+            except Exception as error:  # pylint: disable=broad-except
+                logger.exception(f"Failed to load {cls.collection_help} from local file {data}", exc_info=error)
+                raise
         return loaded_data
 
     @classmethod
@@ -166,23 +165,14 @@ class Collection(abc.ABC):
         if cls._collection_uri is not None:
             uri = cls._collection_uri
             if uri.startswith("/") or uri.startswith("file://"):
-                uri = uri.replace("file://", "")
-
-                path = pathlib.Path(uri)
-                path.parent.mkdir(parents=True, exist_ok=True)
-
                 with cls._collection_lock:
-                    # Write to a temporary file, and then move to expected file, so that if for any reason
-                    # it is interrupted, the original remains intact and the user can decide which to load.
-                    tmp_path = f"{uri}.tmp"
-                    with open(tmp_path, "w+", encoding="utf-8") as file_out:
+                    file_utils.save_json(
+                        cls.to_json(save_only=True),
+                        uri.replace("file://", ""),
                         # Use pretty-print in standard environments to simplify manual reviews of collections,
                         # since their collections are typically large. MicroPython does not support pretty-printing.
-                        if environments.is_micro_python():
-                            json.dump(cls.to_json(save_only=True), file_out)
-                        else:
-                            json.dump(cls.to_json(save_only=True), file_out, indent=2)
-                    os.rename(tmp_path, uri)
+                        indent=None if environments.is_micro_python() else 2,
+                    )
                     logger.info(f"Saved {cls.collection_help} to {uri}")
 
     @classmethod
