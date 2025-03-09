@@ -7,6 +7,7 @@ import os
 import pathlib
 import time
 from typing import Callable
+from typing import override
 
 import network
 from microdot import Request
@@ -45,6 +46,7 @@ class WLANConfigurationApp(microdot_utils.Microdot):
         self.get("/networks")(self._get_networks)
         self.get("/static/<string:path>")(self._static)
 
+    @override
     def _after_request(self) -> None:
         """Monitor for connection updates and shutdown server when connected to an external network."""
         if self.wlan.isconnected():

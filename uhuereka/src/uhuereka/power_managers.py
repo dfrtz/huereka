@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import override
 
 import machine
 
@@ -140,15 +141,8 @@ class PowerManager(CollectionEntry):
             self.__init_pin_type__()
 
     @classmethod
+    @override
     def from_json(cls, data: dict) -> PowerManager:
-        """Convert JSON into a power manager instance.
-
-        Args:
-            data: Mapping of the instance attributes.
-
-        Returns:
-            Instantiated manager with the given attributes.
-        """
         cls._validate_config(data)
         uuid = data.get(KEY_ID)
         name = data.get(KEY_NAME)
@@ -226,15 +220,8 @@ class PowerManager(CollectionEntry):
         if self.should_teardown:
             self.mode = MODE_OFF
 
+    @override
     def to_json(self, save_only: bool = False) -> dict:
-        """Convert the device manager into a JSON compatible type.
-
-        Args:
-            save_only: Whether to only include values that are meant to be saved.
-
-        Returns:
-            Mapping of the instance attributes.
-        """
         data = super().to_json()
         data[KEY_MODE] = self.mode
         data[KEY_PIN] = self.pin
