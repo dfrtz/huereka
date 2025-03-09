@@ -22,8 +22,6 @@ logger = logging.getLogger(__name__)
 class Microdot(microdot.Microdot):
     """Microdot web server with additional state functionality."""
 
-    _watchdog: Callable | None = None
-
     def __init__(self, *, static_root: str | None = None) -> None:
         """Initialize Microdot web server.
 
@@ -34,30 +32,54 @@ class Microdot(microdot.Microdot):
         self._next_watchdog_check = 0
         self.static_root: str | None = static_root
 
-    def _accept_connection(self) -> None:
-        """Handle a single client connection."""
+    def _after_request(self) -> None:
+        """Callback to run after every request completes."""
+        # No action by default.
+
+    def _accept_connection(self, after_request: Callable | None = None) -> None:
+        """Accept a single client connection."""
         try:
             sock, addr = self.server.accept()
         except OSError as exc:
             if exc.errno == microdot.errno.ECONNABORTED:
                 return
             else:
-                logger.exception(f"Failed to accept connection {exc}", exc_info=exc)
+                logger.exception(f"Failed to accept connection: {exc}", exc_info=exc)
         except Exception as exc:
-            logger.exception(f"Failed to accept connection {exc}", exc_info=exc)
+            logger.exception(f"Failed to accept connection: {exc}", exc_info=exc)
         else:
-            microdot.create_thread(self.handle_request, sock, addr)
+            microdot.create_thread(self._handle_request, sock, addr, after_request)
 
-    def _call_watchdogs(self, delay: int, watchdog: Callable) -> None:
-        """Call watchdog functions and update the next expected run time if the minimum delay has passed."""
-        if self._watchdog or watchdog:
-            current_time = time.time()
-            if current_time >= self._next_watchdog_check:
-                if self._watchdog:
-                    self._watchdog()
+    def _handle_request(
+        self,
+        sock: socket.socket,
+        addr: tuple[str, str],
+        after_request: Callable | None = None,
+    ) -> None:
+        """Handle a single request from a connection and perform post request actions."""
+        self.handle_request(sock, addr)
+        self._call_after_request_handlers(after_request)
+
+    def _call_after_request_handlers(self, after_request: Callable) -> None:
+        """Run all "after request" handlers."""
+        try:
+            self._after_request()
+            if after_request:
+                after_request()
+        except Exception as exc:
+            logger.exception(f"Failed to handle after request callbacks: {exc}", exc_info=exc)
+
+    def _call_watchdog_handlers(self, watchdog: Callable | None, delay: int) -> None:
+        """Run all watchdog handlers if the minimum delay has passed, and update the next expected run time."""
+        if time.time() >= self._next_watchdog_check:
+            try:
+                self._watchdog()
                 if watchdog:
                     watchdog()
-                self._next_watchdog_check = current_time + delay
+            except Exception as exc:
+                logger.exception(f"Failed to run watchdog callbacks: {exc}", exc_info=exc)
+            # Next run is always post + delay, instead of pre + delay, to prevent back to back runs.
+            self._next_watchdog_check = time.time() + delay
 
     def _static(self, request: microdot.Request, path: str) -> tuple:
         """Serve a static web file."""
@@ -78,8 +100,9 @@ class Microdot(microdot.Microdot):
         port: int = 5000,
         debug: bool = False,
         ssl: any = None,
-        wait: int = 5,
         watchdog: Callable | None = None,
+        watchdog_interval: int = 5,
+        after_request: Callable | None = None,
     ) -> None:
         """Run Microdot web app with time limits to allow concurrent application behavior.
 
@@ -93,9 +116,9 @@ class Microdot(microdot.Microdot):
             port: The port number to listen for requests.
             debug: Whether the server logs debugging information.
             ssl: An SSLContext instance if the server should use TLS.
-            wait: How long to wait between client connections before temporarily releasing operations to watchdog.
             watchdog: Non-interrupt function to run periodically to maintain application.
-                Will check between client requests, or at least once every wait period if idle.
+            watchdog_interval: Time between client connections before temporarily releasing operations to watchdog.
+            after_request: Function to run after every request completes.
         """
         self.debug = debug
         self.shutdown_requested = False
@@ -116,13 +139,17 @@ class Microdot(microdot.Microdot):
         try:
             while not self.shutdown_requested:
                 # Use select for periodic checks, instead of hardware/virtual IRQs, to maximize compatibility.
-                ready, _, _ = select.select([self.server], [], [], wait)
+                # Call watchdogs between each connection, as well as each connection batch, to prevent incoming
+                # requests from bypassing watchdog. If watchdog ran recently, it will be skipped.
+                ready, _, _ = select.select([self.server], [], [], watchdog_interval)
                 for _ in ready:
-                    self._accept_connection()
-                    # Call between each request to prevent non-stop requests from bypassing watchdog.
-                    # If watchdog ran recently, it will be skipped.
-                    self._call_watchdogs(wait, watchdog)
-                self._call_watchdogs(wait, watchdog)
+                    self._accept_connection(after_request)
+                    self._call_watchdog_handlers(watchdog, watchdog_interval)
+                self._call_watchdog_handlers(watchdog, watchdog_interval)
         finally:
             self.server.close()
             self.server = None
+
+    def _watchdog(self) -> None:
+        """Callback to run periodically to maintain application."""
+        # No action by default.
