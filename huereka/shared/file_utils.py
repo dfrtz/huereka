@@ -97,13 +97,13 @@ def save_json(data: Any, destination: str, indent: int | None = None, backup_ext
     # Move and verify the backup file is readable before attempting new save.
     if new_path.exists():
         new_path.rename(str(backup_path))
-        json.loads(backup_path.read_text(encoding="utf-8"))
+        json.loads(backup_path.read_text(encoding="utf-8") or "null")
 
     # Save new file and verify before cleaning up backup files.
     try:
         new_path.parent.mkdir(parents=True, exist_ok=True)
         new_path.write_text(data_out, encoding="utf-8")
-        json.loads(new_path.read_text(encoding="utf-8"))
+        json.loads(new_path.read_text(encoding="utf-8") or "null")
         if backup_path.exists():
             backup_path.unlink()
     except Exception as error:

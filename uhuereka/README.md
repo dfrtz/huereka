@@ -26,6 +26,7 @@ damage to your surroundings. By using this guide you agree to take proper precau
   * [Access MicroPython Environment on Microcontroller via CLI](#access-micropython-environment-on-microcontroller-via-cli)
 * [Advanced Setups](#advanced-setups)
   * [Set Up Micropython Development Environment](#set-up-micropython-development-environment)
+* [FAQ](#faq)
 
 
 ### Requirements
@@ -204,3 +205,10 @@ your environment, but your mileage may vary.
    ```bash
    cp build-standard/micropython /usr/bin/micropython
    ```
+
+
+## FAQ
+
+- Q: I am hitting "Wifi Unknown Error 0x0101" during boot, what is the cause, and how do I prevent?  
+    - A: The microcontroller is most likely running out of memory during imports and initialization.
+    Ensure you are using `.mpy` compiled files as much as possible for imports.

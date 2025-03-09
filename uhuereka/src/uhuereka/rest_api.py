@@ -42,26 +42,26 @@ app = REST()
 
 
 @app.errorhandler(Exception)
-def handle_exception(request: microdot.Request, exception: Exception) -> tuple:
+async def handle_exception(request: microdot.Request, exception: Exception) -> tuple:
     """Return JSON instead of HTML for internal errors."""
     # Do not display the error to the user in case it contains sensitive information.
     return responses.server_error()
 
 
 @app.errorhandler(responses.APIError)
-def handle_api_exception(request: microdot.Request, exception: responses.APIError) -> tuple:
+async def handle_api_exception(request: microdot.Request, exception: responses.APIError) -> tuple:
     """Return JSON instead of HTML for API errors."""
     return responses.json_error(exception), exception.code
 
 
 @app.get("/health")
-def health(request: microdot.Request) -> tuple:
+async def health(request: microdot.Request) -> tuple:
     """Basic health check to ensure server is online and responding."""
     return responses.ok()
 
 
 @app.get("/api")
-def api_root(request: microdot.Request) -> tuple:
+async def api_root(request: microdot.Request) -> tuple:
     """Provide the available API versions."""
     return responses.ok(
         [
@@ -71,7 +71,7 @@ def api_root(request: microdot.Request) -> tuple:
 
 
 @app.get("/api/v1")
-def api_v1_root(request: microdot.Request) -> tuple:
+async def api_v1_root(request: microdot.Request) -> tuple:
     """Provide the available API endpoints for version 1."""
     return responses.ok(
         [
@@ -81,7 +81,7 @@ def api_v1_root(request: microdot.Request) -> tuple:
 
 
 @app.get("/api/v1/managers")
-def managers_get(request: microdot.Request) -> tuple:
+async def managers_get(request: microdot.Request) -> tuple:
     """Find all currently saved managers."""
     managers = PowerManagers.to_json()
     response = {
@@ -92,7 +92,7 @@ def managers_get(request: microdot.Request) -> tuple:
 
 
 @app.post("/api/v1/managers")
-def managers_post(request: microdot.Request) -> tuple:
+async def managers_post(request: microdot.Request) -> tuple:
     """Create a new manager."""
     body = get_json_body(request)
     if isinstance(body, tuple):
@@ -109,7 +109,7 @@ def managers_post(request: microdot.Request) -> tuple:
 
 
 @app.delete("/api/v1/managers/<string:uuid>")
-def managers_delete_entry(request: microdot.Request, uuid: str) -> tuple:
+async def managers_delete_entry(request: microdot.Request, uuid: str) -> tuple:
     """Remove a manager."""
     manager = PowerManagers.remove(uuid)
     # Save immediately, this was not a scheduled or interrupt task.
@@ -118,7 +118,7 @@ def managers_delete_entry(request: microdot.Request, uuid: str) -> tuple:
 
 
 @app.get("/api/v1/managers/<string:uuid>")
-def managers_get_entry(request: microdot.Request, uuid: str) -> tuple:
+async def managers_get_entry(request: microdot.Request, uuid: str) -> tuple:
     """Find a manager by ID."""
     try:
         manager = PowerManagers.get(uuid)
@@ -128,7 +128,7 @@ def managers_get_entry(request: microdot.Request, uuid: str) -> tuple:
 
 
 @app.put("/api/v1/managers/<string:uuid>")
-def managers_put_entry(request: microdot.Request, uuid: str) -> tuple:
+async def managers_put_entry(request: microdot.Request, uuid: str) -> tuple:
     """Update a manager's configuration."""
     body = get_json_body(request)
     if isinstance(body, tuple):
@@ -140,7 +140,7 @@ def managers_put_entry(request: microdot.Request, uuid: str) -> tuple:
 
 
 @app.get("/device")
-def device_root(request: microdot.Request) -> tuple:
+async def device_root(request: microdot.Request) -> tuple:
     """Provide the available device endpoints."""
     return responses.ok(
         [
@@ -151,7 +151,7 @@ def device_root(request: microdot.Request) -> tuple:
 
 
 @app.get("/device/info")
-def device_info(request: microdot.Request) -> tuple:
+async def device_info(request: microdot.Request) -> tuple:
     """Provide information about the device running the API."""
     year, month, day, hour, minute, second, _, _ = time.gmtime()
     return responses.ok(

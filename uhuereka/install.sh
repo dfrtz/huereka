@@ -58,10 +58,11 @@ if [ "${dry_run}" == "true" ]; then
 fi
 
 if [ "${install_dependencies}" == "true" ]; then
+  curl 'https://raw.githubusercontent.com/miguelgrinberg/microdot/refs/tags/v2.1.0/src/microdot/microdot.py' -o "uhuereka/src/lib/microdot.py"
+  mpy-cross "uhuereka/src/lib/microdot.py"
   $cmd_prefix $mpremote_bin connect ${device} mip install logging
   $cmd_prefix $mpremote_bin connect ${device} mip install pathlib
   $cmd_prefix $mpremote_bin connect ${device} mip install time
-  $cmd_prefix $mpremote_bin connect ${device} mip install https://raw.githubusercontent.com/miguelgrinberg/microdot/v1.3.4/src/microdot.py
 fi
 
 if [ "${install_src}" == "true" ]; then
