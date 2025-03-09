@@ -12,6 +12,8 @@ from typing import override
 import network
 from microdot import Request
 
+from huereka.shared import file_utils
+
 from . import microdot_utils
 
 logger = logging.getLogger(__name__)
@@ -337,11 +339,7 @@ def load_config(path: str) -> list[dict] | None:
     Raises:
         Exception on failure to load if the file was found.
     """
-    profiles = None
-    config_file = pathlib.Path(path)
-    if config_file.exists():
-        profiles = json.loads(pathlib.Path(path).read_text() or "null")
-    return profiles
+    return file_utils.load_json(path)
 
 
 def save_config(path: str, profiles: list[dict]) -> None:
@@ -354,10 +352,7 @@ def save_config(path: str, profiles: list[dict]) -> None:
     Raises:
         Exception on failure to save.
     """
-    tmp = pathlib.Path(f"{path}.tmp")
-    tmp.parent.mkdir(parents=True, exist_ok=True)
-    tmp.write_text(json.dumps(profiles))
-    tmp.rename(path)
+    file_utils.save_json(profiles, path)
 
 
 def _start_configurator(
