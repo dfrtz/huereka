@@ -7,6 +7,8 @@ from typing import override
 
 import machine
 
+from huereka.shared.collections import KEY_ID
+from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import DisabledCollectionLock
@@ -14,8 +16,6 @@ from huereka.shared.collections import get_and_validate
 
 logger = logging.getLogger(__name__)
 
-KEY_ID = "id"
-KEY_NAME = "name"
 KEY_MODE = "mode"
 KEY_PIN = "pin"
 KEY_POWER = "power"
@@ -144,21 +144,14 @@ class PowerManager(CollectionEntry):
     @override
     def from_json(cls, data: dict) -> PowerManager:
         cls._validate_config(data)
-        uuid = data.get(KEY_ID)
-        name = data.get(KEY_NAME)
-        mode = data.get(KEY_MODE, MODE_OFF)
-        pin = data.get(KEY_PIN)
-        power = data.get(KEY_POWER, 1.0)
-        device_type = data.get(KEY_TYPE, DEVICE_TOGGLE)
-        teardown = data.get(KEY_TEARDOWN, True)
         return PowerManager(
-            uuid=uuid,
-            name=name,
-            mode=mode,
-            pin=pin,
-            power=power,
-            device_type=device_type,
-            should_teardown=teardown,
+            uuid=data.get(KEY_ID),
+            name=data.get(KEY_NAME),
+            mode=data.get(KEY_MODE, MODE_OFF),
+            pin=data.get(KEY_PIN),
+            power=data.get(KEY_POWER, 1.0),
+            device_type=data.get(KEY_TYPE, DEVICE_TOGGLE),
+            should_teardown=data.get(KEY_TEARDOWN, True),
         )
 
     @property
