@@ -275,7 +275,7 @@ def _gen_id(size, chars: str | None = None) -> str:
     return new_id
 
 
-def get_wlan_or_configure(
+async def get_wlan_or_configure(
     config_path: str | None = None,
     hostname: str | None = None,
     ap_ssid: str | None = None,
@@ -315,7 +315,7 @@ def get_wlan_or_configure(
         if not ap_ssid:
             ap_ssid = f"{hostname}-setup"
         # Start temporary web server to perform initial setup for the device.
-        _start_configurator(
+        await _start_configurator(
             wlan_sta,
             config_path,
             ap_ssid,
@@ -355,7 +355,7 @@ def save_config(path: str, profiles: list[dict]) -> None:
     file_utils.save_json(profiles, path)
 
 
-def _start_configurator(
+async def _start_configurator(
     wlan: network.WLAN,
     config_path: str,
     ssid: str,
@@ -375,6 +375,6 @@ def _start_configurator(
     logger.info(f"Started WLAN AP for device configuration on: {host}:{port} SSID: {ssid} Password: {password}")
     logger.info(f"Connect to WLAN configuration page via browser at: http://{wlan_ap.ifconfig()[0]}:{port}/configure")
     wlan_ap_app = WLANConfigurationApp(wlan, config_path, hostname=hostname, on_new_config=on_new_config)
-    wlan_ap_app.run(host=host, port=port)
+    await wlan_ap_app.start_server(host=host, port=port)
     wlan_ap.active(False)
     logger.info(f"Shutdown WLAN AP due to successful connection to: {wlan.config('ssid')}")
