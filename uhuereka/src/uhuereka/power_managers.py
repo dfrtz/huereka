@@ -215,12 +215,13 @@ class PowerManager(CollectionEntry):
 
     @override
     def to_json(self, save_only: bool = False) -> dict:
-        data = super().to_json()
-        data[KEY_MODE] = self.mode
-        data[KEY_PIN] = self.pin
-        data[KEY_POWER] = self.power
-        data[KEY_TYPE] = self.device_type
-        data[KEY_TEARDOWN] = self.should_teardown
+        data = super().to_json() | {
+            KEY_MODE: self.mode,
+            KEY_PIN: self.pin,
+            KEY_POWER: self.power,
+            KEY_TYPE: self.device_type,
+            KEY_TEARDOWN: self.should_teardown,
+        }
         if not save_only:
             data[KEY_STATUS] = self.status
         return data
