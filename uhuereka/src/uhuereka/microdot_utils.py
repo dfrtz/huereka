@@ -104,8 +104,9 @@ class Microdot(microdot.Microdot):
 
     @override
     def shutdown(self) -> None:
-        super().shutdown()
         self.shutdown_requested = True
+        if self.server:
+            self.server.close()
 
     async def start_server(
         self,
@@ -137,14 +138,18 @@ class Microdot(microdot.Microdot):
             await self.handle_request(reader, writer)
             self._call_after_request_handlers(after_request)
 
-        async def _watchdog() -> None:
-            """Run the watchdogs in a background coroutine periodically."""
-            while not self.shutdown_requested:
-                self._call_watchdog_handlers(watchdog)
-                # Next run is always post + delay, instead of pre + delay, to prevent back to back runs.
-                await asyncio.sleep(watchdog_interval)
+        if self._watchdog or watchdog:
 
-        _watchdog_task = asyncio.create_task(_watchdog())
+            async def _watchdog() -> None:
+                """Run the watchdogs in a background coroutine periodically."""
+                while not self.shutdown_requested:
+                    self._call_watchdog_handlers(watchdog)
+                    # Next run is always post + delay, instead of pre + delay, to prevent back to back runs.
+                    await asyncio.sleep(watchdog_interval)
+
+            _watchdog_task = asyncio.create_task(_watchdog())
+        else:
+            _watchdog_task = None
 
         if self.debug:
             logger.info(f"Starting async server on {host}:{port}")
@@ -160,7 +165,8 @@ class Microdot(microdot.Microdot):
         except asyncio.CancelledError:
             pass
         finally:
-            _watchdog_task.cancel()
+            if _watchdog_task:
+                _watchdog_task.cancel()
             self.shutdown()
         await self.server.wait_closed()
 

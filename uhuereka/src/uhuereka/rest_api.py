@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 class REST(microdot_utils.Microdot):
     """Microdot web server to manage device."""
 
+    _watchdog = None
+
     def __init__(self) -> None:
         """Initialize REST server state."""
         super().__init__()

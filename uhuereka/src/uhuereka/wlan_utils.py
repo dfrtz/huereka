@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 class WLANConfigurationApp(microdot_utils.Microdot):
     """Microdot web server to configure new WLAN connections."""
 
+    _watchdog = None
+
     def __init__(
         self,
         wlan: network.WLAN,
