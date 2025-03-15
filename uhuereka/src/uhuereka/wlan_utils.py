@@ -3,7 +3,6 @@
 import binascii
 import json
 import logging
-import os
 import pathlib
 import time
 from typing import Callable
@@ -12,6 +11,7 @@ from typing import override
 import network
 from microdot import Request
 
+from huereka.shared import collections
 from huereka.shared import file_utils
 
 from . import microdot_utils
@@ -226,11 +226,8 @@ def connect_from_profiles(
     Returns:
         Whether the WLAN connection was successful.
     """
-    if wlan.isconnected():
-        if force_reconnect:
-            wlan.disconnect()
-        else:
-            return wlan
+    if wlan.isconnected() and not force_reconnect:
+        return wlan
 
     bssid_map = {}
     ssid_map = {}
@@ -243,6 +240,8 @@ def connect_from_profiles(
     connected = False
     if bssid_map or ssid_map:
         wlan.active(True)
+        # Always force disconnect, even if not showing connected, to ensure scans work.
+        wlan.disconnect()
         # Networks are stored as: (ssid, bssid, channel, RSSI, security, hidden)
         for ssid_raw, bssid_raw, _, _, security, _ in sorted(wlan.scan(), key=lambda network: network[3], reverse=True):
             bssid = binascii.hexlify(bssid_raw, ":").decode("utf-8").upper()
@@ -268,16 +267,8 @@ def connect_from_profiles(
     return connected
 
 
-def _gen_id(size, chars: str | None = None) -> str:
-    """Generate a new unique ID value for use in hostnames, AP SSIDs, etc."""
-    new_id = ""
-    chars = chars or "abcdefghijklmnopqrstuvwxyz0123456789"
-    for _ in range(size):
-        new_id += chars[int.from_bytes(os.urandom(1), "big") % len(chars)]
-    return new_id
-
-
 async def get_wlan_or_configure(
+    wlan: network.WLAN | None = None,
     config_path: str | None = None,
     hostname: str | None = None,
     ap_ssid: str | None = None,
@@ -289,6 +280,8 @@ async def get_wlan_or_configure(
     """Connect to WLAN using saved profiles, or turn on the setup application to allow initial configuration.
 
     Args:
+        wlan: Optional wireless interface in client mode (STA/Station) to connect to a network.
+            A new interface will be created if not provided.
         config_path: Path to file containing WLAN configuration.
         hostname: Initial name to set on the device before connecting to new networks.
             Can be updated by users through configuration portal.
@@ -308,12 +301,12 @@ async def get_wlan_or_configure(
     else:
         logger.info(f"No WLAN profiles found")
 
-    wlan_sta = network.WLAN(network.STA_IF)
+    wlan_sta = wlan or network.WLAN(network.STA_IF)
     if profiles:
         connect_from_profiles(wlan_sta, profiles, min_security_level=min_security_level)
     elif profiles is None:
         if not hostname:
-            hostname = f"uhuereka-{_gen_id(8)}"
+            hostname = f"uhuereka-{collections.uuid4().split('-', 1)[0]}"
         if not ap_ssid:
             ap_ssid = f"{hostname}-setup"
         # Start temporary web server to perform initial setup for the device.
@@ -370,7 +363,7 @@ async def _start_configurator(
 ) -> network.WLAN:
     """Start WLAN configuration application, and shutdown when a new connection is successfully configured."""
     wlan_ap = network.WLAN(network.AP_IF)
-    wlan_ap.config(essid=ssid)
+    wlan_ap.config(ssid=ssid)
     if password and security:
         wlan_ap.config(password=password, security=security)
     wlan_ap.active(True)
