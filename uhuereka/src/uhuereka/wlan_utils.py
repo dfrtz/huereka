@@ -8,6 +8,7 @@ import time
 from typing import Callable
 from typing import override
 
+import machine
 import network
 from microdot import Request
 
@@ -15,6 +16,8 @@ from huereka.shared import collections
 from huereka.shared import file_utils
 
 from . import microdot_utils
+
+DEFAULT_CONFIG_PATH = "/wifi.json"
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,7 @@ class WLANConfigurationApp(microdot_utils.Microdot):
     def __init__(
         self,
         wlan: network.WLAN,
-        config_path: str,
+        config_path: str = DEFAULT_CONFIG_PATH,
         hostname: str | None = None,
         on_new_config: Callable | None = None,
     ) -> None:
@@ -148,12 +151,12 @@ class WLANConfigurationApp(microdot_utils.Microdot):
                 updated = True
                 profile["password"] = config["password"]
                 profile["hostname"] = config["hostname"]
-                save_config(self.config_path, profiles)
+                save_config(profiles, path=self.config_path)
                 break
         if not updated:
             logger.info(f"Added new WLAN configuration for {config['ssid']}")
             profiles.append(config)
-            save_config(self.config_path, profiles)
+            save_config(profiles, path=self.config_path)
 
 
 def connect(
@@ -269,7 +272,7 @@ def connect_from_profiles(
 
 async def get_wlan_or_configure(
     wlan: network.WLAN | None = None,
-    config_path: str | None = None,
+    config_path: str = DEFAULT_CONFIG_PATH,
     hostname: str | None = None,
     ap_ssid: str | None = None,
     ap_password: str | None = None,
@@ -322,7 +325,24 @@ async def get_wlan_or_configure(
     return wlan_sta
 
 
-def load_config(path: str) -> list[dict] | None:
+def hard_reset_config(path: str = DEFAULT_CONFIG_PATH, reset_machine: bool = True) -> None:
+    """Hard reset the WLAN setup to the default configuration.
+
+    Args:
+        path: Path to file containing WLAN configuration.
+        reset_machine: Reset the device in a manner similar to pushing the external RESET button after config reset.
+    """
+    wifi_config = pathlib.Path(path)
+    if wifi_config.exists():
+        try:
+            wifi_config.unlink()
+        except Exception as error:
+            logger.exception(f"Failed to remove WLAN configuration during hard reset: {error}", exc_info=error)
+    if reset_machine:
+        machine.reset()
+
+
+def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> list[dict] | None:
     """Load WLAN configuration from a file.
 
     Args:
@@ -337,12 +357,12 @@ def load_config(path: str) -> list[dict] | None:
     return file_utils.load_json(path)
 
 
-def save_config(path: str, profiles: list[dict]) -> None:
+def save_config(profiles: list[dict], path: str | None = DEFAULT_CONFIG_PATH) -> None:
     """Save WLAN configuration to a file.
 
     Args:
-        path: Path to file where WLAN profiles should be saved.
         profiles: WLAN profiles to save to the file.
+        path: Path to file where WLAN profiles should be saved.
 
     Raises:
         Exception on failure to save.

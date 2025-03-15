@@ -14,7 +14,7 @@ from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import DisabledCollectionLock
 from huereka.shared.collections import get_and_validate
 
-logger = logging.getLogger(__name__)
+DEFAULT_CONFIG_PATH = "/power_managers.json"
 
 KEY_MODE = "mode"
 KEY_PIN = "pin"
@@ -34,6 +34,8 @@ All_STATES = (STATUS_OFF, STATUS_ON)
 DEVICE_TOGGLE = "pwr_toggle"
 DEVICE_PWM = "pwr_pwm"
 ALL_DEVICES = (DEVICE_TOGGLE, DEVICE_PWM)
+
+logger = logging.getLogger(__name__)
 
 
 class PowerManager(CollectionEntry):
@@ -292,3 +294,20 @@ class PowerManagers(Collection):
             for uuid in list(cls._collection.keys()):
                 manager: PowerManager = cls.remove(uuid)
                 manager.teardown()
+
+
+def load_config(path: str = DEFAULT_CONFIG_PATH) -> None:
+    """Load the power manager singleton for the device.
+
+    Args:
+        path: Path to the  file containing power manager configurations.
+    """
+    generated, errors = PowerManagers.load(path)
+    if generated:
+        if not errors:
+            logger.info(f"Auto generated values for {len(generated)} power manager(s), saving final configuration")
+            PowerManagers.save()
+        else:
+            logger.error(
+                f"Skipping save of generated values for {len(generated)} power manager(s) due to {len(errors)} error(s), they will be regenerated on each load until errors are resolved"
+            )

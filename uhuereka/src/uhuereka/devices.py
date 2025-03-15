@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+import pathlib
 import re
 from typing import override
+
+import machine
 
 from huereka.shared import file_utils
 from huereka.shared.collections import KEY_ID
@@ -12,6 +15,9 @@ from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import get_and_validate
 from huereka.shared.collections import uuid4
+
+DEFAULT_MFG_PATH = "/mfg.json"
+DEFAULT_CONFIG_PATH = "/device.json"
 
 NO_CONFIG_FOUND = "NO_CONFIG_FOUND"
 KEY_PORT = "port"
@@ -78,15 +84,32 @@ class MCUDevice(CollectionEntry):
         get_and_validate(config, KEY_CTRL_PIN, expected_type=int)
 
 
-def load_device(
-    mfg_path: str = "/mfg.json",
-    overrides_path: str = "/device.json",
-    defaults: dict | None = None,
-) -> MCUDevice:
-    """Load a device configuration from all available sources.
+def hard_reset_config(path: str = DEFAULT_CONFIG_PATH, reset_machine: bool = True) -> None:
+    """Hard reset the device to the default configuration.
 
     Args:
-        mfg_path: Path to the manufacturing default file as the baseline.
+        path: Path to saved device configuration file containing manufacturing overrides.
+        reset_machine: Reset the device in a manner similar to pushing the external RESET button after config reset.
+    """
+    device_config = pathlib.Path(path)
+    if device_config.exists():
+        try:
+            device_config.unlink()
+        except Exception as error:
+            logger.exception(f"Failed to remove device configuration during hard reset: {error}", exc_info=error)
+    if reset_machine:
+        machine.reset()
+
+
+def load_config(
+    mfg_path: str = DEFAULT_MFG_PATH,
+    overrides_path: str = DEFAULT_CONFIG_PATH,
+    defaults: dict | None = None,
+) -> MCUDevice:
+    """Load the device configuration from all available sources.
+
+    Args:
+        mfg_path: Path to the manufacturing defaults used as the configuration baseline.
         overrides_path: Path to saved device configuration file containing manufacturing overrides.
             Will be updated if primary values are not populated.
         defaults: Inline defaults to apply where no values are found from other configs.
