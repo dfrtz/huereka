@@ -29,6 +29,7 @@ class Microdot(microdot.Microdot):
         """
         super().__init__()
         self._next_watchdog_check = 0
+        self._running = False
         self.static_root: str | None = static_root
 
     def _after_request(self) -> None:
@@ -102,6 +103,11 @@ class Microdot(microdot.Microdot):
             )
         )
 
+    @property
+    def running(self) -> bool:
+        """Whether the server is currently running and accepting connections."""
+        return self._running
+
     @override
     def shutdown(self) -> None:
         self.shutdown_requested = True
@@ -138,37 +144,41 @@ class Microdot(microdot.Microdot):
             await self.handle_request(reader, writer)
             self._call_after_request_handlers(after_request)
 
-        if self._watchdog or watchdog:
-
-            async def _watchdog() -> None:
-                """Run the watchdogs in a background coroutine periodically."""
-                while not self.shutdown_requested:
-                    self._call_watchdog_handlers(watchdog)
-                    # Next run is always post + delay, instead of pre + delay, to prevent back to back runs.
-                    await asyncio.sleep(watchdog_interval)
-
-            _watchdog_task = asyncio.create_task(_watchdog())
-        else:
-            _watchdog_task = None
+        async def _watchdog() -> None:
+            """Run the watchdogs in a background coroutine periodically."""
+            while not self.shutdown_requested:
+                self._call_watchdog_handlers(watchdog)
+                # Next run is always post + delay, instead of pre + delay, to prevent back to back runs.
+                await asyncio.sleep(watchdog_interval)
 
         if self.debug:
             logger.info(f"Starting async server on {host}:{port}")
 
-        if ssl:
-            self.server = await asyncio.start_server(_serve, host, port, ssl=ssl)
-        else:
-            self.server = await asyncio.start_server(_serve, host, port)
-
+        _watchdog_task = None
         try:
+            if self._running:
+                logger.warning("Server is already running, skipping start")
+                return
+            self._running = True
+            self.shutdown_requested = False
+            if ssl:
+                self.server = await asyncio.start_server(_serve, host, port, ssl=ssl)
+            else:
+                self.server = await asyncio.start_server(_serve, host, port)
+            if self._watchdog or watchdog:
+                _watchdog_task = asyncio.create_task(_watchdog())
             while not self.shutdown_requested:
                 await asyncio.sleep(1)
         except asyncio.CancelledError:
             pass
         finally:
-            if _watchdog_task:
-                _watchdog_task.cancel()
-            self.shutdown()
-        await self.server.wait_closed()
+            try:
+                if _watchdog_task:
+                    _watchdog_task.cancel()
+                self.shutdown()
+                await self.server.wait_closed()
+            finally:
+                self._running = False
 
     def _watchdog(self) -> None:
         """Callback to run periodically to maintain application."""
