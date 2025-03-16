@@ -2,6 +2,7 @@
 
 Any = "Any"
 Callable = "Callable"
+Generator = "Generator"
 
 
 def override(func: Callable) -> Callable:

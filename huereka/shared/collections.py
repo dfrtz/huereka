@@ -6,6 +6,7 @@ N.B. This entire library must remain compatible with usage in CPython and MicroP
 from __future__ import annotations
 
 import abc
+import asyncio
 import binascii
 import json
 import logging
@@ -13,6 +14,7 @@ import os
 from types import TracebackType
 from typing import Any
 from typing import Callable
+from typing import Generator
 
 from huereka.shared import environments
 from huereka.shared import file_utils
@@ -29,19 +31,23 @@ class Collection(abc.ABC):
 
     # Base values are not implemented here to enforce each class declare concrete instances and not share.
 
-    # Base collection mapping. Should be replaced with: {}
-    _collection: dict[str, CollectionEntry] = abc.abstractproperty(dict)
-    # Shared lock across threads. Should be replaced with: threading.Condition() or threading.Lock() on systems where
-    # multithreading is used, or DisabledCollectionLock() on systems where multithreading is not supported or used.
-    _collection_lock: Any = abc.abstractproperty()
-    # Location where the collection is stored. Should be replaced with: None
-    # First load will set the URI for all future actions.
-    _collection_uri: str = abc.abstractproperty(str)
+    _collection: dict[str, CollectionEntry] = abc.abstractproperty()
+    """Base collection mapping."""
+    # Replace with `{}` or `dict()` when subclassed.
 
-    # Text used when displaying helper/logging messages. e.g. 'user documents'
-    collection_help: str = abc.abstractproperty(str)
-    # Class used to instantiate entries on load.
+    _collection_lock: Any = abc.abstractproperty()
+    """Shared lock across threads and coroutines (depending on environment)."""
+    # Replaced with `CollectionLock()` when subclassed.
+
+    _collection_uri: str = abc.abstractproperty()
+    """Location where the collection is stored."""
+    # Replace with `None` when subclassed. First load will set the URI for all future actions.
+
+    collection_help: str = abc.abstractproperty()
+    """Text used when displaying helper/logging messages. e.g. 'user documents'"""
+
     entry_cls: type[CollectionEntry] = abc.abstractproperty(type)
+    """Class used to instantiate entries on load."""
 
     @classmethod
     def collection_help_api_name(cls) -> str:
@@ -49,23 +55,26 @@ class Collection(abc.ABC):
         return cls.collection_help.lower().replace(" ", "_")
 
     @classmethod
-    def get(cls, key: str) -> CollectionEntry:
+    def get(cls, key: str | None) -> CollectionEntry | dict[str, CollectionEntry]:
         """Find the entry associated with a given key.
 
         Args:
             key: Key used to map saved entry as a unique value in the collection.
-                Must match attribute used in register().
+                Must match attribute used in register(). Providing no key will return full collection.
 
         Returns:
-            Instance of the entry matching the key.
+            Instance of the entry matching the key, or shallow copy of collection if no key provided.
 
         Raises:
             APIError if the entry is not found in persistent storage.
         """
-        entry = cls._collection.get(key)
-        if not entry:
-            raise responses.APIError(f"missing-{cls.collection_help_api_name()}", key, code=404)
-        return entry
+        if key:
+            entry = cls._collection.get(key)
+            if not entry:
+                raise responses.APIError(f"missing-{cls.collection_help_api_name()}", key, code=404)
+            return entry
+        with cls._collection_lock:
+            return cls._collection.copy()
 
     @classmethod
     def load(cls, data: str | list[dict]) -> tuple[list[CollectionEntry], list[tuple[int, Exception]]]:
@@ -124,6 +133,11 @@ class Collection(abc.ABC):
                 logger.exception(f"Failed to load {cls.collection_help} from local file {data}", exc_info=error)
                 raise
         return loaded_data
+
+    @classmethod
+    def lock(cls) -> CollectionLock:
+        """Provide the lock used by the collection singleton to safely perform modifications."""
+        return cls._collection_lock
 
     @classmethod
     def post_load(cls) -> None:
@@ -305,27 +319,61 @@ class CollectionEntry(abc.ABC):
         raise CollectionValueError("no-updates-allowed", code=responses.STATUS_INVALID_DATA)
 
 
+class CollectionLock:
+    """Lock that adjusts available functionality to allow safe collection usage in various environments.
+
+    In CPython, the class supports locking both threads and async coroutines.
+    In MicroPython, the class only supports locking async coroutines.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the available locks based on the environment."""
+        try:
+            import threading  # pylint: disable=import-outside-toplevel
+
+            self._thread_lock = threading.Lock()
+        except ImportError:
+            self._thread_lock = None
+        self.async_lock = asyncio.Lock()
+
+    async def __aenter__(self) -> CollectionLock:
+        """Acquire the async lock and threading lock when the context is entered."""
+        # pylint: disable=consider-using-with
+        await self.async_lock.acquire()
+        if self._thread_lock:
+            self._thread_lock.acquire()
+        return self
+
+    async def __aexit__(
+        self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType
+    ) -> None:
+        """Release the async lock and threading lock when the context is exited."""
+        self.async_lock.release()
+        if self._thread_lock:
+            self._thread_lock.release()
+
+    def __await__(self) -> Generator:
+        """Yield to external asynchronous function to perform work while locks are acquired."""
+        yield
+
+    def __enter__(self) -> CollectionLock:
+        """Acquire the threading lock when the context is entered."""
+        if self._thread_lock:
+            self._thread_lock.acquire()
+        return self._thread_lock
+
+    def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType) -> None:
+        """Release the threading lock when the context is exited."""
+        if self._thread_lock:
+            self._thread_lock.release()
+
+
 class CollectionValueError(responses.APIError):
     """Exception subclass to help identify failures that indicate a collection entry value was invalid."""
 
     def __init__(self, error: str, data: Any = None, code: int = responses.STATUS_INVALID_DATA) -> None:
         """Set up the user details of the error."""
         super().__init__(error, data, code=code)
-
-
-class DisabledCollectionLock:
-    """Simulated lock object without locking capabilities to allow collection usage in various environments.
-
-    Prefer to use threading.Lock where possible. Using this will remove all multithreading safety from the object,
-    and require access to be manually protected by callers.
-    """
-
-    def __enter__(self) -> DisabledCollectionLock:
-        """Placeholder to return this instance when lock context is entered."""
-        return self
-
-    def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType) -> None:
-        """Placeholder for exit actions when lock context is exited."""
 
 
 def get_and_validate(  # Allow complex combinations to validate values consistently. pylint: disable=too-many-arguments

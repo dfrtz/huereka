@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from typing import Sequence
 
 from adafruit_pixelbuf import ColorUnion
@@ -17,6 +16,7 @@ from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
+from huereka.shared.collections import CollectionLock
 from huereka.shared.collections import CollectionValueError
 from huereka.shared.collections import get_and_validate
 
@@ -272,7 +272,7 @@ class LEDManagers(Collection):
     """Singleton for managing concurrent access to LEDs connected to GPIO pins."""
 
     _collection: dict[str, LEDManager] = {}
-    _collection_lock: threading.Condition = threading.Condition()
+    _collection_lock = CollectionLock()
     _collection_uri: str = None
 
     collection_help: str = "LED managers"
