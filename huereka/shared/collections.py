@@ -11,6 +11,7 @@ import binascii
 import json
 import logging
 import os
+from collections import OrderedDict
 from types import TracebackType
 from typing import Any
 from typing import Callable
@@ -30,24 +31,36 @@ class Collection(abc.ABC):
     """Base singleton class for managing reusable collection entries."""
 
     # Base values are not implemented here to enforce each class declare concrete instances and not share.
+    # On subclass init/declarations, they will be set to ensure no sharing across subtypes.
 
-    _collection: dict[str, CollectionEntry] = abc.abstractproperty()
+    __subclass_initialized__ = False
+
+    _collection: OrderedDict[str, CollectionEntry]
     """Base collection mapping."""
-    # Replace with `{}` or `dict()` when subclassed.
+    # Use OrderedDict for MicroPython compatibility.
 
-    _collection_lock: Any = abc.abstractproperty()
+    _collection_lock: CollectionLock
     """Shared lock across threads and coroutines (depending on environment)."""
-    # Replaced with `CollectionLock()` when subclassed.
 
-    _collection_uri: str = abc.abstractproperty()
+    _collection_uri: str | None
     """Location where the collection is stored."""
-    # Replace with `None` when subclassed. First load will set the URI for all future actions.
+    # First load will set the URI for all future actions.
 
     collection_help: str = abc.abstractproperty()
     """Text used when displaying helper/logging messages. e.g. 'user documents'"""
 
     entry_cls: type[CollectionEntry] = abc.abstractproperty(type)
     """Class used to instantiate entries on load."""
+
+    @classmethod
+    def __init_subclass__(cls) -> None:
+        """Initialize the subclass properties on declaration to prevent sharing with other subclass singletons."""
+        # Manually track initialization for MicroPython support and repeat call safety.
+        if not cls.__subclass_initialized__:
+            cls.__subclass_initialized__ = True
+            cls._collection = OrderedDict()
+            cls._collection_lock = CollectionLock()
+            cls._collection_uri = None
 
     @classmethod
     def collection_help_api_name(cls) -> str:

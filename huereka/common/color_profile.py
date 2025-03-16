@@ -9,7 +9,6 @@ from huereka.common import color_utils
 from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
-from huereka.shared.collections import CollectionLock
 from huereka.shared.collections import CollectionValueError
 
 logger = logging.getLogger(__name__)
@@ -227,10 +226,6 @@ class ColorProfile(CollectionEntry):
 
 class ColorProfiles(Collection):
     """Singleton for managing reusable color profiles."""
-
-    _collection: dict[str, ColorProfile] = {}
-    _collection_lock = CollectionLock()
-    _collection_uri: str = None
 
     collection_help: str = "color profiles"
     entry_cls: str = ColorProfile
