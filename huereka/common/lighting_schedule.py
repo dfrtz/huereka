@@ -15,6 +15,7 @@ from huereka.shared import responses
 from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
+from huereka.shared.collections import CollectionLock
 from huereka.shared.collections import CollectionValueError
 from huereka.shared.collections import get_and_validate
 
@@ -477,7 +478,7 @@ class LightingSchedules(Collection):
     __schedules_applied__: dict[str, color_profile.ColorProfile] = {}
 
     _collection: dict[str, LightingSchedule] = {}
-    _collection_lock: threading.Condition = threading.Condition()
+    _collection_lock = CollectionLock()
     _collection_uri: str = None
 
     collection_help: str = "lighting schedules"

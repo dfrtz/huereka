@@ -11,7 +11,7 @@ from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
-from huereka.shared.collections import DisabledCollectionLock
+from huereka.shared.collections import CollectionLock
 from huereka.shared.collections import get_and_validate
 
 DEFAULT_CONFIG_PATH = "/power_managers.json"
@@ -278,7 +278,7 @@ class PowerManagers(Collection):
     """Singleton for managing power managers connected to pins on an MCU."""
 
     _collection: dict[str, PowerManager] = {}
-    _collection_lock = DisabledCollectionLock()
+    _collection_lock = CollectionLock()
     _collection_uri: str = None
 
     collection_help: str = "power managers"
