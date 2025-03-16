@@ -21,6 +21,7 @@ DEFAULT_CONFIG_PATH = "/device.json"
 
 NO_CONFIG_FOUND = "NO_CONFIG_FOUND"
 KEY_PORT = "port"
+KEY_WLAN_ENABLED = "wlan_enabled"
 KEY_CTRL_PIN = "control_pin"
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ class MCUDevice(CollectionEntry):
         uuid: str | None = None,
         name: str | None = None,
         port: int | None = None,
+        wlan_enabled: bool = True,
         control_pin: int | None = None,
     ) -> None:
         """Set up the base collection entry values.
@@ -42,11 +44,13 @@ class MCUDevice(CollectionEntry):
             uuid: Universally unique identifier.
             name: Human readable name, also the hostname, used to store/reference in collections.
             port: TCP Port the device should listen to incoming API requests on to control the hardware/software.
+            wlan_enabled: Whether the WLAN hardware is allowed to be used for control requests.
             control_pin: Pin that should listen to button presses to control the hardware/software.
         """
         uuid = uuid or uuid4()
         super().__init__(uuid=uuid, name=name or f"uhuereka-{uuid.split('-', 1)[0]}")
         self.port = port
+        self.wlan_enabled = wlan_enabled
         self.control_pin = control_pin
 
     @classmethod
@@ -57,6 +61,7 @@ class MCUDevice(CollectionEntry):
             uuid=data.get(KEY_ID),
             name=data.get(KEY_NAME),
             port=data.get(KEY_PORT),
+            wlan_enabled=data.get(KEY_WLAN_ENABLED, True),
             control_pin=data.get(KEY_CTRL_PIN),
         )
 
@@ -64,6 +69,7 @@ class MCUDevice(CollectionEntry):
     def to_json(self, save_only: bool = False) -> dict:
         data = super().to_json() | {
             KEY_PORT: self.port,
+            KEY_WLAN_ENABLED: self.wlan_enabled,
             KEY_CTRL_PIN: self.control_pin,
         }
         return data
@@ -81,6 +87,7 @@ class MCUDevice(CollectionEntry):
             validation_message=f"Valid names only contain letters/numbers/dashes, and are < 64 characters",
         )
         get_and_validate(config, KEY_PORT, expected_type=int)
+        get_and_validate(config, KEY_WLAN_ENABLED, expected_type=bool)
         get_and_validate(config, KEY_CTRL_PIN, expected_type=int)
 
 
@@ -129,6 +136,21 @@ def load_config(
     pending_save = not bool(config.get(KEY_ID)) or not bool(config.get(KEY_NAME))
     loaded = MCUDevice.from_json(config)
     if pending_save:
-        file_utils.save_json(loaded.to_json(), overrides_path)
+        save_config(loaded, path=overrides_path)
         logger.info(f"Saved updated device configuration: {loaded.to_json()}")
     return loaded
+
+
+def save_config(config: dict | MCUDevice, path: str = DEFAULT_CONFIG_PATH) -> None:
+    """Save device configuration to a file.
+
+    Args:
+        config: Device configuration to save to the file.
+        path: Path to file where device configuration should be saved.
+
+    Raises:
+        Exception on failure to save.
+    """
+    if isinstance(config, MCUDevice):
+        config = config.to_json(save_only=True)
+    file_utils.save_json(config, path)

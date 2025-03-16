@@ -357,7 +357,7 @@ def load_config(path: str | None = DEFAULT_CONFIG_PATH) -> list[dict] | None:
     return file_utils.load_json(path)
 
 
-def save_config(profiles: list[dict], path: str | None = DEFAULT_CONFIG_PATH) -> None:
+def save_config(profiles: list[dict], path: str = DEFAULT_CONFIG_PATH) -> None:
     """Save WLAN configuration to a file.
 
     Args:
