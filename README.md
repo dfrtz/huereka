@@ -1,9 +1,9 @@
 # Huereka!
 
-[![os: linux](https://img.shields.io/badge/os-linux-blue)](https://docs.python.org/3.10/)
+[![os: linux](https://img.shields.io/badge/os-linux-blue)](https://docs.python.org/3.12/)
 [![raspberry-pi](https://img.shields.io/badge/-Raspberry_Pi-C51A4A?logo=Raspberry-Pi&logoColor=white)](https://www.raspberrypi.com/)
 [![arduino](https://img.shields.io/badge/-Arduino-00979D?logo=arduino&logoColor=white)](https://www.raspberrypi.com/)
-[![python: 3.10+](https://img.shields.io/badge/python-3.10_|_3.11-blue)](https://devguide.python.org/versions)
+[![python: 3.12+](https://img.shields.io/badge/python-3.12+-blue)](https://devguide.python.org/versions)
 [![python: Micropython](https://img.shields.io/badge/python-MicroPython-blue)](https://micropython.org)
 [![python style: google](https://img.shields.io/badge/python%20style-google-blue)](https://google.github.io/styleguide/pyguide.html)
 [![imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://github.com/PyCQA/isort)
@@ -40,7 +40,7 @@ addressed on a best effort basis.
 
 * Read [Neopixel Uberguide](https://learn.adafruit.com/adafruit-neopixel-uberguide) to understand best practices.
 * Huereka
-  * Python3.9+
+  * Python3.12+
   * Controller with GPIO pins
   * LED lights with WS2811 microcontrollers
   * If controlling 12V lights:
