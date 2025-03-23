@@ -7,6 +7,7 @@ import threading
 import time
 from datetime import datetime
 from typing import Any
+from typing import override
 
 from huereka.common import color_profile
 from huereka.common import color_utils
@@ -528,12 +529,10 @@ class LightingSchedules(Collection):
             )
 
     @classmethod
-    def get(cls, key: str) -> LightingSchedule:
-        """Find the lighting schedule associated with a given key.
-
-        Override to update typehint and simplify caller typechecks.
-        """
-        return super().get(key)
+    @override
+    def get(cls, key: str, *, raise_on_missing: bool = False) -> LightingSchedule | list[LightingSchedule] | None:
+        # Override to update typehint and simplify caller typechecks.
+        return super().get(key, raise_on_missing=raise_on_missing)
 
     @classmethod
     def pending_routines(cls) -> dict[str, tuple[LightingSchedule, LightingRoutine]]:

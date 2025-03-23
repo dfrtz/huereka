@@ -1,12 +1,12 @@
 [project]
 name = "huereka"
-description = "Hobbyist home lighting and automation platform"
+description = "Hobbyist lighting and smart home automation platform"
 readme = "README.md"
 dynamic = ["version"]
 authors = [
     { name = "David Fritz" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = { text = "Apache Software License" }
 keywords = ["automation"]
 classifiers = [

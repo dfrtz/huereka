@@ -68,22 +68,28 @@ class Collection(abc.ABC):
         return cls.collection_help.lower().replace(" ", "_")
 
     @classmethod
-    def get(cls, key: str | None) -> CollectionEntry | dict[str, CollectionEntry]:
+    def get(
+        cls,
+        key: str | None,
+        *,
+        raise_on_missing: bool = True,
+    ) -> CollectionEntry | dict[str, CollectionEntry] | None:
         """Find the entry associated with a given key.
 
         Args:
             key: Key used to map saved entry as a unique value in the collection.
                 Must match attribute used in register(). Providing no key will return full collection.
+            raise_on_missing: Whether to raise an API error if no entry found.
 
         Returns:
-            Instance of the entry matching the key, or shallow copy of collection if no key provided.
+            Instance of the entry matching the key, shallow copy of collection if no key provided, or None.
 
         Raises:
-            APIError if the entry is not found in persistent storage.
+            APIError if the entry is not found in persistent storage and raising is enabled.
         """
         if key:
             entry = cls._collection.get(key)
-            if not entry:
+            if not entry and raise_on_missing:
                 raise responses.APIError(f"missing-{cls.collection_help_api_name()}", key, code=404)
             return entry
         with cls._collection_lock:
@@ -172,19 +178,23 @@ class Collection(abc.ABC):
             logger.debug(f"Registered {cls.collection_help} {entry.uuid} {entry.name}")
 
     @classmethod
-    def remove(cls, key: str) -> CollectionEntry:
+    def remove(cls, key: str, *, raise_on_missing: bool = True) -> CollectionEntry | None:
         """Remove an entry from persistent storage.
 
         Args:
             key: ID of the saved entry.
+            raise_on_missing: Whether to raise an API error if no entry found.
+
+        Returns:
+            The item removed if found, None otherwise.
 
         Raises:
-            APIError if the entry does not exist and cannot be removed.
+            APIError if the entry does not exist and raise and raising is enabled.
         """
         with cls._collection_lock:
-            if key not in cls._collection:
+            if key not in cls._collection and raise_on_missing:
                 raise responses.APIError(f"missing-{cls.collection_help_api_name()}", key, code=404)
-            return cls._collection.pop(key)
+            return cls._collection.pop(key, None)
 
     @classmethod
     def save(cls) -> None:

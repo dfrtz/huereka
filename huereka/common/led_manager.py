@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from typing import Sequence
+from typing import override
 
 from adafruit_pixelbuf import ColorUnion
 
@@ -274,12 +275,10 @@ class LEDManagers(Collection):
     entry_cls: str = LEDManager
 
     @classmethod
-    def get(cls, key: str) -> LEDManager:
-        """Find the manager associated with a given key.
-
-        Override to update typehint and simplify caller typechecks.
-        """
-        return super().get(key)
+    @override
+    def get(cls, key: str, *, raise_on_missing: bool = False) -> LEDManager | list[LEDManager] | None:
+        # Override to update typehint and simplify caller typechecks.
+        return super().get(key, raise_on_missing=raise_on_missing)
 
     @classmethod
     def set_brightness(

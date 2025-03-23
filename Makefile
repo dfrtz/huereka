@@ -1,5 +1,5 @@
 PROJECT_ROOT := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
-PYTHON_BIN := python3.10
+PYTHON_BIN := python3.12
 NAME := huereka
 
 
