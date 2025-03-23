@@ -38,7 +38,7 @@ class MCUDevice(CollectionEntry):
         wlan_enabled: bool = True,
         control_pin: int | None = None,
     ) -> None:
-        """Set up the base collection entry values.
+        """Set up the base device values.
 
         Args:
             uuid: Universally unique identifier.

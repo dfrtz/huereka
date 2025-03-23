@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from typing import override
 
 from huereka.common import color_utils
 from huereka.shared.collections import KEY_ID
@@ -231,12 +232,10 @@ class ColorProfiles(Collection):
     entry_cls: str = ColorProfile
 
     @classmethod
-    def get(cls, key: str) -> ColorProfile:
-        """Find the color profile associated with a given key.
-
-        Override to update typehint and simplify caller typechecks.
-        """
-        return super().get(key)
+    @override
+    def get(cls, key: str, *, raise_on_missing: bool = False) -> ColorProfile | list[ColorProfile] | None:
+        # Override to update typehint and simplify caller typechecks.
+        return super().get(key, raise_on_missing=raise_on_missing)
 
     @classmethod
     def post_load(cls) -> None:
