@@ -96,15 +96,8 @@ class ColorProfile(CollectionEntry):
         )
 
     @classmethod
+    @override
     def from_json(cls, data: dict) -> ColorProfile:
-        """Convert JSON type into profile instance.
-
-        Args:
-            data: Mapping of the instance attributes.
-
-        Returns:
-            Instantiated profile with the given attributes.
-        """
         # Required arguments.
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
@@ -294,8 +287,8 @@ class ColorProfiles(Collection):
         return result
 
     @classmethod
+    @override
     def validate_entry(cls, data: dict, index: int) -> bool:
-        """Additional confirmation of entry values before load."""
         if not super().validate_entry(data, index):
             return False
         name = data.get(KEY_NAME)

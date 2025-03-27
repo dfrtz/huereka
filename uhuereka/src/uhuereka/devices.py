@@ -19,7 +19,7 @@ from huereka.shared.collections import uuid4
 DEFAULT_MFG_PATH = "/mfg.json"
 DEFAULT_CONFIG_PATH = "/device.json"
 
-NO_CONFIG_FOUND = "NO_CONFIG_FOUND"
+NO_CONFIG_FOUND = "--NO_CONFIG_FOUND--"
 KEY_PORT = "port"
 KEY_WLAN_ENABLED = "wlan_enabled"
 KEY_CTRL_PIN = "control_pin"
@@ -56,7 +56,7 @@ class MCUDevice(CollectionEntry):
     @classmethod
     @override
     def from_json(cls, data: dict) -> MCUDevice:
-        cls._validate_config(data)
+        cls.validate(data)
         return MCUDevice(
             uuid=data.get(KEY_ID),
             name=data.get(KEY_NAME),
@@ -75,8 +75,8 @@ class MCUDevice(CollectionEntry):
         return data
 
     @classmethod
-    def _validate_config(cls, config: dict) -> None:
-        """Ensure a configuration is valid for use as a MCUDevice."""
+    @override
+    def validate(cls, config: dict) -> None:
         get_and_validate(config, KEY_ID, expected_type=str)
         get_and_validate(
             config,

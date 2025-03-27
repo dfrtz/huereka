@@ -156,7 +156,7 @@ class PowerManager(CollectionEntry):
     @classmethod
     @override
     def from_json(cls, data: dict) -> PowerManager:
-        cls._validate_config(data)
+        cls.validate(data)
         return PowerManager(
             uuid=data.get(KEY_ID),
             name=data.get(KEY_NAME),
@@ -291,8 +291,7 @@ class PowerManager(CollectionEntry):
         return self.to_json()
 
     @classmethod
-    def _validate_config(cls, config: dict) -> None:
-        """Ensure a configuration is valid for use as a PowerManager."""
+    def validate(cls, config: dict) -> None:
         get_and_validate(config, KEY_ID, expected_type=str)
         get_and_validate(config, KEY_NAME, expected_type=str)
         get_and_validate(config, KEY_TYPE, expected_choices=ALL_DEVICES)
@@ -316,7 +315,7 @@ class PowerManager(CollectionEntry):
         get_and_validate(config, KEY_TEARDOWN, expected_type=bool)
 
 
-@uclass
+@uclass()
 class PowerManagers(Collection):
     """Singleton for managing power managers connected to pins on an MCU."""
 
