@@ -17,8 +17,8 @@ from typing import Any
 from typing import Callable
 from typing import Generator
 
-from huereka.shared import environments
 from huereka.shared import file_utils
+from huereka.shared import micro_utils
 from huereka.shared import responses
 
 logger = logging.getLogger(__name__)
@@ -208,7 +208,7 @@ class Collection(abc.ABC):
                         uri.replace("file://", ""),
                         # Use pretty-print in standard environments to simplify manual reviews of collections,
                         # since their collections are typically large. MicroPython does not support pretty-printing.
-                        indent=None if environments.is_micro_python() else 2,
+                        indent=None if micro_utils.is_micro_python() else 2,
                     )
                     logger.info(f"Saved {cls.collection_help} to {uri}")
 
@@ -281,7 +281,7 @@ class CollectionEntry(abc.ABC):
             name: Human readable name used to store/reference in collections.
         """
         self.uuid = uuid if uuid else str(uuid4())
-        self.name = name or f"{self.__class__.__name__}_{self.uuid}"
+        self.name = name or f"{self.__class__.__name__}_{self.uuid.split('-', 1)[0]}"
 
     def __hash__(self) -> int:
         """Make the collection hashable."""
