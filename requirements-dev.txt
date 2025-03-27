@@ -1,6 +1,7 @@
 bandit>=1.8.3
 # Microdot is only included in dev Python setups. It is only used in prod by MicroPython/mip.
 microdot==1.3.4
+mpremote==1.24.1
 mypy>=1.15.0
 pylint>=3.3.4
 pytest>=8.3.4

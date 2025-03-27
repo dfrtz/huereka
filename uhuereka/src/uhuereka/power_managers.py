@@ -13,6 +13,7 @@ from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import get_and_validate
+from huereka.shared.micro_utils import uclass
 
 DEFAULT_CONFIG_PATH = "/power_managers.json"
 
@@ -315,6 +316,7 @@ class PowerManager(CollectionEntry):
         get_and_validate(config, KEY_TEARDOWN, expected_type=bool)
 
 
+@uclass
 class PowerManagers(Collection):
     """Singleton for managing power managers connected to pins on an MCU."""
 
@@ -348,7 +350,3 @@ def load_config(path: str = DEFAULT_CONFIG_PATH) -> None:
             logger.error(
                 f"Skipping save of generated values for {len(generated)} power manager(s) due to {len(errors)} error(s), they will be regenerated on each load until errors are resolved"
             )
-
-
-# Manually call init due to missing native MicroPython support.
-PowerManagers.__init_subclass__()

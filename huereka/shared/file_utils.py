@@ -8,7 +8,7 @@ import logging
 import pathlib
 from typing import Any
 
-from huereka.shared import environments
+from huereka.shared import micro_utils
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ def save_json(data: Any, destination: str, indent: int | None = None, backup_ext
     """
     # Move old file, write to new file, and verify readability at each step of the way, so that if for any reason
     # it is interrupted/fails, the original remains intact and the user can decide which to load.
-    if environments.is_micro_python():
+    if micro_utils.is_micro_python():
         data_out = json.dumps(data)
     else:
         data_out = json.dumps(data, indent=indent)
