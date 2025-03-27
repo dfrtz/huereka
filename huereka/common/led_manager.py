@@ -93,15 +93,8 @@ class LEDManager(CollectionEntry):
         self._led_manager.fill(color)
 
     @classmethod
+    @override
     def from_json(cls, data: dict) -> LEDManager:
-        """Convert JSON type into manager instance.
-
-        Args:
-            data: Mapping of the instance attributes.
-
-        Returns:
-            Instantiated manager with the given attributes.
-        """
         # Required arguments.
         manager_type = data.get(KEY_TYPE)
         if not isinstance(manager_type, str) or manager_type.lower() not in ("neopixel", "serial"):
@@ -371,8 +364,8 @@ class LEDManagers(Collection):
                 manager.teardown()
 
     @classmethod
+    @override
     def validate_entry(cls, data: dict, index: int) -> bool:
-        """Additional confirmation of entry values before load."""
         if not super().validate_entry(data, index):
             return False
         manager_type = data.get(KEY_TYPE)

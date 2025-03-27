@@ -341,6 +341,17 @@ class CollectionEntry(abc.ABC):
         """
         raise CollectionValueError("no-updates-allowed", code=responses.STATUS_INVALID_DATA)
 
+    @classmethod
+    def validate(cls, config: dict) -> None:
+        """Confirmation of safe entry values before instantiation.
+
+        Args:
+            config: Original configuration data to check for valid values.
+
+        Raises:
+            CollectionValueError if the config fails to meet all the required criteria.
+        """
+
 
 class CollectionLock:
     """Lock that adjusts available functionality to allow safe collection usage in various environments.

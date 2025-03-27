@@ -371,15 +371,8 @@ class LightingSchedule(CollectionEntry):
         return active_routine
 
     @classmethod
+    @override
     def from_json(cls, data: dict) -> LightingSchedule:
-        """Convert JSON type into schedule instance.
-
-        Args:
-            data: Mapping of the instance attributes.
-
-        Returns:
-            Instantiated schedule with the given attributes.
-        """
         # Required arguments.
         name = data.get(KEY_NAME)
         if not name or not isinstance(name, str):
