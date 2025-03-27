@@ -124,9 +124,9 @@ https://github.com/espressif/esptool
 
 4. Run installer to copy over uHuereka source and install required MicroPython dependencies.
    ```bash
-   uhuereka/install.sh --device <USB port microcontroller is connected to> --src --deps
+   uhuereka/install.sh --device <USB port microcontroller is connected to> --src --shared --deps
    # Example:
-   uhuereka/install.sh --device /dev/ttyUSB0 --src --deps
+   uhuereka/install.sh --device /dev/ttyUSB0 --src --shared --deps
    ```
 
 

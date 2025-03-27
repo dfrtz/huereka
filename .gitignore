@@ -66,6 +66,7 @@ cython_debug/
 
 # Ignore all files created by users for their local setups.
 uhuereka/**/*.json
+uhuereka/compiled/**
 uhuereka/src/lib/microdot*
 
 # Local development helpers
