@@ -1,10 +1,10 @@
 """Utility for creating and maintaining WLAN connections."""
 
+import asyncio
 import binascii
 import json
 import logging
 import pathlib
-import time
 from typing import Callable
 from typing import override
 
@@ -20,6 +20,11 @@ from . import microdot_utils
 DEFAULT_CONFIG_PATH = "/wifi.json"
 
 logger = logging.getLogger(__name__)
+
+ERROR_MSGS = {
+    network.STAT_WRONG_PASSWORD: "wrong password",
+    network.STAT_NO_AP_FOUND: "no AP found",
+}
 
 
 class WLANConfigurationApp(microdot_utils.Microdot):
@@ -101,7 +106,7 @@ class WLANConfigurationApp(microdot_utils.Microdot):
             return json.dumps({"error": f"Missing ssid or password"}), 422, {"Content-Type": "application/json"}
 
         wait = 10
-        if connect(self.wlan, ssid, password, hostname=hostname, bssid=bssid, wait=wait):
+        if await connect(self.wlan, ssid, password, hostname=hostname, bssid=bssid, wait=wait):
             config = {
                 "ssid": ssid,
                 "bssid": bssid,
@@ -159,7 +164,7 @@ class WLANConfigurationApp(microdot_utils.Microdot):
             save_config(profiles, path=self.config_path)
 
 
-def connect(
+async def connect(
     wlan: network.WLAN,
     ssid: str,
     password: str,
@@ -178,7 +183,7 @@ def connect(
         wait: How long to wait for a connection to be established before aborting.
 
     Returns:
-        Whether the connection was successful..
+        Whether the connection was successful.
     """
     if isinstance(bssid, str):
         bssid = binascii.unhexlify(bssid.replace(":", ""))
@@ -194,20 +199,30 @@ def connect(
         hostname = network.hostname()
     wlan.connect(ssid, password, bssid=bssid)
     connected = False
-    for retry in range(wait * 15):
+    status = None
+    for retry in range(wait * 10):
         connected = wlan.isconnected()
-        if connected:
+        status = wlan.status()
+        if connected or (
+            status != network.STAT_IDLE and status != network.STAT_CONNECTING and status != network.STAT_GOT_IP
+        ):
             break
-        time.sleep(0.1)
+        await asyncio.sleep(0.1)
     if connected:
-        logger.info(f"WLAN connection succeeded to {ssid} as {hostname} with {wlan.ifconfig()}")
+        ip_address, subnet, gateway, dns = wlan.ifconfig()
+        logger.info(
+            f"WLAN connection succeeded to {ssid} as {hostname} IP {ip_address} NET {subnet} GW {gateway} DNS {dns} MAC {binascii.hexlify(wlan.config('mac')).decode().upper()}"
+        )
     else:
+        wlan.disconnect()
         wlan.active(False)
-        logger.warning(f"WLAN connection failed to {ssid} as {hostname}")
+        logger.warning(
+            f"WLAN connection failed to {ssid} as {hostname} with code {status} {ERROR_MSGS.get(status, 'unknown error')}"
+        )
     return connected
 
 
-def connect_from_profiles(
+async def connect_from_profiles(
     wlan: network.WLAN,
     profiles: list[dict],
     min_security_level: int = 1,
@@ -257,7 +272,7 @@ def connect_from_profiles(
                     # Only allow connection by SSID if no BSSID is provided.
                     profile = ssid_map[ssid]
                 if profile:
-                    connected = connect(
+                    connected = await connect(
                         wlan,
                         ssid,
                         profile.get("password"),
@@ -306,7 +321,7 @@ async def get_wlan_or_configure(
 
     wlan_sta = wlan or network.WLAN(network.STA_IF)
     if profiles:
-        connect_from_profiles(wlan_sta, profiles, min_security_level=min_security_level)
+        await connect_from_profiles(wlan_sta, profiles, min_security_level=min_security_level)
     elif profiles is None:
         if not hostname:
             hostname = f"uhuereka-{collections.uuid4().split('-', 1)[0]}"
