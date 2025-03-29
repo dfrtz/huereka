@@ -54,6 +54,7 @@ class CollectionEntryProperty:  # pylint: disable=too-few-public-methods
             key: Name of the value to pull when loading from external data.
             expected_type: Instance type that the value should be, such as int or bool.
             default: Value to use if the key is not found in external data.
+                May also be a callable to generate values.
             choices: Possible valid choices.
             nullable: Whether the value is allowed to be null when loading from external data.
                 Does not allow None during standard set operations after load.
@@ -408,8 +409,8 @@ class CollectionEntry(abc.ABC):
         self._uuid = None
         self._name = None
         # Safely set the values.
-        self.uuid = uuid
-        self.name = name
+        self.uuid = uuid or str(uuid4())
+        self.name = name or f"{self.__class__.__name__}_{self.uuid.split('-', 1)[0]}"
 
     @classmethod
     def __init_subclass__(cls) -> None:
@@ -475,7 +476,7 @@ class CollectionEntry(abc.ABC):
     def name(self, name: str) -> None:
         """Safely set the current name of the entry."""
         validate(KEY_NAME, name, validator=self._name_validator)
-        self._name = name or f"{self.__class__.__name__}_{self.uuid.split('-', 1)[0]}"
+        self._name = name
 
     @staticmethod
     def _name_validator(name: str) -> bool:  # Used by subclasses. pylint: disable=unused-argument
@@ -511,7 +512,7 @@ class CollectionEntry(abc.ABC):
                     value = [val.to_json() for val in value] if value else None
                 else:
                     value = value.to_json()
-            if value != config.default:
+            if value != (config.default if not callable(config.default) else config.default()):
                 if config.save or not save_only:
                     data[attr_name] = value
         return data
@@ -525,7 +526,7 @@ class CollectionEntry(abc.ABC):
     @uuid.setter
     def uuid(self, uuid: str) -> None:
         """Safely set the current UUID of the entry."""
-        self._uuid = uuid or str(uuid4())
+        self._uuid = uuid
 
     def update(
         self,
@@ -639,7 +640,7 @@ def get_and_validate(  # Allow complex combinations to validate values consisten
 
     Refer to `huereka.shared.collections.CollectionEntryProperty` for argument details.
     """
-    value = data.get(key, default)
+    value = data.get(key, default if not callable(default) else default())
     validate(
         key,
         value,
