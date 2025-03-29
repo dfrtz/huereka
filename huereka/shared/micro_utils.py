@@ -32,7 +32,8 @@ def uclass(*args: Any, **kwargs: Any) -> Callable:
 
     def _micropython_class(cls: type) -> type:
         """Call extra compatibility logic in a way compatible between CPython and MicroPython."""
-        if init := getattr(cls, "__init_subclass__", None):
+        if not getattr(cls, "__subclass_initialized__", False) and (init := getattr(cls, "__init_subclass__", None)):
+            cls.__subclass_initialized__ = True
             init(*args, **kwargs)
         return cls
 
@@ -111,3 +112,12 @@ class uproperty:  # Match CPython property style. pylint: disable=invalid-name
         """
         self.fdel = fdel
         return self
+
+
+# pylint: disable=redefined-builtin,invalid-name
+if is_micro_python():
+    property = uproperty
+else:
+    import builtins
+
+    property = builtins.property

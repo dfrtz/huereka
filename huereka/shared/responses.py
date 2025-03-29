@@ -50,6 +50,10 @@ class APIError(Exception):
         """String representation of the JSON API error."""
         return str({"code": self.code, "error": self.error, "data": self.data})
 
+    def __repr__(self) -> str:
+        """String representation of the JSON API error."""
+        return f"{self.__class__.__name__}({self})"
+
     @property
     def code(self) -> int:
         """HTTP return code."""
