@@ -474,7 +474,17 @@ class CollectionEntry(abc.ABC):
     @name.setter
     def name(self, name: str) -> None:
         """Safely set the current name of the entry."""
+        validate(KEY_NAME, name, validator=self._name_validator)
         self._name = name or f"{self.__class__.__name__}_{self.uuid.split('-', 1)[0]}"
+
+    @staticmethod
+    def _name_validator(name: str) -> bool:  # Used by subclasses. pylint: disable=unused-argument
+        """Custom validator for the entry's name property.
+
+        If a custom error message is required, then the function should raise a `CollectionValueError` manually.
+        """
+        # Default to no extra validation by default.
+        return True
 
     def to_json(
         self,
