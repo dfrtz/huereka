@@ -99,6 +99,9 @@ jobs = 0
 max-args = 6
 max-positional-arguments = 6
 max-attributes = 10
+ignored-modules = [
+    "machine",
+]
 
 [tool.pytest.ini_options]
 norecursedirs = [".*", "venv"]

@@ -13,8 +13,11 @@ from huereka.shared import file_utils
 from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import CollectionEntry
-from huereka.shared.collections import get_and_validate
+from huereka.shared.collections import CollectionValueError
+from huereka.shared.collections import entry_property
 from huereka.shared.collections import uuid4
+from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
+from huereka.shared.micro_utils import uclass
 
 DEFAULT_MFG_PATH = "/mfg.json"
 DEFAULT_CONFIG_PATH = "/device.json"
@@ -27,6 +30,7 @@ KEY_CTRL_PIN = "control_pin"
 logger = logging.getLogger(__name__)
 
 
+@uclass()
 class MCUDevice(CollectionEntry):
     """Primary configuration for the device running the software."""
 
@@ -49,46 +53,62 @@ class MCUDevice(CollectionEntry):
         """
         uuid = uuid or uuid4()
         super().__init__(uuid=uuid, name=name or f"uhuereka-{uuid.split('-', 1)[0]}")
+        self._port: int | None = None
+        self._wlan_enabled: bool = True
+        self._control_pin: int | None = None
+
+        # Safely set user values.
         self.port = port
         self.wlan_enabled = wlan_enabled
         self.control_pin = control_pin
 
-    @classmethod
-    @override
-    def from_json(cls, data: dict) -> MCUDevice:
-        cls.validate(data)
-        return MCUDevice(
-            uuid=data.get(KEY_ID),
-            name=data.get(KEY_NAME),
-            port=data.get(KEY_PORT),
-            wlan_enabled=data.get(KEY_WLAN_ENABLED, True),
-            control_pin=data.get(KEY_CTRL_PIN),
-        )
+    @property
+    def control_pin(self) -> int:
+        """Pin that should listen to button presses to control the hardware/software."""
+        return self._control_pin
 
-    @override
-    def to_json(self, save_only: bool = False) -> dict:
-        data = super().to_json() | {
-            KEY_PORT: self.port,
-            KEY_WLAN_ENABLED: self.wlan_enabled,
-            KEY_CTRL_PIN: self.control_pin,
-        }
-        return data
+    @entry_property(int)
+    @control_pin.setter
+    def control_pin(self, control_pin: int) -> None:
+        """Safely set the Pin that should listen to button presses to control the hardware/software."""
+        self._control_pin = control_pin
 
-    @classmethod
+    @staticmethod
     @override
-    def validate(cls, config: dict) -> None:
-        get_and_validate(config, KEY_ID, expected_type=str)
-        get_and_validate(
-            config,
-            KEY_NAME,
-            expected_type=str,
-            # N.B. MicroPython has limited regex support. Perform as much hostname validation as possible.
-            validator=lambda value: len(value) < 64 and re.match(r"^[A-Za-z0-9][A-Za-z0-9-.]+[A-Za-z0-9]$", value),
-            validation_message=f"Valid names only contain letters/numbers/dashes, and are < 64 characters",
-        )
-        get_and_validate(config, KEY_PORT, expected_type=int)
-        get_and_validate(config, KEY_WLAN_ENABLED, expected_type=bool)
-        get_and_validate(config, KEY_CTRL_PIN, expected_type=int)
+    def _name_validator(name: str) -> bool:
+        # N.B. MicroPython has limited regex support. Perform as much hostname validation as possible.
+        if not len(name) < 64 or not re.match(r"^[A-Za-z0-9][A-Za-z0-9-.]+[A-Za-z0-9]$", name):
+            raise CollectionValueError(
+                "invalid-choice",
+                data={
+                    "key": KEY_NAME,
+                    "value": name,
+                    "msg": "Valid names only contain letters/numbers/dashes, and are < 64 characters",
+                },
+            )
+        return True
+
+    @property
+    def port(self) -> int:
+        """The current port the device is listening to API requests on."""
+        return self._port
+
+    @entry_property(int)
+    @port.setter
+    def port(self, port: int) -> None:
+        """Safely set the port the device is listening to API requests on."""
+        self._port = port
+
+    @property
+    def wlan_enabled(self) -> int:
+        """Whether the WLAN hardware is allowed to be used for control requests."""
+        return self._wlan_enabled
+
+    @entry_property(bool)
+    @wlan_enabled.setter
+    def wlan_enabled(self, wlan_enabled: bool) -> None:
+        """Safely set whether the WLAN hardware is allowed to be used for control requests."""
+        self._wlan_enabled = wlan_enabled
 
 
 def hard_reset_config(path: str = DEFAULT_CONFIG_PATH, reset_machine: bool = True) -> None:
@@ -102,7 +122,7 @@ def hard_reset_config(path: str = DEFAULT_CONFIG_PATH, reset_machine: bool = Tru
     if device_config.exists():
         try:
             device_config.unlink()
-        except Exception as error:
+        except Exception as error:  # pylint: disable=broad-except
             logger.exception(f"Failed to remove device configuration during hard reset: {error}", exc_info=error)
     if reset_machine:
         machine.reset()

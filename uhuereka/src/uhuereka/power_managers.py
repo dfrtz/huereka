@@ -8,11 +8,10 @@ from typing import override
 
 import machine
 
-from huereka.shared.collections import KEY_ID
-from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
-from huereka.shared.collections import get_and_validate
+from huereka.shared.collections import entry_property
+from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
 
 DEFAULT_CONFIG_PATH = "/power_managers.json"
@@ -41,7 +40,8 @@ ALL_DEVICES = (DEVICE_TOGGLE, DEVICE_PWM)
 logger = logging.getLogger(__name__)
 
 
-class PowerManager(CollectionEntry):
+@uclass()
+class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attributes
     """Manage the power of a device.
 
     Example:
@@ -56,7 +56,7 @@ class PowerManager(CollectionEntry):
     }
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         uuid: str | None = None,
         name: str | None = None,
@@ -88,8 +88,9 @@ class PowerManager(CollectionEntry):
         self._gpio_pwm: machine.PWM | None = None
         self._mode = MODE_OFF
         self._mode_at = 0
-        self._power = 0.0
         self._on_limit = 0
+        self._power = 0.0
+        self._should_teardown = True
         self._status = STATUS_OFF
 
         # Safely set user values. Set in specific order to ensure initial values are correct for pin setup.
@@ -121,7 +122,7 @@ class PowerManager(CollectionEntry):
         except ValueError as error:
             self._gpio_pin = None
             self._gpio_pwm = None
-            ValueError(f"Invalid pin configuration: {error}")
+            raise ValueError(f"Invalid pin configuration: {error}") from error
         self.__init_pin_value__()
 
     def __init_pin_value__(self) -> None:
@@ -143,48 +144,31 @@ class PowerManager(CollectionEntry):
         """The current device type set on the manager."""
         return self._device_type
 
+    @entry_property(str, key=KEY_TYPE, default=DEVICE_TOGGLE, choices=ALL_DEVICES)
     @device_type.setter
-    def device_type(self, device_type: int) -> None:
+    def device_type(self, device_type: str) -> None:
         """Safely set the current device type of the manager."""
-        if device_type not in ALL_DEVICES:
-            raise ValueError(f"Valid device types are: {', '.join(ALL_DEVICES)}")
         original_type = self._device_type
         self._device_type = device_type
         if original_type != device_type:
             self.__init_pin_type__()
-
-    @classmethod
-    @override
-    def from_json(cls, data: dict) -> PowerManager:
-        cls.validate(data)
-        return PowerManager(
-            uuid=data.get(KEY_ID),
-            name=data.get(KEY_NAME),
-            device_type=data.get(KEY_TYPE, DEVICE_TOGGLE),
-            pin=data.get(KEY_PIN),
-            mode=data.get(KEY_MODE, MODE_OFF),
-            mode_at=data.get(KEY_MODE_AT, 0),
-            on_limit=data.get(KEY_ON_LIMIT, 0),
-            power=data.get(KEY_POWER, 1.0),
-            should_teardown=data.get(KEY_TEARDOWN, True),
-        )
 
     @property
     def mode(self) -> int:
         """The current mode set on the manager."""
         return self._mode
 
+    @entry_property(int, default=MODE_OFF, choices=ALL_MODES)
     @mode.setter
     def mode(self, mode: int) -> None:
         """Safely set the current mode of the manager."""
-        if mode not in ALL_MODES:
-            raise ValueError(f"Valid modes are: {', '.join(str(mode) for mode in ALL_MODES)}")
         if mode != self._mode:
             self._mode_at = time.time()
         self._mode = mode
         # N.B. Status is currently a passthrough of mode, ensure all branches keep values in sync on change.
         self.status = mode
 
+    @entry_property(int, default=0, update=False)
     @property
     def mode_at(self) -> int:
         """The time the current mode was set."""
@@ -195,11 +179,15 @@ class PowerManager(CollectionEntry):
         """The maximum amount of time the mode is allowed to be on."""
         return self._on_limit
 
+    @entry_property(
+        int,
+        default=0,
+        validator=lambda value: 0 <= value <= 86400,
+        message="Valid on_limit values are: >= 0, <= 86400",
+    )
     @on_limit.setter
     def on_limit(self, on_limit: float) -> None:
         """Safely set the maximum on time for the manager."""
-        if on_limit < 0 or on_limit > 86400:
-            raise ValueError(f"Valid on_limit values are: >= 0, <= 86400")
         self._on_limit = on_limit
 
     @property
@@ -207,6 +195,7 @@ class PowerManager(CollectionEntry):
         """The current GPIO pin ID in use by the manager."""
         return self._pin
 
+    @entry_property(int, update=False)
     @pin.setter
     def pin(self, pin: int) -> None:
         """Safely set the current GPIO pin in use by the manager."""
@@ -218,25 +207,39 @@ class PowerManager(CollectionEntry):
         """The current power level set on the manager."""
         return self._power
 
+    @entry_property(
+        float,
+        default=1.0,
+        validator=lambda value: 0.0 <= value <= 1.0,
+        message="Valid power levels are: >= 0.0, <= 1.0",
+    )
     @power.setter
     def power(self, power: float) -> None:
         """Safely set the current power level of the manager."""
-        if power < 0.0 or power > 1.0:
-            raise ValueError(f"Valid power levels are: >= 0.0, <= 1.0")
         if self.device_type == DEVICE_PWM and (power != 0.0 or power != 1.0):
-            raise ValueError(f"Valid power levels are: 0.0, 1.0")
+            raise ValueError("Valid power levels are: 0.0, 1.0")
         self._power = power
+
+    @property
+    def should_teardown(self) -> bool:
+        """Whether the device should teardown on service teardowns, or stay in pre-existing state."""
+        return self._should_teardown
+
+    @entry_property(bool, key=KEY_TEARDOWN, default=True, update=False)
+    @should_teardown.setter
+    def should_teardown(self, should_teardown: bool) -> None:
+        """Safely set whether the device should teardown on service teardowns, or stay in pre-existing state."""
+        self._should_teardown = should_teardown
 
     @property
     def status(self) -> int:
         """The current status of the manager."""
         return self._status
 
+    @entry_property(int, choices=All_STATES, save=False, update=False)
     @status.setter
     def status(self, status: int) -> None:
         """Safely set the current status of the manager."""
-        if status not in All_STATES:
-            raise ValueError(f"Valid states are: {', '.join(str(state) for state in All_STATES)}")
         if status == STATUS_ON and self.mode == MODE_OFF:
             raise ValueError("Status may not be set to on while mode is set to off")
         self._status = status
@@ -248,71 +251,13 @@ class PowerManager(CollectionEntry):
             self.mode = MODE_OFF
 
     @override
-    def to_json(self, save_only: bool = False) -> dict:
-        data = super().to_json() | {
-            KEY_TYPE: self.device_type,
-            KEY_PIN: self.pin,
-            KEY_MODE: self.mode,
-            KEY_MODE_AT: self.mode_at,
-            KEY_ON_LIMIT: self.on_limit,
-            KEY_POWER: self.power,
-            KEY_TEARDOWN: self.should_teardown,
-        }
-        if not save_only:
-            data[KEY_STATUS] = self.status
-        return data
-
     def update(
         self,
         new_values: dict,
     ) -> dict:
-        """Update the values of a manager.
-
-        Args:
-            new_values: New attributes to set on the manager.
-
-        Returns:
-            Final manager configuration with the updated values.
-        """
-        self._validate_config(new_values)
-        name = new_values.get(KEY_NAME)
-        if name is not None and name != self.name:
-            self.name = name
-        mode = new_values.get(KEY_MODE)
-        if mode is not None and mode != self.mode:
-            self.mode = mode
-        power = new_values.get(KEY_POWER)
-        if power is not None and power != self.power:
-            self.power = power
-        device_type = new_values.get(KEY_TYPE)
-        if device_type is not None and device_type != self.device_type:
-            self.device_type = device_type
+        result = super().update(new_values)
         self.__init_pin_value__()
-        return self.to_json()
-
-    @classmethod
-    def validate(cls, config: dict) -> None:
-        get_and_validate(config, KEY_ID, expected_type=str)
-        get_and_validate(config, KEY_NAME, expected_type=str)
-        get_and_validate(config, KEY_TYPE, expected_choices=ALL_DEVICES)
-        get_and_validate(config, KEY_PIN, expected_type=int)
-        get_and_validate(config, KEY_MODE, expected_choices=ALL_MODES)
-        get_and_validate(config, KEY_MODE_AT, expected_type=int)
-        get_and_validate(
-            config,
-            KEY_ON_LIMIT,
-            expected_type=int,
-            validator=lambda value: 0 <= value <= 86400,
-            validation_message="Valid on_limit values are: >= 0, <= 86400",
-        )
-        get_and_validate(
-            config,
-            KEY_POWER,
-            expected_type=float,
-            validator=lambda value: 0.0 <= value <= 1.0,
-            validation_message="Valid power levels are: >= 0.0, <= 1.0",
-        )
-        get_and_validate(config, KEY_TEARDOWN, expected_type=bool)
+        return result
 
 
 @uclass()
