@@ -23,9 +23,6 @@ DEFAULT_MFG_PATH = "/mfg.json"
 DEFAULT_CONFIG_PATH = "/device.json"
 
 NO_CONFIG_FOUND = "--NO_CONFIG_FOUND--"
-KEY_PORT = "port"
-KEY_WLAN_ENABLED = "wlan_enabled"
-KEY_CTRL_PIN = "control_pin"
 
 logger = logging.getLogger(__name__)
 
