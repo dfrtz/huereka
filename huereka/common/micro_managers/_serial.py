@@ -43,9 +43,7 @@ KEY_PORT = "port"
 KEY_BAUD = "baud"
 
 
-class SerialManager(
-    LEDMicroManager
-):  # Approved override of the default variable limit. pylint: disable=too-many-instance-attributes
+class SerialManager(LEDMicroManager):
     """Manage the colors and brightness of LEDs connected to a GPIO pin on a device connected to a serial port."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments

@@ -28,13 +28,13 @@ KEY_ID = "id"
 KEY_NAME = "name"
 
 
-class CollectionEntryProperty:  # pylint: disable=too-many-instance-attributes, too-few-public-methods
+class CollectionEntryProperty:  # pylint: disable=too-few-public-methods
     """Configuration for auto-converting a collection entry property from input and to output."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
         key: str,
-        expected_type: type[int, float, bool, str, dict, list, CollectionEntry],
+        expected_type: type[int, float, bool, str, dict, list, CollectionEntry] | tuple[type],
         *,
         default: Any = None,
         choices: list | tuple | None = None,
@@ -42,7 +42,7 @@ class CollectionEntryProperty:  # pylint: disable=too-many-instance-attributes, 
         validator: Callable | None = None,
         error: str = "invalid-value",
         message: str = "Invalid value",
-        convert: type[CollectionEntry] | None = None,
+        convert: type | None = None,
         save: bool = True,
         update: bool = True,
     ) -> None:
@@ -92,7 +92,7 @@ class CollectionEntryProperty:  # pylint: disable=too-many-instance-attributes, 
 
 
 def entry_property(  # pylint: disable=too-many-arguments
-    expected_type: type[int, float, bool, str, dict, list, CollectionEntry],
+    expected_type: type[int, float, bool, str, dict, list, CollectionEntry] | tuple[type],
     *,
     key: str | None = None,
     default: Any = None,
@@ -101,7 +101,7 @@ def entry_property(  # pylint: disable=too-many-arguments
     validator: Callable | None = None,
     error: str = "invalid-value",
     message: str = "Invalid value",
-    convert: type[CollectionEntry] | None = None,
+    convert: type | None = None,
     save: bool = True,
     update: bool = True,
 ) -> Callable:
@@ -627,7 +627,7 @@ def get_and_validate(  # Allow complex combinations to validate values consisten
     data: dict,
     key: str,
     *,
-    expected_type: type | None = None,
+    expected_type: type | tuple[type] | None = None,
     expected_choices: list | tuple | None = None,
     nullable: bool = True,
     default: Any = None,
@@ -679,7 +679,7 @@ def validate(  # pylint: disable=too-many-arguments
     key: str,
     value: Any,
     *,
-    expected_type: type | None = None,
+    expected_type: type | tuple[type] = None,
     expected_choices: list | tuple | None = None,
     nullable: bool = True,
     validator: Callable | None = None,
@@ -697,10 +697,16 @@ def validate(  # pylint: disable=too-many-arguments
             "not-nullable",
             data={"key": key},
         )
-    if expected_type is not None and not isinstance(value, expected_type):
+    if expected_type and not isinstance(value, expected_type):
         raise CollectionValueError(
             "invalid-type",
-            data={"key": key, "value": value, "options": expected_type.__name__},
+            data={
+                "key": key,
+                "value": value,
+                "options": expected_type.__name__
+                if not isinstance(expected_type, tuple)
+                else [sub_type.__name__ for sub_type in expected_type],
+            },
         )
     if expected_choices is not None and value not in expected_choices:
         raise CollectionValueError(

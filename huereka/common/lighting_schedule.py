@@ -13,11 +13,13 @@ from huereka.common import color_profile
 from huereka.common import color_utils
 from huereka.common import led_manager
 from huereka.shared import responses
-from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
+from huereka.shared.collections import entry_property
 from huereka.shared.collections import get_and_validate
+from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
+from huereka.shared.micro_utils import uclass
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +58,7 @@ STATUS_OFF = 0
 STATUS_ON = 1
 
 
-class LightingRoutine:  # Approved override of default. pylint: disable=too-many-instance-attributes
+class LightingRoutine:
     """Details for running a specific color/lighting profile during a timeframe."""
 
     def __init__(  # Approved override of the default argument limit. pylint: disable=too-many-arguments
@@ -310,6 +312,7 @@ class LightingRoutine:  # Approved override of default. pylint: disable=too-many
         return data
 
 
+@uclass()
 class LightingSchedule(CollectionEntry):
     """Schedule used to control active color profile on an LED strip."""
 
@@ -317,9 +320,9 @@ class LightingSchedule(CollectionEntry):
         self,
         name: str,
         *,
-        uuid: str = None,
+        uuid: str | None = None,
         manager: str = "default",
-        routines: list[LightingRoutine] = None,
+        routines: list[LightingRoutine] | None = None,
         led_delay: float = led_manager.DEFAULT_LED_UPDATE_DELAY,
         mode: int = MODE_OFF,
         brightness: float = BRIGHTNESS_DISABLED,
@@ -339,11 +342,16 @@ class LightingSchedule(CollectionEntry):
         super().__init__(uuid=uuid, name=name)
         self._mode = MODE_OFF
         self._status = STATUS_OFF
+        self._manager = None
+        self._routines = None
+        self._led_delay = led_manager.DEFAULT_LED_UPDATE_DELAY
+        self._brightness = BRIGHTNESS_DISABLED
+
         self.manager = manager
         self.routines = routines or []
         self.led_delay = led_delay
-        self.mode = mode
         self.brightness = brightness
+        self.mode = mode
 
     def __eq__(self, other: Any) -> bool:
         """Make the schedule comparable for equality using unique attributes."""
@@ -370,89 +378,75 @@ class LightingSchedule(CollectionEntry):
             active_routine = self.routines[0]
         return active_routine
 
-    @classmethod
-    @override
-    def from_json(cls, data: dict) -> LightingSchedule:
-        # Required arguments.
-        name = data.get(KEY_NAME)
-        if not name or not isinstance(name, str):
-            raise CollectionValueError("invalid-lighting_schedule-name")
-        manager = data.get(KEY_MANAGER)
-        if not isinstance(manager, str):
-            raise CollectionValueError("invalid-lighting_schedule-manager")
+    @property
+    def brightness(self) -> float:
+        """Brightness as a percent between 0.0 and 1.0."""
+        return self._brightness
 
-        # Optional arguments.
-        uuid = data.get(KEY_ID)
-        if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError("invalid-lighting_schedule-id")
-        routines = data.get(KEY_ROUTINES, [])
-        if not isinstance(routines, list):
-            raise CollectionValueError("invalid-lighting_schedule-routines")
-        routines = [LightingRoutine.from_json(routine) for routine in routines]
-        mode = data.get(KEY_MODE, MODE_OFF)
-        if not isinstance(mode, int):
-            raise CollectionValueError("invalid-lighting_schedule-mode")
-        led_delay = data.get(KEY_LED_DELAY, led_manager.DEFAULT_LED_UPDATE_DELAY)
-        if not isinstance(led_delay, float):
-            raise CollectionValueError("invalid-lighting_schedule-led_delay")
-        brightness = data.get(KEY_BRIGHTNESS, BRIGHTNESS_DISABLED)
-        if not isinstance(led_delay, float):
-            raise CollectionValueError("invalid-lighting_schedule-led_brightness")
+    @entry_property(float, default=BRIGHTNESS_DISABLED)
+    @brightness.setter
+    def brightness(self, brightness: float) -> None:
+        """Safely set the percent brightness."""
+        self._brightness = brightness
 
-        return LightingSchedule(
-            name,
-            uuid=uuid,
-            manager=manager,
-            routines=routines,
-            led_delay=led_delay,
-            mode=mode,
-            brightness=brightness,
-        )
+    @property
+    def led_delay(self) -> float:
+        """Time in seconds to delay updates between individual LEDs."""
+        return self._led_delay
+
+    @entry_property(float, default=led_manager.DEFAULT_LED_UPDATE_DELAY)
+    @led_delay.setter
+    def led_delay(self, led_delay: float) -> None:
+        """Safely set the time in seconds to delay updates between individual LEDs."""
+        self._led_delay = led_delay
+
+    @property
+    def manager(self) -> str:
+        """ID of the LED manager that will be controlled by this schedule."""
+        return self._manager
+
+    @entry_property(str, default="default")
+    @manager.setter
+    def manager(self, manager: str) -> None:
+        """Safely set the ID of the LED manager that will be controlled by this schedule."""
+        self._manager = manager
 
     @property
     def mode(self) -> int:
         """Return the current mode set on the schedules."""
         return self._mode
 
+    @entry_property(int, default=MODE_OFF, choices=(MODE_OFF, MODE_ON, MODE_AUTO))
     @mode.setter
     def mode(self, mode: int) -> None:
         """Safely set the current mode of the schedule."""
-        valid_modes = (MODE_OFF, MODE_ON, MODE_AUTO)
-        if mode not in valid_modes:
-            raise ValueError(f"Valid modes are: {valid_modes}")
         self._mode = mode
+
+    @property
+    def routines(self) -> list[LightingRoutine]:
+        """Timeframes to trigger specific color profiles."""
+        return self._routines
+
+    @entry_property(
+        list,
+        validator=lambda items: all(isinstance(item, dict) for item in items),
+        convert=LightingRoutine,
+    )
+    @routines.setter
+    def routines(self, routines: list[LightingRoutine]) -> None:
+        """Safely set the timeframes to trigger specific color profiles."""
+        self._routines = routines
 
     @property
     def status(self) -> int:
         """Return the current status of the schedule."""
         return self._status
 
+    @entry_property(int, choices=(STATUS_OFF, STATUS_ON), save=False, update=False)
     @status.setter
     def status(self, status: int) -> None:
         """Safely set the current status of the schedule."""
-        valid_states = (STATUS_OFF, STATUS_ON)
-        if status not in valid_states:
-            raise ValueError(f"Valid states are: {valid_states}")
         self._status = status
-
-    def to_json(self, save_only: bool = False) -> dict:
-        """Convert the instance into a JSON compatible type.
-
-        Returns:
-            Mapping of the instance attributes.
-        """
-        data = {
-            KEY_ID: self.uuid,
-            KEY_NAME: self.name,
-            KEY_MANAGER: self.manager,
-            KEY_ROUTINES: [routine.to_json(save_only=save_only) for routine in self.routines],
-            KEY_MODE: self.mode,
-            KEY_LED_DELAY: self.led_delay,
-            KEY_BRIGHTNESS: self.brightness,
-        }
-        if not save_only:
-            data[KEY_STATUS] = self.status
-        return data
 
 
 OffLightingRoutine = LightingRoutine(
