@@ -20,6 +20,7 @@ from typing import Generator
 from huereka.shared import file_utils
 from huereka.shared import micro_utils
 from huereka.shared import responses
+from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,132 @@ KEY_ID = "id"
 KEY_NAME = "name"
 
 
+class CollectionEntryProperty:  # pylint: disable=too-many-instance-attributes, too-few-public-methods
+    """Configuration for auto-converting a collection entry property from input and to output."""
+
+    def __init__(  # pylint: disable=too-many-arguments
+        self,
+        key: str,
+        expected_type: type[int, float, bool, str, dict, list, CollectionEntry],
+        *,
+        default: Any = None,
+        choices: list | tuple | None = None,
+        nullable: bool = True,
+        validator: Callable | None = None,
+        error: str = "invalid-value",
+        message: str = "Invalid value",
+        convert: type[CollectionEntry] | None = None,
+        save: bool = True,
+        update: bool = True,
+    ) -> None:
+        """Configure a collection entry property.
+
+        Any validation errors during usage of the property will raise a `CollectionValueError`.
+
+        Args:
+            key: Name of the value to pull when loading from external data.
+            expected_type: Instance type that the value should be, such as int or bool.
+            default: Value to use if the key is not found in external data.
+            choices: Possible valid choices.
+            nullable: Whether the value is allowed to be null when loading from external data.
+                Does not allow None during standard set operations after load.
+            validator: Custom function that returns true if the value is valid, false otherwise.
+            error: Custom error type that will display if the validator determines the value is invalid.
+            message: Custom error message that will display if the validator determines the value is invalid.
+            convert: Custom type to convert the value to when loading from external data.
+                Also triggers conversion during output.
+            save: Whether the value should be included in the output for save requests.
+            update: Whether the value is allowed to be updated as part of batch entry update requests.
+        """
+        self.key = key
+        self.expected_type = expected_type
+        self.choices = choices
+        self.nullable = nullable
+        self.default = default
+        self.validator = validator
+        self.error = error
+        self.message = message
+        self.convert = convert
+        self.save = save
+        self.update = update
+        # Used to call setter if validation is performed manually.
+        # Set after property declaration, do not allow user control.
+        self._validator_bypass: Callable | None = None
+
+    def set_without_validation(self, entry: CollectionEntry, value: Any) -> None:
+        """Call setter without validator if validation was performed manually.
+
+        Args:
+            entry: Instance that the value should be set on.
+            value: Valid value to pass to the property setter.
+        """
+        if self._validator_bypass:
+            self._validator_bypass(entry, value)  # pylint: disable=not-callable
+
+
+def entry_property(  # pylint: disable=too-many-arguments
+    expected_type: type[int, float, bool, str, dict, list, CollectionEntry],
+    *,
+    key: str | None = None,
+    default: Any = None,
+    choices: list | tuple | None = None,
+    nullable: bool = True,
+    validator: Callable | None = None,
+    error: str = "invalid-value",
+    message: str = "Invalid value",
+    convert: type[CollectionEntry] | None = None,
+    save: bool = True,
+    update: bool = True,
+) -> Callable:
+    """Wrap a property with additional metadata for tracking collection entry value conversions.
+
+    Refer to `huereka.shared.collections.CollectionEntryProperty` for argument details.
+    """
+
+    def _wrapper(prop: property) -> property:
+        """Update the property configuration and validators."""
+        prop_key = key or prop.fget.__name__
+        prop.__property_config__ = CollectionEntryProperty(
+            prop_key,
+            expected_type,
+            default=default,
+            choices=choices,
+            nullable=nullable,
+            validator=validator,
+            error=error,
+            message=message,
+            convert=convert,
+            save=save,
+            update=update,
+        )
+        if prop.fset:
+            prop.__property_config__._validator_bypass = prop.fset  # pylint: disable=protected-access
+
+            def _setter(self: CollectionEntry, value: Any) -> Any:
+                """Call the collection entry property with automatic input validation from the metadata."""
+                validate(
+                    prop_key,
+                    value,
+                    expected_type=expected_type,
+                    expected_choices=choices,
+                    nullable=False,
+                    validator=validator,
+                    validation_error=error,
+                    validation_message=message,
+                )
+                prop.__property_config__.set_without_validation(self, value)
+
+            prop = prop.setter(_setter)
+        return prop
+
+    return _wrapper
+
+
 class Collection(abc.ABC):
     """Base singleton class for managing reusable collection entries."""
 
     # Base values are not implemented here to enforce each class declare concrete instances and not share.
     # On subclass init/declarations, they will be set to ensure no sharing across subtypes.
-
-    __subclass_initialized__ = False
 
     _collection: OrderedDict[str, CollectionEntry]
     """Base collection mapping."""
@@ -55,12 +175,9 @@ class Collection(abc.ABC):
     @classmethod
     def __init_subclass__(cls) -> None:
         """Initialize the subclass properties on declaration to prevent sharing with other subclass singletons."""
-        # Manually track initialization for MicroPython support and repeat call safety.
-        if not cls.__subclass_initialized__:
-            cls.__subclass_initialized__ = True
-            cls._collection = OrderedDict()
-            cls._collection_lock = CollectionLock()
-            cls._collection_uri = None
+        cls._collection = OrderedDict()
+        cls._collection_lock = CollectionLock()
+        cls._collection_uri = None
 
     @classmethod
     def collection_help_api_name(cls) -> str:
@@ -122,9 +239,15 @@ class Collection(abc.ABC):
                 cls.register(entry)
                 if not entry_config.get(KEY_ID):
                     generated.append(entry)
+            except CollectionValueError as error:
+                errors.append((index, error))
+                logger.error(f"Skipping invalid {cls.collection_help} setup at index {index}: {error}")
             except Exception as error:  # pylint: disable=broad-except
                 errors.append((index, error))
-                logger.exception(f"Skipping invalid {cls.collection_help} setup at index {index}", exc_info=error)
+                logger.exception(
+                    f"Skipping unprocessable {cls.collection_help} setup at index {index}: {error}",
+                    exc_info=error,
+                )
         cls.post_load()
         return generated, errors
 
@@ -273,6 +396,8 @@ class Collection(abc.ABC):
 class CollectionEntry(abc.ABC):
     """Base for loading and storing collection entries."""
 
+    __property_configs__: dict[str, CollectionEntryProperty]
+
     def __init__(self, uuid: str | None = None, name: str | None = None) -> None:
         """Set up the base collection entry values.
 
@@ -280,8 +405,20 @@ class CollectionEntry(abc.ABC):
             uuid: Universally unique identifier.
             name: Human readable name used to store/reference in collections.
         """
-        self.uuid = uuid if uuid else str(uuid4())
-        self.name = name or f"{self.__class__.__name__}_{self.uuid.split('-', 1)[0]}"
+        self._uuid = None
+        self._name = None
+        # Safely set the values.
+        self.uuid = uuid
+        self.name = name
+
+    @classmethod
+    def __init_subclass__(cls) -> None:
+        """Initialize the subclass properties on declaration to prevent sharing with other subclass singletons."""
+        cls.__property_configs__ = OrderedDict()
+        for attr_name in dir(cls):
+            attr = getattr(cls, attr_name, None)
+            if config := getattr(attr, "__property_config__", None):
+                cls.__property_configs__[attr_name] = config
 
     def __hash__(self) -> int:
         """Make the collection hashable."""
@@ -296,9 +433,8 @@ class CollectionEntry(abc.ABC):
         return isinstance(other, self.__class__) and self.name < other.name
 
     @classmethod
-    @abc.abstractmethod
-    def from_json(cls, data: dict) -> CollectionEntry:
-        """Convert JSON type into collection entry instance.
+    def from_json(cls, data: dict) -> CollectionEntry | None:
+        """Convert JSON data into a collection entry instance.
 
         Args:
             data: Mapping of the instance attributes.
@@ -306,10 +442,43 @@ class CollectionEntry(abc.ABC):
         Returns:
             Instantiated entry with the given attributes.
         """
+        kwargs = {
+            "uuid": get_and_validate(data, KEY_ID, expected_type=str),
+            KEY_NAME: get_and_validate(data, KEY_NAME, expected_type=str),
+        }
+        for key, config in cls.__property_configs__.items():
+            if not config.save:
+                continue
+            value = get_and_validate(
+                data,
+                config.key,
+                expected_type=config.expected_type,
+                expected_choices=config.choices,
+                nullable=config.nullable,
+                default=config.default,
+                validator=config.validator,
+                validation_error=config.error,
+                validation_message=config.message,
+            )
+            if config.convert:
+                value = [config.convert.from_json(val) for val in value] if value else value
+            kwargs[key] = value
+        return cls(**kwargs)
+
+    @property
+    def name(self) -> str:
+        """The current name of the entry."""
+        return self._name
+
+    @entry_property(str)
+    @name.setter
+    def name(self, name: str) -> None:
+        """Safely set the current name of the entry."""
+        self._name = name or f"{self.__class__.__name__}_{self.uuid.split('-', 1)[0]}"
 
     def to_json(
         self,
-        save_only: bool = False,  # Used by subclasses. pylint: disable=unused-argument
+        save_only: bool = False,
     ) -> dict:
         """Convert the entry into a JSON compatible type.
 
@@ -317,18 +486,44 @@ class CollectionEntry(abc.ABC):
             save_only: Whether to only include values that are meant to be saved.
 
         Returns:
-            Mapping of the instance attributes.
+            Mapping of the instance attributes in JSON compatible format.
         """
-        return {
-            KEY_ID: self.uuid,
-            KEY_NAME: self.name,
-        }
+        data = OrderedDict()
+        data[KEY_ID] = self.uuid
+        data[KEY_NAME] = self.name
+        for attr_name, config in self.__property_configs__.items():
+            if attr_name in ("uuid", "name"):
+                # Skip, these are always set in the output first.
+                continue
+            value = getattr(self, attr_name)
+            if config.convert and value is not None:
+                if isinstance(value, list):
+                    value = [val.to_json() for val in value] if value else None
+                else:
+                    value = value.to_json()
+            if value != config.default:
+                if config.save or not save_only:
+                    data[attr_name] = value
+        return data
+
+    @property
+    def uuid(self) -> str:
+        """The current UUID of the entry."""
+        return self._uuid
+
+    @entry_property(str, key=KEY_ID)
+    @uuid.setter
+    def uuid(self, uuid: str) -> None:
+        """Safely set the current UUID of the entry."""
+        self._uuid = uuid or str(uuid4())
 
     def update(
         self,
         new_values: dict,
     ) -> dict:
         """Update the values of an entry.
+
+        Only completes update operation if all values pass validation.
 
         Args:
             new_values: New attributes to set on the entry.
@@ -339,18 +534,26 @@ class CollectionEntry(abc.ABC):
         Raises:
             CollectionValueError if the class does not allow updates.
         """
-        raise CollectionValueError("no-updates-allowed", code=responses.STATUS_INVALID_DATA)
-
-    @classmethod
-    def validate(cls, config: dict) -> None:
-        """Confirmation of safe entry values before instantiation.
-
-        Args:
-            config: Original configuration data to check for valid values.
-
-        Raises:
-            CollectionValueError if the config fails to meet all the required criteria.
-        """
+        pending_update = []
+        for config in self.__property_configs__.values():
+            key = config.key
+            if not config.update or key not in new_values:
+                continue
+            value = new_values.get(key)
+            validate(
+                key,
+                value,
+                expected_type=config.expected_type,
+                expected_choices=config.choices,
+                nullable=False,
+                validator=config.validator,
+                validation_error=config.error,
+                validation_message=config.message,
+            )
+            pending_update.append((config, value))
+        for config, value in pending_update:
+            config.set_without_validation(self, value)
+        return self.to_json(save_only=True)
 
 
 class CollectionLock:
@@ -422,62 +625,21 @@ def get_and_validate(  # Allow complex combinations to validate values consisten
     validation_error: str = "invalid-value",
     validation_message: str = "Invalid value",
 ) -> Any:
-    """Retrieve and validate data.
+    """Retrieve and validate a value from a collection entry's data.
 
-    Args:
-        data: Mapping of key value pairs available to a collection.
-        key: Name of the value to pull from the data.
-        expected_type: Instance type that the value should be, such as int or bool.
-        expected_choices: Possible valid choices.
-        nullable: Whether the value is allowed to be null.
-        default: Value to use if the key is not found in the data.
-        validator: Custom function that returns true if the value is valid, false otherwise.
-        validation_error: Custom error type that will display if the custom validator fails validation.
-        validation_message: Custom error message that will display if the custom validator fails validation.
-
-    Returns:
-        Final value pulled from the data if valid.
-
-    Raises:
-        CollectionValueError if the data fails to meet all the required criteria.
+    Refer to `huereka.shared.collections.CollectionEntryProperty` for argument details.
     """
     value = data.get(key, default)
-    if value is None and nullable:
-        return value
-    if value is None:
-        raise CollectionValueError(
-            "not-nullable",
-            data={
-                "key": key,
-            },
-        )
-    if expected_type is not None and not isinstance(value, expected_type):
-        raise CollectionValueError(
-            "invalid-type",
-            data={
-                "key": key,
-                "value": value,
-                "options": str(expected_type),
-            },
-        )
-    if expected_choices is not None and value not in expected_choices:
-        raise CollectionValueError(
-            "invalid-choice",
-            data={
-                "key": key,
-                "value": value,
-                "options": list(expected_choices),
-            },
-        )
-    if validator is not None and not validator(value):
-        raise CollectionValueError(
-            validation_error,
-            data={
-                "key": key,
-                "value": value,
-                "msg": validation_message,
-            },
-        )
+    validate(
+        key,
+        value,
+        expected_type=expected_type,
+        expected_choices=expected_choices,
+        nullable=nullable,
+        validator=validator,
+        validation_error=validation_error,
+        validation_message=validation_message,
+    )
     return value
 
 
@@ -501,3 +663,42 @@ def uuid4() -> str:
         )
     )
     return uuid
+
+
+def validate(  # pylint: disable=too-many-arguments
+    key: str,
+    value: Any,
+    *,
+    expected_type: type | None = None,
+    expected_choices: list | tuple | None = None,
+    nullable: bool = True,
+    validator: Callable | None = None,
+    validation_error: str = "invalid-value",
+    validation_message: str = "Invalid value",
+) -> None:
+    """Validate a value from a collection entry's data, or raise CollectionValueError if invalid.
+
+    Refer to `huereka.shared.collections.CollectionEntryProperty` for argument details.
+    """
+    if value is None and nullable:
+        return
+    if value is None:
+        raise CollectionValueError(
+            "not-nullable",
+            data={"key": key},
+        )
+    if expected_type is not None and not isinstance(value, expected_type):
+        raise CollectionValueError(
+            "invalid-type",
+            data={"key": key, "value": value, "options": expected_type.__name__},
+        )
+    if expected_choices is not None and value not in expected_choices:
+        raise CollectionValueError(
+            "invalid-choice",
+            data={"key": key, "value": value, "options": list(expected_choices)},
+        )
+    if validator is not None and not validator(value):
+        raise CollectionValueError(
+            validation_error,
+            data={"key": key, "value": value, "msg": validation_message},
+        )
