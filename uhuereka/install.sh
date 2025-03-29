@@ -68,10 +68,12 @@ if [ "${install_dependencies}" == "true" ]; then
   fi
 
   microdot_src="uhuereka/src/lib/microdot.py"
+  microdot_compiled="uhuereka/compiled/lib/microdot.mpy"
   if [ ! -f "$microdot_src" ]; then
     curl 'https://raw.githubusercontent.com/miguelgrinberg/microdot/refs/tags/v2.1.0/src/microdot/microdot.py' -o "$microdot_src"
-    mpy-cross "$microdot_src"
+    mpy-cross "$microdot_src" -o "$microdot_compiled" -O3
   fi
+  $cmd_prefix $mpremote_bin cp "$microdot_compiled" :lib/microdot.mpy
   $cmd_prefix $mpremote_bin connect ${device} mip install logging
   $cmd_prefix $mpremote_bin connect ${device} mip install pathlib
   $cmd_prefix $mpremote_bin connect ${device} mip install time
