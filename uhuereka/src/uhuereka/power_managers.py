@@ -16,12 +16,6 @@ from huereka.shared.micro_utils import uclass
 
 DEFAULT_CONFIG_PATH = "/power_managers.json"
 
-KEY_MODE = "mode"
-KEY_MODE_AT = "mode_at"
-KEY_ON_LIMIT = "on_limit"
-KEY_PIN = "pin"
-KEY_POWER = "power"
-KEY_STATUS = "status"
 KEY_TEARDOWN = "teardown"
 KEY_TYPE = "type"
 
