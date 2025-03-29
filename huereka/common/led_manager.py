@@ -13,12 +13,12 @@ from huereka.common.color_utils import Colors
 from huereka.common.micro_managers import KEY_PIN
 from huereka.common.micro_managers import KEY_PORT
 from huereka.common.micro_managers import KEY_TYPE
-from huereka.shared.collections import KEY_ID
-from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
-from huereka.shared.collections import get_and_validate
+from huereka.shared.collections import entry_property
+from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
+from huereka.shared.micro_utils import uclass
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ STATUS_OFF = 0
 STATUS_ON = 1
 
 
+@uclass()
 class LEDManager(CollectionEntry):
     """Manage the colors and brightness of LEDs.
 
@@ -49,7 +50,7 @@ class LEDManager(CollectionEntry):
         uuid: str = None,
         mode: int = MODE_OFF,
         led_delay: float = DEFAULT_LED_UPDATE_DELAY,
-        micromanager: micro_managers.LEDMicroManager = None,
+        micromanager: micro_managers.LEDMicroManager | None = None,
     ) -> None:
         """Set up a single LED chain/strip.
 
@@ -65,6 +66,7 @@ class LEDManager(CollectionEntry):
         self._status = STATUS_OFF
         self._led_manager = micromanager
         self.mode = mode
+        self._led_delay = 0.0
         self.led_delay = led_delay
 
     def __getitem__(self, index: int | slice) -> int:
@@ -95,31 +97,17 @@ class LEDManager(CollectionEntry):
     @classmethod
     @override
     def from_json(cls, data: dict) -> LEDManager:
-        # Required arguments.
         manager_type = data.get(KEY_TYPE)
         if not isinstance(manager_type, str) or manager_type.lower() not in ("neopixel", "serial"):
             raise CollectionValueError("invalid-led_manager-type")
-        uuid = data.get(KEY_ID)
-        if not uuid or not isinstance(uuid, str):
-            raise CollectionValueError("invalid-led_manager-id")
-
-        # Optional arguments.
-        name = data.get(KEY_NAME)
-        if not isinstance(uuid, str) and name is not None:
-            raise CollectionValueError("invalid-led_manager-name")
-        mode = data.get(KEY_MODE, MODE_OFF)
-        if not isinstance(mode, int):
-            raise CollectionValueError("invalid-led_manager-mode")
-        led_delay = data.get(KEY_LED_DELAY, DEFAULT_LED_UPDATE_DELAY)
-        if not isinstance(led_delay, float):
-            raise CollectionValueError("invalid-led_manager-led_delay")
         micromanager = None
         if manager_type.lower() == "neopixel":
             micromanager = micro_managers.NeoPixelManager.from_json(data)
         elif manager_type.lower() == "serial":
             micromanager = micro_managers.SerialManager.from_json(data)
-
-        return LEDManager(name=name, uuid=uuid, mode=mode, micromanager=micromanager, led_delay=led_delay)
+        manager = super().from_json(data)
+        manager._led_manager = micromanager  # pylint: disable=protected-access
+        return manager
 
     def off(self, show: bool = True) -> None:
         """Helper to disable (reduce brightness to 0) and immediately show change.
@@ -130,16 +118,25 @@ class LEDManager(CollectionEntry):
         self._led_manager.off(show=show)
 
     @property
+    def led_delay(self) -> float:
+        """Minimum time delay allowed in seconds between individual LED updates during animations."""
+        return self._led_delay
+
+    @entry_property(float, default=DEFAULT_LED_UPDATE_DELAY)
+    @led_delay.setter
+    def led_delay(self, led_delay: int) -> None:
+        """Safely set the minimum time delay allowed in seconds between individual LED updates during animations."""
+        self._led_delay = led_delay
+
+    @property
     def mode(self) -> int:
         """Return the current mode set on the manager."""
         return self._mode
 
+    @entry_property(int, default=MODE_OFF, choices=(MODE_OFF, MODE_ON))
     @mode.setter
     def mode(self, mode: int) -> None:
         """Safely set the current mode of the manager."""
-        valid_modes = (MODE_OFF, MODE_ON)
-        if mode not in valid_modes:
-            raise ValueError(f"Valid modes are: {valid_modes}")
         self._mode = mode
 
     def set_brightness(
@@ -204,12 +201,10 @@ class LEDManager(CollectionEntry):
         """Return the current status of the manager."""
         return self._status
 
+    @entry_property(int, choices=(STATUS_OFF, STATUS_ON), save=False, update=False)
     @status.setter
     def status(self, status: int) -> None:
         """Safely set the current status of the manager."""
-        valid_states = (STATUS_OFF, STATUS_ON)
-        if status not in valid_states:
-            raise ValueError(f"Valid states are: {valid_states}")
         if status == STATUS_ON and self.mode == MODE_OFF:
             raise ValueError("Status may not be set to on while mode is set to off")
         self._status = status
@@ -221,42 +216,15 @@ class LEDManager(CollectionEntry):
         """
         self._led_manager.teardown()
 
+    @override
     def to_json(self, save_only: bool = False) -> dict:
-        """Convert the instance into a JSON compatible type.
+        return self._led_manager.to_json(save_only=save_only) | super().to_json(save_only=save_only)
 
-        Returns:
-            Mapping of the instance attributes.
-        """
-        data = self._led_manager.to_json()
-        data[KEY_ID] = self.uuid
-        data[KEY_NAME] = self.name
-        data[KEY_MODE] = self.mode
-        data[KEY_LED_DELAY] = self.led_delay
-        if not save_only:
-            data[KEY_STATUS] = self.status
-        return data
-
+    @override
     def update(
         self,
         new_values: dict,
     ) -> dict:
-        """Update the values of an LED manager.
-
-        Args:
-            new_values: New attributes to set on the manager.
-
-        Returns:
-            Final manager configuration with the updated values.
-        """
-        name = get_and_validate(new_values, KEY_NAME, expected_type=str)
-        if name is not None and name != self.name:
-            self.name = name
-        mode = get_and_validate(new_values, KEY_MODE, expected_type=int)
-        if mode is not None and mode != self.mode:
-            self.mode = mode
-        led_delay = get_and_validate(new_values, KEY_LED_DELAY, expected_type=float)
-        if led_delay is not None:
-            self.led_delay = led_delay
         self._led_manager.update(new_values)
         return self.to_json()
 

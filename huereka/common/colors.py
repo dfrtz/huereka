@@ -7,17 +7,20 @@ from typing import Any
 from typing import override
 
 from huereka.common import color_utils
-from huereka.shared.collections import KEY_ID
+from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
+from huereka.shared.collections import entry_property
+from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
+from huereka.shared.micro_utils import uclass
 
 logger = logging.getLogger(__name__)
 
-KEY_NAME = "name"
 KEY_VALUE = "value"
 
 
+@uclass()
 class Color(CollectionEntry):
     """User color preference."""
 
@@ -41,44 +44,18 @@ class Color(CollectionEntry):
         """Make the color comparable for equality using unique attributes."""
         return isinstance(other, Color) and self.name == other.name and self.value == other.value
 
-    @classmethod
-    def from_json(cls, data: dict) -> Color:
-        """Convert JSON type into color instance.
-
-        Args:
-            data: Mapping of the instance attributes.
-
-        Returns:
-            Instantiated color with the given attributes.
-        """
-        uuid = data.get(KEY_ID)
-        if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError("invalid-color-id")
-        name = data.get(KEY_NAME)
-        if not name or not isinstance(name, str):
-            raise CollectionValueError("invalid-color-name")
-        value = data.get(KEY_VALUE)
-        if value is None or not isinstance(value, (str, int, float)):
-            raise CollectionValueError("invalid-color-value")
-        return Color(name, value)
-
+    @override
     def to_json(self, save_only: bool = False) -> dict:
-        """Convert the instance into a JSON compatible type.
-
-        Returns:
-            Mapping of the instance attributes.
-        """
-        return {
-            KEY_ID: self.uuid,
-            KEY_NAME: self.name,
-            KEY_VALUE: self.value.to_rgb(),
-        }
+        data = super().to_json(save_only=save_only)
+        data[KEY_VALUE] = data[KEY_VALUE].to_rgb()
+        return data
 
     @property
     def value(self) -> color_utils.Color:
         """Raw color value."""
         return self._color
 
+    @entry_property((str, int, float))
     @value.setter
     def value(self, value: str | int | float) -> None:
         """Update the raw color value."""

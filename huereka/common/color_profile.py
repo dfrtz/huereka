@@ -7,10 +7,12 @@ from typing import Any
 from typing import override
 
 from huereka.common import color_utils
-from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
+from huereka.shared.collections import entry_property
+from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
+from huereka.shared.micro_utils import uclass
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +30,15 @@ DEFAULT_PROFILE_OFF = "off"
 DEFAULT_GAMMA_CORRECTION = 1.0
 
 
+@uclass()
 class ColorProfile(CollectionEntry):
     """Color profile used to control LED strip."""
 
     def __init__(
         self,
         name: str,
-        uuid: str = None,
-        colors: list = None,
+        uuid: str | None = None,
+        colors: list | None = None,
         gamma_correction: float = DEFAULT_GAMMA_CORRECTION,
         mode: int = MODE_REPEAT,
     ) -> None:
@@ -53,9 +56,10 @@ class ColorProfile(CollectionEntry):
         super().__init__(uuid=uuid, name=name)
         self._corrected_colors = tuple()
         self._mode = mode
+        self._colors: list | None = None
 
         # Set the current colors, and set a blank corrected colors value so first gamma application updates.
-        self.colors = [color_utils.parse_color(color) for color in colors or []]
+        self.colors = colors
         self._last_corrected_colors = []
 
         # Update gamma values last so that correct colors are calculated on first application.
@@ -81,6 +85,17 @@ class ColorProfile(CollectionEntry):
         """Toggle combination flag for a mode off."""
         self._mode &= ~mode
 
+    @property
+    def colors(self) -> list[color_utils.Color]:
+        """Raw colors before color correction is applied."""
+        return self._colors
+
+    @entry_property(list, validator=lambda items: all(isinstance(item, int) for item in items))
+    @colors.setter
+    def colors(self, colors: list[int]) -> None:
+        """Safely set the raw colors."""
+        self._colors = [color_utils.parse_color(color) for color in colors or []]
+
     def copy(self) -> ColorProfile:
         """Duplicate the Color profile to prevent modifications to the original.
 
@@ -95,51 +110,17 @@ class ColorProfile(CollectionEntry):
             mode=self._mode,
         )
 
-    @classmethod
-    @override
-    def from_json(cls, data: dict) -> ColorProfile:
-        # Required arguments.
-        name = data.get(KEY_NAME)
-        if not name or not isinstance(name, str):
-            raise CollectionValueError("invalid-color_profile-name")
-
-        # Optional arguments.
-        uuid = data.get(KEY_ID)
-        if not isinstance(uuid, str) and uuid is not None:
-            raise CollectionValueError("invalid-color_profile-id")
-        colors = data.get(KEY_COLORS, [])
-        if not isinstance(colors, list):
-            raise CollectionValueError("invalid-color_profile-colors")
-        try:
-            colors = [color_utils.parse_color(color) for color in colors]
-        except Exception as error:  # pylint: disable=broad-except
-            raise CollectionValueError("invalid-color_profile-colors") from error
-        gamma_correction = data.get(KEY_GAMMA, DEFAULT_GAMMA_CORRECTION)
-        if not isinstance(gamma_correction, float):
-            raise CollectionValueError("invalid-color_profile-gamma")
-        mode = data.get(KEY_MODE, MODE_REPEAT)
-        if not isinstance(mode, int):
-            raise CollectionValueError("invalid-color_profile-mode")
-
-        return ColorProfile(
-            name,
-            uuid=uuid,
-            colors=colors,
-            gamma_correction=gamma_correction,
-            mode=mode,
-        )
-
     @property
     def corrected_colors(self) -> tuple:
         """The current gamma corrected colors."""
-        if self._last_corrected_colors != self.colors:
+        if self._last_corrected_colors is not self.colors:
             self._corrected_colors = tuple(
                 color_utils.Color.from_rgb(
                     self.gamma_values[color.red], self.gamma_values[color.green], self.gamma_values[color.blue]
                 )
                 for color in self.colors
             )
-            self._last_corrected_colors = self.colors.copy()
+            self._last_corrected_colors = self.colors
         return self._corrected_colors
 
     @property
@@ -147,6 +128,7 @@ class ColorProfile(CollectionEntry):
         """The current gamma correction value."""
         return self._gamma_correction
 
+    @entry_property(float, key=KEY_GAMMA, default=DEFAULT_GAMMA_CORRECTION)
     @gamma_correction.setter
     def gamma_correction(self, value: float) -> None:
         """Update the gamma correction base value and individual corrected values."""
@@ -177,6 +159,12 @@ class ColorProfile(CollectionEntry):
         else:
             self._unset_mode(MODE_MIRROR)
 
+    @entry_property(int, default=MODE_REPEAT)
+    @property
+    def mode(self) -> int:
+        """Enabled color pattern modes."""
+        return self._mode
+
     @property
     def random(self) -> bool:
         """Whether this profile should use randomization in color patterns."""
@@ -202,20 +190,6 @@ class ColorProfile(CollectionEntry):
             self._set_mode(MODE_REPEAT)
         else:
             self._unset_mode(MODE_REPEAT)
-
-    def to_json(self, save_only: bool = False) -> dict:
-        """Convert the instance into a JSON compatible type.
-
-        Returns:
-            Mapping of the instance attributes.
-        """
-        return {
-            KEY_ID: self.uuid,
-            KEY_NAME: self.name,
-            KEY_COLORS: [color.to_rgb() for color in self.colors],
-            KEY_GAMMA: self._gamma_correction,
-            KEY_MODE: self._mode,
-        }
 
 
 class ColorProfiles(Collection):

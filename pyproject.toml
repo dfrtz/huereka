@@ -98,7 +98,7 @@ jobs = 0
 [tool.pylint.DESIGN]
 max-args = 6
 max-positional-arguments = 6
-max-attributes = 10
+max-attributes = 12
 ignored-modules = [
     "machine",
 ]
