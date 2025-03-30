@@ -16,10 +16,10 @@ from huereka.shared import responses
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
-from huereka.shared.collections import entry_property
-from huereka.shared.collections import get_and_validate
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
+from huereka.shared.properties import data_property
+from huereka.shared.properties import get_and_validate
 
 logger = logging.getLogger(__name__)
 
@@ -383,7 +383,7 @@ class LightingSchedule(CollectionEntry):
         """Brightness as a percent between 0.0 and 1.0."""
         return self._brightness
 
-    @entry_property(float, default=BRIGHTNESS_DISABLED)
+    @data_property(float, default=BRIGHTNESS_DISABLED)
     @brightness.setter
     def brightness(self, brightness: float) -> None:
         """Safely set the percent brightness."""
@@ -394,7 +394,7 @@ class LightingSchedule(CollectionEntry):
         """Time in seconds to delay updates between individual LEDs."""
         return self._led_delay
 
-    @entry_property(float, default=led_manager.DEFAULT_LED_UPDATE_DELAY)
+    @data_property(float, default=led_manager.DEFAULT_LED_UPDATE_DELAY)
     @led_delay.setter
     def led_delay(self, led_delay: float) -> None:
         """Safely set the time in seconds to delay updates between individual LEDs."""
@@ -405,7 +405,7 @@ class LightingSchedule(CollectionEntry):
         """ID of the LED manager that will be controlled by this schedule."""
         return self._manager
 
-    @entry_property(str, default="default")
+    @data_property(str, default="default")
     @manager.setter
     def manager(self, manager: str) -> None:
         """Safely set the ID of the LED manager that will be controlled by this schedule."""
@@ -416,7 +416,7 @@ class LightingSchedule(CollectionEntry):
         """Return the current mode set on the schedules."""
         return self._mode
 
-    @entry_property(int, default=MODE_OFF, choices=(MODE_OFF, MODE_ON, MODE_AUTO))
+    @data_property(int, default=MODE_OFF, choices=(MODE_OFF, MODE_ON, MODE_AUTO))
     @mode.setter
     def mode(self, mode: int) -> None:
         """Safely set the current mode of the schedule."""
@@ -427,7 +427,7 @@ class LightingSchedule(CollectionEntry):
         """Timeframes to trigger specific color profiles."""
         return self._routines
 
-    @entry_property(
+    @data_property(
         list,
         validator=lambda items: all(isinstance(item, dict) for item in items),
         convert=LightingRoutine,
@@ -442,7 +442,7 @@ class LightingSchedule(CollectionEntry):
         """Return the current status of the schedule."""
         return self._status
 
-    @entry_property(int, choices=(STATUS_OFF, STATUS_ON), save=False, update=False)
+    @data_property(int, choices=(STATUS_OFF, STATUS_ON), save=False, update=False)
     @status.setter
     def status(self, status: int) -> None:
         """Safely set the current status of the schedule."""

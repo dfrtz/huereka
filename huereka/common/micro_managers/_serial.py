@@ -20,7 +20,7 @@ from huereka.common.micro_managers._manager_base import KEY_PIN
 from huereka.common.micro_managers._manager_base import KEY_TYPE
 from huereka.common.micro_managers._manager_base import LEDMicroManager
 from huereka.shared.collections import CollectionValueError
-from huereka.shared.collections import get_and_validate
+from huereka.shared.properties import get_and_validate
 
 logger = logging.getLogger(__name__)
 

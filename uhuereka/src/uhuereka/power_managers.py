@@ -11,9 +11,9 @@ import machine
 from huereka.shared.automation import automate
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
-from huereka.shared.collections import entry_property
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
+from huereka.shared.properties import data_property
 
 DEFAULT_CONFIG_PATH = "/power_managers.json"
 
@@ -139,7 +139,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         """The current device type set on the manager."""
         return self._device_type
 
-    @entry_property(str, key=KEY_TYPE, default=DEVICE_TOGGLE, choices=ALL_DEVICES)
+    @data_property(str, key=KEY_TYPE, default=DEVICE_TOGGLE, choices=ALL_DEVICES)
     @device_type.setter
     def device_type(self, device_type: str) -> None:
         """Safely set the current device type of the manager."""
@@ -154,7 +154,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         return self._mode
 
     @automate()
-    @entry_property(int, default=MODE_OFF, choices=ALL_MODES)
+    @data_property(int, default=MODE_OFF, choices=ALL_MODES)
     @mode.setter
     def mode(self, mode: int) -> None:
         """Safely set the current mode of the manager."""
@@ -164,7 +164,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         # N.B. Status is currently a passthrough of mode, ensure all branches keep values in sync on change.
         self.status = mode
 
-    @entry_property(int, default=0, update=False)
+    @data_property(int, default=0, update=False)
     @property
     def mode_at(self) -> int:
         """The time the current mode was set."""
@@ -175,7 +175,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         """The maximum amount of time the mode is allowed to be on."""
         return self._on_limit
 
-    @entry_property(
+    @data_property(
         int,
         default=0,
         validator=lambda value: 0 <= value <= 86400,
@@ -191,7 +191,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         """The current GPIO pin ID in use by the manager."""
         return self._pin
 
-    @entry_property(int, update=False)
+    @data_property(int, update=False)
     @pin.setter
     def pin(self, pin: int) -> None:
         """Safely set the current GPIO pin in use by the manager."""
@@ -204,7 +204,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         return self._power
 
     @automate()
-    @entry_property(
+    @data_property(
         float,
         default=1.0,
         validator=lambda value: 0.0 <= value <= 1.0,
@@ -222,7 +222,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         """Whether the device should teardown on service teardowns, or stay in pre-existing state."""
         return self._should_teardown
 
-    @entry_property(bool, key=KEY_TEARDOWN, default=True, update=False)
+    @data_property(bool, key=KEY_TEARDOWN, default=True, update=False)
     @should_teardown.setter
     def should_teardown(self, should_teardown: bool) -> None:
         """Safely set whether the device should teardown on service teardowns, or stay in pre-existing state."""
@@ -234,7 +234,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         return self._status
 
     @automate()
-    @entry_property(int, choices=All_STATES, save=False, update=False)
+    @data_property(int, choices=All_STATES, save=False, update=False)
     @status.setter
     def status(self, status: int) -> None:
         """Safely set the current status of the manager."""

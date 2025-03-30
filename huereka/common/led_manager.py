@@ -16,9 +16,9 @@ from huereka.common.micro_managers import KEY_TYPE
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
-from huereka.shared.collections import entry_property
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
+from huereka.shared.properties import data_property
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class LEDManager(CollectionEntry):
         """Minimum time delay allowed in seconds between individual LED updates during animations."""
         return self._led_delay
 
-    @entry_property(float, default=DEFAULT_LED_UPDATE_DELAY)
+    @data_property(float, default=DEFAULT_LED_UPDATE_DELAY)
     @led_delay.setter
     def led_delay(self, led_delay: int) -> None:
         """Safely set the minimum time delay allowed in seconds between individual LED updates during animations."""
@@ -133,7 +133,7 @@ class LEDManager(CollectionEntry):
         """Return the current mode set on the manager."""
         return self._mode
 
-    @entry_property(int, default=MODE_OFF, choices=(MODE_OFF, MODE_ON))
+    @data_property(int, default=MODE_OFF, choices=(MODE_OFF, MODE_ON))
     @mode.setter
     def mode(self, mode: int) -> None:
         """Safely set the current mode of the manager."""
@@ -201,7 +201,7 @@ class LEDManager(CollectionEntry):
         """Return the current status of the manager."""
         return self._status
 
-    @entry_property(int, choices=(STATUS_OFF, STATUS_ON), save=False, update=False)
+    @data_property(int, choices=(STATUS_OFF, STATUS_ON), save=False, update=False)
     @status.setter
     def status(self, status: int) -> None:
         """Safely set the current status of the manager."""
