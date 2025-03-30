@@ -10,9 +10,9 @@ from huereka.common import color_utils
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
-from huereka.shared.collections import entry_property
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
+from huereka.shared.properties import data_property
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class ColorProfile(CollectionEntry):
         """Raw colors before color correction is applied."""
         return self._colors
 
-    @entry_property(list, validator=lambda items: all(isinstance(item, int) for item in items))
+    @data_property(list, validator=lambda items: all(isinstance(item, int) for item in items))
     @colors.setter
     def colors(self, colors: list[int]) -> None:
         """Safely set the raw colors."""
@@ -128,7 +128,7 @@ class ColorProfile(CollectionEntry):
         """The current gamma correction value."""
         return self._gamma_correction
 
-    @entry_property(float, key=KEY_GAMMA, default=DEFAULT_GAMMA_CORRECTION)
+    @data_property(float, key=KEY_GAMMA, default=DEFAULT_GAMMA_CORRECTION)
     @gamma_correction.setter
     def gamma_correction(self, value: float) -> None:
         """Update the gamma correction base value and individual corrected values."""
@@ -159,7 +159,7 @@ class ColorProfile(CollectionEntry):
         else:
             self._unset_mode(MODE_MIRROR)
 
-    @entry_property(int, default=MODE_REPEAT)
+    @data_property(int, default=MODE_REPEAT)
     @property
     def mode(self) -> int:
         """Enabled color pattern modes."""

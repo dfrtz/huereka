@@ -14,10 +14,10 @@ from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
-from huereka.shared.collections import entry_property
 from huereka.shared.collections import uuid4
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
+from huereka.shared.properties import data_property
 
 DEFAULT_MFG_PATH = "/mfg.json"
 DEFAULT_CONFIG_PATH = "/device.json"
@@ -64,7 +64,7 @@ class MCUDevice(CollectionEntry):
         """Pin that should listen to button presses to control the hardware/software."""
         return self._control_pin
 
-    @entry_property(int)
+    @data_property(int)
     @control_pin.setter
     def control_pin(self, control_pin: int) -> None:
         """Safely set the Pin that should listen to button presses to control the hardware/software."""
@@ -90,7 +90,7 @@ class MCUDevice(CollectionEntry):
         """The current port the device is listening to API requests on."""
         return self._port
 
-    @entry_property(int)
+    @data_property(int)
     @port.setter
     def port(self, port: int) -> None:
         """Safely set the port the device is listening to API requests on."""
@@ -101,7 +101,7 @@ class MCUDevice(CollectionEntry):
         """Whether the WLAN hardware is allowed to be used for control requests."""
         return self._wlan_enabled
 
-    @entry_property(bool)
+    @data_property(bool)
     @wlan_enabled.setter
     def wlan_enabled(self, wlan_enabled: bool) -> None:
         """Safely set whether the WLAN hardware is allowed to be used for control requests."""

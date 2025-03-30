@@ -1,4 +1,7 @@
-"""Dependencies for input/output actions via observation and pub/sub patterns."""
+"""Dependencies for input/output actions via observation and pub/sub patterns.
+
+N.B. This entire library must remain compatible with usage in CPython and MicroPython.
+"""
 
 from __future__ import annotations
 

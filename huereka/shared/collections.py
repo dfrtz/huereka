@@ -14,140 +14,21 @@ import os
 from collections import OrderedDict
 from types import TracebackType
 from typing import Any
-from typing import Callable
 from typing import Generator
 
 from huereka.shared import file_utils
 from huereka.shared import micro_utils
 from huereka.shared import responses
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
+from huereka.shared.properties import DataProperty
+from huereka.shared.properties import data_property
+from huereka.shared.properties import get_and_validate
+from huereka.shared.properties import validate
 
 logger = logging.getLogger(__name__)
 
 KEY_ID = "id"
 KEY_NAME = "name"
-
-
-class CollectionEntryProperty:  # pylint: disable=too-few-public-methods
-    """Configuration for auto-converting a collection entry property from input and to output."""
-
-    def __init__(  # pylint: disable=too-many-arguments
-        self,
-        key: str,
-        expected_type: type[int, float, bool, str, dict, list, CollectionEntry] | tuple[type],
-        *,
-        default: Any = None,
-        choices: list | tuple | None = None,
-        nullable: bool = True,
-        validator: Callable | None = None,
-        error: str = "invalid-value",
-        message: str = "Invalid value",
-        convert: type | None = None,
-        save: bool = True,
-        update: bool = True,
-    ) -> None:
-        """Configure a collection entry property.
-
-        Any validation errors during usage of the property will raise a `CollectionValueError`.
-
-        Args:
-            key: Name of the value to pull when loading from external data.
-            expected_type: Instance type that the value should be, such as int or bool.
-            default: Value to use if the key is not found in external data.
-                May also be a callable to generate values.
-            choices: Possible valid choices.
-            nullable: Whether the value is allowed to be null when loading from external data.
-                Does not allow None during standard set operations after load.
-            validator: Custom function that returns true if the value is valid, false otherwise.
-            error: Custom error type that will display if the validator determines the value is invalid.
-            message: Custom error message that will display if the validator determines the value is invalid.
-            convert: Custom type to convert the value to when loading from external data.
-                Also triggers conversion during output.
-            save: Whether the value should be included in the output for save requests.
-            update: Whether the value is allowed to be updated as part of batch entry update requests.
-        """
-        self.key = key
-        self.expected_type = expected_type
-        self.choices = choices
-        self.nullable = nullable
-        self.default = default
-        self.validator = validator
-        self.error = error
-        self.message = message
-        self.convert = convert
-        self.save = save
-        self.update = update
-        # Used to call setter if validation is performed manually.
-        # Set after property declaration, do not allow user control.
-        self._validator_bypass: Callable | None = None
-
-    def set_without_validation(self, entry: CollectionEntry, value: Any) -> None:
-        """Call setter without validator if validation was performed manually.
-
-        Args:
-            entry: Instance that the value should be set on.
-            value: Valid value to pass to the property setter.
-        """
-        if self._validator_bypass:
-            self._validator_bypass(entry, value)  # pylint: disable=not-callable
-
-
-def entry_property(  # pylint: disable=too-many-arguments
-    expected_type: type[int, float, bool, str, dict, list, CollectionEntry] | tuple[type],
-    *,
-    key: str | None = None,
-    default: Any = None,
-    choices: list | tuple | None = None,
-    nullable: bool = True,
-    validator: Callable | None = None,
-    error: str = "invalid-value",
-    message: str = "Invalid value",
-    convert: type | None = None,
-    save: bool = True,
-    update: bool = True,
-) -> Callable:
-    """Wrap a property with additional metadata for tracking collection entry value conversions.
-
-    Refer to `huereka.shared.collections.CollectionEntryProperty` for argument details.
-    """
-
-    def _wrapper(prop: property) -> property:
-        """Update the property configuration and validators."""
-        prop_key = key or prop.fget.__name__
-        prop.__property_config__ = CollectionEntryProperty(
-            prop_key,
-            expected_type,
-            default=default,
-            choices=choices,
-            nullable=nullable,
-            validator=validator,
-            error=error,
-            message=message,
-            convert=convert,
-            save=save,
-            update=update,
-        )
-        if prop.fset:
-            prop.__property_config__._validator_bypass = prop.fset  # pylint: disable=protected-access
-
-            def _setter(self: CollectionEntry, value: Any) -> Any:
-                """Call the collection entry property with automatic input validation from the metadata."""
-                validate(
-                    prop_key,
-                    value,
-                    expected_type=expected_type,
-                    expected_choices=choices,
-                    nullable=False,
-                    validator=validator,
-                    validation_error=error,
-                    validation_message=message,
-                )
-                prop.__property_config__.set_without_validation(self, value)
-
-            prop = prop.setter(_setter)
-        return prop
-
-    return _wrapper
 
 
 class Collection(abc.ABC):
@@ -397,7 +278,7 @@ class Collection(abc.ABC):
 class CollectionEntry(abc.ABC):
     """Base for loading and storing collection entries."""
 
-    __property_configs__: dict[str, CollectionEntryProperty]
+    __property_configs__: dict[str, DataProperty]
 
     def __init__(self, uuid: str | None = None, name: str | None = None) -> None:
         """Set up the base collection entry values.
@@ -471,7 +352,7 @@ class CollectionEntry(abc.ABC):
         """The current name of the entry."""
         return self._name
 
-    @entry_property(str)
+    @data_property(str)
     @name.setter
     def name(self, name: str) -> None:
         """Safely set the current name of the entry."""
@@ -522,7 +403,7 @@ class CollectionEntry(abc.ABC):
         """The current UUID of the entry."""
         return self._uuid
 
-    @entry_property(str, key=KEY_ID, update=False)
+    @data_property(str, key=KEY_ID, update=False)
     @uuid.setter
     def uuid(self, uuid: str) -> None:
         """Safely set the current UUID of the entry."""
@@ -624,36 +505,6 @@ class CollectionValueError(responses.APIError):
         super().__init__(error, data, code=code)
 
 
-def get_and_validate(  # Allow complex combinations to validate values consistently. pylint: disable=too-many-arguments
-    data: dict,
-    key: str,
-    *,
-    expected_type: type | tuple[type] | None = None,
-    expected_choices: list | tuple | None = None,
-    nullable: bool = True,
-    default: Any = None,
-    validator: Callable | None = None,
-    validation_error: str = "invalid-value",
-    validation_message: str = "Invalid value",
-) -> Any:
-    """Retrieve and validate a value from a collection entry's data.
-
-    Refer to `huereka.shared.collections.CollectionEntryProperty` for argument details.
-    """
-    value = data.get(key, default if not callable(default) else default())
-    validate(
-        key,
-        value,
-        expected_type=expected_type,
-        expected_choices=expected_choices,
-        nullable=nullable,
-        validator=validator,
-        validation_error=validation_error,
-        validation_message=validation_message,
-    )
-    return value
-
-
 def uuid4() -> str:
     """Generate a random RFC 4122 compliant UUID.
 
@@ -674,48 +525,3 @@ def uuid4() -> str:
         )
     )
     return uuid
-
-
-def validate(  # pylint: disable=too-many-arguments
-    key: str,
-    value: Any,
-    *,
-    expected_type: type | tuple[type] = None,
-    expected_choices: list | tuple | None = None,
-    nullable: bool = True,
-    validator: Callable | None = None,
-    validation_error: str = "invalid-value",
-    validation_message: str = "Invalid value",
-) -> None:
-    """Validate a value from a collection entry's data, or raise CollectionValueError if invalid.
-
-    Refer to `huereka.shared.collections.CollectionEntryProperty` for argument details.
-    """
-    if value is None and nullable:
-        return
-    if value is None:
-        raise CollectionValueError(
-            "not-nullable",
-            data={"key": key},
-        )
-    if expected_type and not isinstance(value, expected_type):
-        raise CollectionValueError(
-            "invalid-type",
-            data={
-                "key": key,
-                "value": value,
-                "options": expected_type.__name__
-                if not isinstance(expected_type, tuple)
-                else [sub_type.__name__ for sub_type in expected_type],
-            },
-        )
-    if expected_choices is not None and value not in expected_choices:
-        raise CollectionValueError(
-            "invalid-choice",
-            data={"key": key, "value": value, "options": list(expected_choices)},
-        )
-    if validator is not None and not validator(value):
-        raise CollectionValueError(
-            validation_error,
-            data={"key": key, "value": value, "msg": validation_message},
-        )

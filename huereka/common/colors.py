@@ -11,9 +11,9 @@ from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
-from huereka.shared.collections import entry_property
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
+from huereka.shared.properties import data_property
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class Color(CollectionEntry):
         """Raw color value."""
         return self._color
 
-    @entry_property((str, int, float))
+    @data_property((str, int, float))
     @value.setter
     def value(self, value: str | int | float) -> None:
         """Update the raw color value."""

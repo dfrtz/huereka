@@ -1,4 +1,7 @@
-"""Automation orchestration using observer and pub/sub patterns."""
+"""Automation orchestration using observer and pub/sub patterns.
+
+N.B. This entire library must remain compatible with usage in CPython and MicroPython.
+"""
 
 from typing import Any
 from typing import Callable
