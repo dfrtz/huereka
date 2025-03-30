@@ -522,7 +522,7 @@ class CollectionEntry(abc.ABC):
         """The current UUID of the entry."""
         return self._uuid
 
-    @entry_property(str, key=KEY_ID)
+    @entry_property(str, key=KEY_ID, update=False)
     @uuid.setter
     def uuid(self, uuid: str) -> None:
         """Safely set the current UUID of the entry."""

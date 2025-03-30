@@ -8,6 +8,7 @@ from typing import override
 
 import machine
 
+from huereka.shared.automation import automate
 from huereka.shared.collections import Collection
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import entry_property
@@ -152,6 +153,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         """The current mode set on the manager."""
         return self._mode
 
+    @automate()
     @entry_property(int, default=MODE_OFF, choices=ALL_MODES)
     @mode.setter
     def mode(self, mode: int) -> None:
@@ -201,6 +203,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         """The current power level set on the manager."""
         return self._power
 
+    @automate()
     @entry_property(
         float,
         default=1.0,
@@ -230,6 +233,7 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         """The current status of the manager."""
         return self._status
 
+    @automate()
     @entry_property(int, choices=All_STATES, save=False, update=False)
     @status.setter
     def status(self, status: int) -> None:
