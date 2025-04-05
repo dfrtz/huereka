@@ -395,7 +395,7 @@ class CollectionEntry(abc.ABC):
                     value = value.to_json()
             if value != (config.default if not callable(config.default) else config.default()):
                 if config.save or not save_only:
-                    data[attr_name] = value
+                    data[config.key] = value
         return data
 
     @property
