@@ -17,7 +17,6 @@ SKIP = "__SKIP__"
 """Indicate that a specific output should be ignored in an observation callback."""
 
 
-@uclass()
 class Dependency:
     """Base for all observation dependencies."""
 
@@ -38,6 +37,7 @@ class Dependency:
         self._uuid = uuid
         self._prop = prop
 
+    @classmethod
     def __init_subclass__(cls) -> None:
         """Track all types of dependencies."""
         cls.__dep_types__[cls._type] = cls
@@ -88,6 +88,7 @@ class Dependency:
         return self._uuid
 
 
+@uclass()
 class Modified(Dependency):
     """Triggering input of an observation callback based on a stateful attribute update.
 
@@ -97,6 +98,7 @@ class Modified(Dependency):
     _type = "mod"
 
 
+@uclass()
 class Published(Dependency):
     """Triggering input of an observation callback based on a stateless event, rather than a stateful property.
 
@@ -122,6 +124,7 @@ class Published(Dependency):
         )
 
 
+@uclass()
 class Select(Dependency):
     """Non-triggering input of an observation callback.
 
@@ -131,6 +134,7 @@ class Select(Dependency):
     _type = "sel"
 
 
+@uclass()
 class Update(Dependency):
     """Output of an observation callback that will update another component, or trigger another event.
 
@@ -140,4 +144,6 @@ class Update(Dependency):
     _type = "upd"
 
 
-DependencyType = Modified | Published | Select | Update
+Inputs = (Modified, Published)
+States = (Select,)
+Outputs = (Update,)
