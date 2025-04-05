@@ -257,6 +257,13 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
         self.__init_pin_value__()
         return result
 
+    @property
+    def uptime(self) -> int:
+        """The amount of time the device mode has been set to "on" in seconds."""
+        if self.mode == MODE_ON:
+            return time.time() - self.mode_at
+        return 0
+
 
 @uclass()
 class PowerManagers(Collection):
