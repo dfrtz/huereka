@@ -55,7 +55,7 @@ def schedules_get_entry(uuid: str) -> tuple:
 def schedules_put_entry(uuid: str) -> tuple:
     """Update a lighting schedule's configuration."""
     body = request.get_json(force=True)
-    schedule = LightingSchedules.update(uuid, body)
+    schedule = LightingSchedules.update(uuid, **body)
     LightingSchedules.save()
     LightingSchedules.verify_active_schedules(force=True)
     return responses.ok(schedule)

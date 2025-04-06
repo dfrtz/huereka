@@ -69,36 +69,30 @@ class Colors(Collection):
     entry_cls: str = Color
 
     @classmethod
-    @override
-    def get(cls, key: str, *, raise_on_missing: bool = False) -> Color | list[Color] | None:
-        # Override to update typehint and simplify caller typechecks.
-        return super().get(key, raise_on_missing=raise_on_missing)
-
-    @classmethod
     def update(
         cls,
-        uuid: str,
-        new_values: dict,
+        entry: str | Color,
+        **values: Any,
     ) -> dict:
         """Update the values of a color.
 
         Args:
-            uuid: Name of the original color to update.
-            new_values: New JSON like attributes to set on the color.
+            entry: ID of the original color, or the original color, to update.
+            values: New JSON like attributes to set on the color.
 
         Returns:
             Final color configuration with the updated values.
         """
         with cls._collection_lock:
-            color = cls.get(uuid)
-            name = new_values.get(KEY_NAME)
+            color = cls.get(entry)
+            name = values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):
                     raise CollectionValueError("invalid-color-name")
                 original_name = color.name
                 color.name = name
                 cls._collection[name] = cls._collection.pop(original_name)
-            value = new_values.get(KEY_VALUE)
+            value = values.get(KEY_VALUE)
             if value is None or not isinstance(value, (str, int, float)):
                 raise CollectionValueError("invalid-color-value")
             color.value = value

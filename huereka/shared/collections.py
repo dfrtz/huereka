@@ -81,14 +81,14 @@ class Collection(abc.ABC):
     @classmethod
     def get(
         cls,
-        key: str | None,
+        key: str | CollectionEntry | None,
         *,
         raise_on_missing: bool = True,
     ) -> CollectionEntry | dict[str, CollectionEntry] | None:
         """Find the entry associated with a given key.
 
         Args:
-            key: Key used to map saved entry as a unique value in the collection.
+            key: Key used to map saved entry as a unique value in the collection, or an entry with an ID to request.
                 Must match attribute used in register(). Providing no key will return full collection.
             raise_on_missing: Whether to raise an API error if no entry found.
 
@@ -99,6 +99,7 @@ class Collection(abc.ABC):
             APIError if the entry is not found in persistent storage and raising is enabled.
         """
         if key:
+            key = key if isinstance(key, str) else key.uuid
             entry = cls._collection.get(key)
             if not entry and raise_on_missing:
                 raise responses.APIError(f"missing-{cls.collection_help_api_name()}", key, code=404)
@@ -281,22 +282,22 @@ class Collection(abc.ABC):
     @classmethod
     def update(
         cls,
-        uuid: str,
-        new_values: dict,
+        entry: str | CollectionEntry,
+        **values: Any,
     ) -> dict:
         """Update the values of an entry.
 
         Args:
-            uuid: ID of the original entry to update.
-            new_values: New attributes to set on the entry.
+            entry: ID of the original entry, or the entry, to update.
+            values: New attributes to set on the entry.
 
         Returns:
             Final configuration with the updated values.
         """
         with cls._collection_lock:
-            original = cls.get(uuid)
+            original = cls.get(entry if isinstance(entry, str) else entry.uuid)
             old = original.to_json()
-            result = original.update(new_values)
+            result = original.update(**values)
             if EVENT_UPDATE not in __suppressed_events__:
                 if old != result:
                     cls.notify_listeners(EVENT_UPDATE, original)
@@ -460,14 +461,14 @@ class CollectionEntry(abc.ABC):
 
     def update(
         self,
-        new_values: dict,
+        **values: Any,
     ) -> dict:
         """Update the values of an entry.
 
         Only completes update operation if all values pass validation.
 
         Args:
-            new_values: New attributes to set on the entry.
+            values: New attributes to set on the entry.
 
         Returns:
             Final configuration with the updated values.
@@ -478,9 +479,9 @@ class CollectionEntry(abc.ABC):
         pending_update = []
         for config in self.__property_configs__.values():
             key = config.key
-            if not config.update or key not in new_values:
+            if not config.update or key not in values:
                 continue
-            value = new_values.get(key)
+            value = values.get(key)
             validate(
                 key,
                 value,

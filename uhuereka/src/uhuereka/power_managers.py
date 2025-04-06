@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 from typing import override
 
 import machine
@@ -251,9 +252,9 @@ class PowerManager(CollectionEntry):  # pylint: disable=too-many-instance-attrib
     @override
     def update(
         self,
-        new_values: dict,
+        **values: Any,
     ) -> dict:
-        result = super().update(new_values)
+        result = super().update(**values)
         self.__init_pin_value__()
         return result
 

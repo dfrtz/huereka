@@ -67,7 +67,7 @@ def profiles_put_entry(uuid: str) -> tuple:
         return responses.not_allowed()
     body = request.get_json(force=True)
     old_profile = ColorProfiles.get(uuid).to_json()
-    profile = ColorProfiles.update(uuid, body)
+    profile = ColorProfiles.update(uuid, **body)
     ColorProfiles.save()
     if old_profile.get("colors") != profile.get("colors"):
         # Colors were updated, do not wait the watchdog interval and apply immediately.

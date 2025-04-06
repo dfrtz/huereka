@@ -53,7 +53,7 @@ def managers_put_entry(uuid: str) -> tuple:
     """Update a lighting manager's configuration."""
     body = request.get_json(force=True)
     old_manager = LEDManagers.get(uuid).to_json()
-    manager = LEDManagers.update(uuid, body)
+    manager = LEDManagers.update(uuid, **body)
     LEDManagers.save()
     if old_manager.get("mode") != manager.get("mode"):
         LightingSchedules.verify_active_schedules()

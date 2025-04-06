@@ -6,6 +6,7 @@ import abc
 import logging
 import threading
 import time
+from typing import Any
 from typing import Sequence
 
 from adafruit_pixelbuf import ColorUnion
@@ -226,12 +227,12 @@ class LEDMicroManager(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def update(
         self,
-        new_values: dict,
+        **values: Any,
     ) -> dict:
         """Update the configuration of the LED manager.
 
         Args:
-            new_values: New attributes to set on the manager.
+            values: New attributes to set on the manager.
 
         Returns:
             Final manager configuration with the updated values.

@@ -7,7 +7,6 @@ import threading
 import time
 from datetime import datetime
 from typing import Any
-from typing import override
 
 from huereka.common import color_profile
 from huereka.common import color_utils
@@ -516,12 +515,6 @@ class LightingSchedules(Collection):
             )
 
     @classmethod
-    @override
-    def get(cls, key: str, *, raise_on_missing: bool = False) -> LightingSchedule | list[LightingSchedule] | None:
-        # Override to update typehint and simplify caller typechecks.
-        return super().get(key, raise_on_missing=raise_on_missing)
-
-    @classmethod
     def pending_routines(cls) -> dict[str, tuple[LightingSchedule, LightingRoutine]]:
         """Find all scheduled lighting routines that should be active.
 
@@ -540,36 +533,36 @@ class LightingSchedules(Collection):
     @classmethod
     def update(
         cls,
-        uuid: str,
-        new_values: dict,
+        entry: str | LightingSchedule,
+        **values: Any,
     ) -> dict:
         """Update the values of a schedule.
 
         Args:
-            uuid: ID of the original schedule to update.
-            new_values: New JSON like attributes to set on the schedule.
+            entry: ID of the original schedule, or the original schedule, to update.
+            values: New JSON like attributes to set on the schedule.
 
         Returns:
             Final schedule configuration with the updated values.
         """
         with cls._collection_lock:
-            schedule = cls.get(uuid)
-            name = get_and_validate(new_values, KEY_NAME, expected_type=str)
+            schedule = cls.get(entry)
+            name = get_and_validate(values, KEY_NAME, expected_type=str)
             if name is not None and name != schedule.name:
                 schedule.name = name
-            routines = get_and_validate(new_values, KEY_ROUTINES, expected_type=list)
+            routines = get_and_validate(values, KEY_ROUTINES, expected_type=list)
             if routines is not None:
                 try:
                     schedule.routines = [LightingRoutine.from_json(routine) for routine in routines]
                 except Exception as error:  # pylint: disable=broad-except
                     raise CollectionValueError("invalid-lighting_schedule-routines") from error
-            mode = get_and_validate(new_values, KEY_MODE, expected_type=int)
+            mode = get_and_validate(values, KEY_MODE, expected_type=int)
             if mode is not None:
                 schedule.mode = mode
-            led_delay = get_and_validate(new_values, KEY_LED_DELAY, expected_type=float)
+            led_delay = get_and_validate(values, KEY_LED_DELAY, expected_type=float)
             if led_delay is not None:
                 schedule.led_delay = led_delay
-            brightness = get_and_validate(new_values, KEY_BRIGHTNESS, expected_type=float)
+            brightness = get_and_validate(values, KEY_BRIGHTNESS, expected_type=float)
             if brightness is not None:
                 schedule.brightness = brightness
             result = schedule.to_json()

@@ -51,6 +51,6 @@ def colors_get_entry(uuid: str) -> tuple:
 def colors_put_entry(uuid: str) -> tuple:
     """Update a color's values."""
     body = request.get_json(force=True)
-    color = Colors.update(uuid, body)
+    color = Colors.update(uuid, **body)
     Colors.save()
     return responses.ok(color)
