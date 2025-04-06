@@ -14,6 +14,7 @@ import os
 from collections import OrderedDict
 from types import TracebackType
 from typing import Any
+from typing import Callable
 from typing import Generator
 
 from huereka.shared import file_utils
@@ -30,6 +31,12 @@ logger = logging.getLogger(__name__)
 DEFAULT_ID_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz"
 KEY_ID = "id"
 KEY_NAME = "name"
+
+EVENT_REGISTER = "register"
+EVENT_REMOVE = "remove"
+EVENT_UPDATE = "update"
+
+__suppressed_events__ = set()
 
 
 class Collection(abc.ABC):
@@ -55,12 +62,16 @@ class Collection(abc.ABC):
     entry_cls: type[CollectionEntry] = abc.abstractproperty(type)
     """Class used to instantiate entries on load."""
 
+    _listeners: list[Callable]
+    """Registered listeners for collection update events."""
+
     @classmethod
     def __init_subclass__(cls) -> None:
         """Initialize the subclass properties on declaration to prevent sharing with other subclass singletons."""
         cls._collection = OrderedDict()
         cls._collection_lock = CollectionLock()
         cls._collection_uri = None
+        cls._listeners = []
 
     @classmethod
     def collection_help_api_name(cls) -> str:
@@ -148,7 +159,6 @@ class Collection(abc.ABC):
             data = data.replace("file://", "")
             try:
                 loaded_data = file_utils.load_json(data)
-                logger.info(f"Loaded {len(loaded_data)} {cls.collection_help} from {cls._collection_uri}")
             except OSError as error:
                 if error.errno == 2:
                     logger.warning(f"Skipping {cls.collection_help} load, file not found {data}")
@@ -157,12 +167,36 @@ class Collection(abc.ABC):
             except Exception as error:  # pylint: disable=broad-except
                 logger.exception(f"Failed to load {cls.collection_help} from local file {data}", exc_info=error)
                 raise
+            if loaded_data is not None:
+                logger.info(f"Loaded {len(loaded_data)} {cls.collection_help} from {cls._collection_uri}")
         return loaded_data
 
     @classmethod
     def lock(cls) -> CollectionLock:
         """Provide the lock used by the collection singleton to safely perform modifications."""
         return cls._collection_lock
+
+    @classmethod
+    def listen(cls, listener: Callable) -> None:
+        """Register a new listener to receive collection updates.
+
+        Args:
+            listener: Where to send collection update events.
+        """
+        with cls.lock():
+            if listener not in cls._listeners:
+                cls._listeners.append(listener)
+
+    @classmethod
+    def notify_listeners(cls, event: str, update: str | CollectionEntry | list[str | CollectionEntry]) -> None:
+        """Send an update to all listeners of the collection.
+
+        Args:
+            event: Tag representing the type of event that occurred.
+            update: IDs, or entries, that changed.
+        """
+        for listener in cls._listeners:
+            listener(event, update)
 
     @classmethod
     def post_load(cls) -> None:
@@ -182,6 +216,8 @@ class Collection(abc.ABC):
                 raise responses.APIError(f"duplicate-{cls.collection_help_api_name()}", uuid, code=422)
             cls._collection[uuid] = entry
             logger.debug(f"Registered {cls.collection_help} {entry.uuid} {entry.name}")
+            if EVENT_REGISTER not in __suppressed_events__:
+                cls.notify_listeners(EVENT_REGISTER, entry)
 
     @classmethod
     def remove(cls, key: str, *, raise_on_missing: bool = True) -> CollectionEntry | None:
@@ -200,7 +236,10 @@ class Collection(abc.ABC):
         with cls._collection_lock:
             if key not in cls._collection and raise_on_missing:
                 raise responses.APIError(f"missing-{cls.collection_help_api_name()}", key, code=404)
-            return cls._collection.pop(key, None)
+            removed = cls._collection.pop(key, None)
+            if removed is not None and EVENT_REMOVE not in __suppressed_events__:
+                cls.notify_listeners(EVENT_REMOVE, removed)
+            return removed
 
     @classmethod
     def save(cls) -> None:
@@ -233,7 +272,11 @@ class Collection(abc.ABC):
             List of entries as basic objects.
         """
         with cls._collection_lock:
-            return [entry.to_json(save_only=save_only) for entry in cls._collection.values()]
+            return [
+                entry.to_json(save_only=save_only)
+                for entry in cls._collection.values()
+                if not entry.name.startswith("tmp-")
+            ]
 
     @classmethod
     def update(
@@ -251,7 +294,12 @@ class Collection(abc.ABC):
             Final configuration with the updated values.
         """
         with cls._collection_lock:
-            result = cls.get(uuid).update(new_values)
+            original = cls.get(uuid)
+            old = original.to_json()
+            result = original.update(new_values)
+            if EVENT_UPDATE not in __suppressed_events__:
+                if old != result:
+                    cls.notify_listeners(EVENT_UPDATE, original)
         return result
 
     @classmethod
@@ -509,6 +557,28 @@ class CollectionValueError(responses.APIError):
         super().__init__(error, data, code=code)
 
 
+class _EventSuppressor:
+    """Context manager to help suppress collection update events."""
+
+    def __init__(self, events: list[str]) -> None:
+        """Initialize the context manager with specific event types to disable while active.
+
+        Args:
+            events: Event types to suppress while active.
+        """
+        self.events = events
+
+    def __enter__(self) -> _EventSuppressor:
+        """Add the events to ignore when the context is entered."""
+        __suppressed_events__.update(self.events)
+        return self
+
+    def __exit__(self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType) -> None:
+        """Remove the events to ignore when the context is exited."""
+        for event in self.events:
+            __suppressed_events__.discard(event)
+
+
 def gen_uuid(length: int = 16, chars: str = DEFAULT_ID_CHARS) -> str:
     """Generate a random ID.
 
@@ -520,6 +590,18 @@ def gen_uuid(length: int = 16, chars: str = DEFAULT_ID_CHARS) -> str:
         Universally Unique IDentifier of requested length and characters.
     """
     return "".join(chars[num % len(chars)] for num in bytearray(os.urandom(length)))
+
+
+def suppress_events(events: list[str]) -> _EventSuppressor:
+    """Create a context manager to suppress collection update events while active.
+
+    Args:
+        events: Event types to suppress while active.
+
+    Returns:
+        A context manager that whill suppress events while active.
+    """
+    return _EventSuppressor(events)
 
 
 def uuid4() -> str:
