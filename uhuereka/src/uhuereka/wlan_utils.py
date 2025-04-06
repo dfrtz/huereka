@@ -4,6 +4,7 @@ import asyncio
 import binascii
 import json
 import logging
+import os
 import pathlib
 from typing import Callable
 from typing import override
@@ -12,7 +13,6 @@ import machine
 import network
 from microdot import Request
 
-from huereka.shared import collections
 from huereka.shared import file_utils
 
 from . import microdot_utils
@@ -324,7 +324,9 @@ async def get_wlan_or_configure(
         await connect_from_profiles(wlan_sta, profiles, min_security_level=min_security_level)
     elif profiles is None:
         if not hostname:
-            hostname = f"uhuereka-{collections.uuid4().split('-', 1)[0]}"
+            chars = "0123456789abcdefghijklmnopqrstuvwxyz"
+            uuid = "".join(chars[num % len(chars)] for num in bytearray(os.urandom(8)))
+            hostname = f"uhuereka-{uuid}"
         if not ap_ssid:
             ap_ssid = f"{hostname}-setup"
         # Start temporary web server to perform initial setup for the device.

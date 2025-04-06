@@ -14,7 +14,7 @@ from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import CollectionEntry
 from huereka.shared.collections import CollectionValueError
-from huereka.shared.collections import uuid4
+from huereka.shared.collections import gen_uuid
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
 from huereka.shared.properties import data_property
@@ -48,8 +48,8 @@ class MCUDevice(CollectionEntry):
             wlan_enabled: Whether the WLAN hardware is allowed to be used for control requests.
             control_pin: Pin that should listen to button presses to control the hardware/software.
         """
-        uuid = uuid or uuid4()
-        super().__init__(uuid=uuid, name=name or f"uhuereka-{uuid.split('-', 1)[0]}")
+        uuid = uuid or gen_uuid()
+        super().__init__(uuid=uuid, name=name or f"uhuereka-mcu-{uuid[:8]}")
         self._port: int | None = None
         self._wlan_enabled: bool = True
         self._control_pin: int | None = None

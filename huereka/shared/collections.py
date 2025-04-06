@@ -27,6 +27,7 @@ from huereka.shared.properties import validate
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_ID_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz"
 KEY_ID = "id"
 KEY_NAME = "name"
 
@@ -290,8 +291,8 @@ class CollectionEntry(abc.ABC):
         self._uuid = None
         self._name = None
         # Safely set the values.
-        self.uuid = uuid or str(uuid4())
-        self.name = name or f"{self.__class__.__name__}_{self.uuid.split('-', 1)[0]}"
+        self.uuid = uuid or gen_uuid()
+        self.name = name or f"{self.__class__.__name__}_{self.uuid[:8]}"
 
     @classmethod
     def __init_subclass__(cls) -> None:
@@ -474,7 +475,10 @@ class CollectionLock:
         return self
 
     async def __aexit__(
-        self, exc_type: type[BaseException], exc_value: BaseException, traceback: TracebackType
+        self,
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        traceback: TracebackType,
     ) -> None:
         """Release the async lock and threading lock when the context is exited."""
         self.async_lock.release()
@@ -503,6 +507,19 @@ class CollectionValueError(responses.APIError):
     def __init__(self, error: str, data: Any = None, code: int = responses.STATUS_INVALID_DATA) -> None:
         """Set up the user details of the error."""
         super().__init__(error, data, code=code)
+
+
+def gen_uuid(length: int = 16, chars: str = DEFAULT_ID_CHARS) -> str:
+    """Generate a random ID.
+
+    Length 16 with default chars is 5 sextillion possibilities, sufficiently low conflict for Huereka UUID usage.
+    Length 24-25 provides roughly same level of possibilities as UUID4 of 32 characters.
+    A global "production" usage could generate and save smaller IDs using a permanent table.
+
+    Returns:
+        Universally Unique IDentifier of requested length and characters.
+    """
+    return "".join(chars[num % len(chars)] for num in bytearray(os.urandom(length)))
 
 
 def uuid4() -> str:
