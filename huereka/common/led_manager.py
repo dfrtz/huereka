@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from typing import Sequence
 from typing import override
 
@@ -223,9 +224,9 @@ class LEDManager(CollectionEntry):
     @override
     def update(
         self,
-        new_values: dict,
+        **values: Any,
     ) -> dict:
-        self._led_manager.update(new_values)
+        self._led_manager.update(**values)
         return self.to_json()
 
 

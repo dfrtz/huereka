@@ -135,7 +135,7 @@ async def managers_put_entry(request: microdot.Request, uuid: str) -> tuple:
     body = get_json_body(request)
     if isinstance(body, tuple):
         return body
-    manager = PowerManagers.update(uuid, body)
+    manager = PowerManagers.update(uuid, **body)
     # Save immediately, this was not a scheduled or interrupt task.
     PowerManagers.save()
     return responses.ok(manager)

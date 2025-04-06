@@ -6,6 +6,7 @@ import logging
 import math
 import threading
 import time
+from typing import Any
 from typing import Sequence
 
 import serial
@@ -313,35 +314,35 @@ class SerialManager(LEDMicroManager):
 
     def update(
         self,
-        new_values: dict,
+        **values: Any,
     ) -> dict:
         """Update the configuration of the LED manager.
 
         Args:
-            new_values: New attributes to set on the manager.
+            values: New attributes to set on the manager.
 
         Returns:
             Final manager configuration with the updated values.
         """
-        brightness = get_and_validate(new_values, KEY_BRIGHTNESS, expected_type=float)
+        brightness = get_and_validate(values, KEY_BRIGHTNESS, expected_type=float)
         if brightness is not None:
             self.set_brightness(brightness, save=True)
-        strip = get_and_validate(new_values, KEY_STRIP, expected_type=int)
+        strip = get_and_validate(values, KEY_STRIP, expected_type=int)
         if strip is not None:
             self.strip = strip
-        pin = get_and_validate(new_values, KEY_PIN, expected_type=int)
+        pin = get_and_validate(values, KEY_PIN, expected_type=int)
         if pin is not None:
             self.pin = pin
-        refresh_rate = get_and_validate(new_values, KEY_REFRESH_RATE, expected_type=int)
+        refresh_rate = get_and_validate(values, KEY_REFRESH_RATE, expected_type=int)
         if refresh_rate is not None:
             self.refresh_rate = refresh_rate
-        port = get_and_validate(new_values, KEY_PORT, expected_type=str)
+        port = get_and_validate(values, KEY_PORT, expected_type=str)
         if port is not None:
             self.port = port
-        baudrate = get_and_validate(new_values, KEY_BAUD, expected_type=int)
+        baudrate = get_and_validate(values, KEY_BAUD, expected_type=int)
         if baudrate is not None:
             self.baudrate = baudrate
-        led_count = get_and_validate(new_values, KEY_LED_COUNT, expected_type=int)
+        led_count = get_and_validate(values, KEY_LED_COUNT, expected_type=int)
         if led_count is not None:
             if led_count > len(self._colors):
                 self._colors = self._colors[:led_count]

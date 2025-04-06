@@ -199,12 +199,6 @@ class ColorProfiles(Collection):
     entry_cls: str = ColorProfile
 
     @classmethod
-    @override
-    def get(cls, key: str, *, raise_on_missing: bool = False) -> ColorProfile | list[ColorProfile] | None:
-        # Override to update typehint and simplify caller typechecks.
-        return super().get(key, raise_on_missing=raise_on_missing)
-
-    @classmethod
     def post_load(cls) -> None:
         """Actions to perform after load completes."""
         # Always register the default "off" profile.
@@ -213,28 +207,28 @@ class ColorProfiles(Collection):
     @classmethod
     def update(
         cls,
-        uuid: str,
-        new_values: dict,
+        entry: str | ColorProfile,
+        **values: Any,
     ) -> dict:
         """Update the values of a color profile.
 
         Args:
-            uuid: Name of the original profile to update.
-            new_values: New JSON like attributes to set on the profile.
+            entry: Name of the original profile, or original profile, to update.
+            values: New JSON like attributes to set on the profile.
 
         Returns:
             Final profile configuration with the updated values.
         """
         with cls._collection_lock:
-            profile = cls.get(uuid)
-            name = new_values.get(KEY_NAME)
+            profile = cls.get(entry)
+            name = values.get(KEY_NAME)
             if name is not None:
                 if not isinstance(name, str):
                     raise CollectionValueError("invalid-color_profile-name")
                 original_name = profile.name
                 profile.name = name
                 cls._collection[name] = cls._collection.pop(original_name)
-            colors = new_values.get(KEY_COLORS)
+            colors = values.get(KEY_COLORS)
             if colors is not None:
                 if not isinstance(colors, list):
                     raise CollectionValueError("invalid-color_profile-colors")
@@ -242,12 +236,12 @@ class ColorProfiles(Collection):
                     profile.colors = [color_utils.parse_color(color) for color in colors]
                 except Exception as error:  # pylint: disable=broad-except
                     raise CollectionValueError("invalid-color_profile-colors") from error
-            gamma_correction = new_values.get(KEY_GAMMA)
+            gamma_correction = values.get(KEY_GAMMA)
             if gamma_correction is not None:
                 if not isinstance(gamma_correction, float):
                     raise CollectionValueError("invalid-color_profile-gamma")
                 profile.gamma_correction = gamma_correction
-            mode = new_values.get(KEY_MODE)
+            mode = values.get(KEY_MODE)
             if mode is not None:
                 if not isinstance(mode, int):
                     raise CollectionValueError("invalid-color_profile-mode")
