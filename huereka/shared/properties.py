@@ -126,7 +126,7 @@ def data_property(  # pylint: disable=too-many-arguments
                     value,
                     expected_type=expected_type,
                     expected_choices=choices,
-                    nullable=False,
+                    nullable=nullable,
                     validator=validator,
                     validation_error=error,
                     validation_message=message,

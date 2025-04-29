@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import pathlib
 import re
-from typing import override
 
 import machine
 
@@ -13,7 +12,6 @@ from huereka.shared import file_utils
 from huereka.shared.collections import KEY_ID
 from huereka.shared.collections import KEY_NAME
 from huereka.shared.collections import CollectionEntry
-from huereka.shared.collections import CollectionValueError
 from huereka.shared.collections import gen_uuid
 from huereka.shared.micro_utils import property  # pylint: disable=redefined-builtin
 from huereka.shared.micro_utils import uclass
@@ -35,6 +33,7 @@ class MCUDevice(CollectionEntry):
         self,
         uuid: str | None = None,
         name: str | None = None,
+        hostname: str | None = None,
         port: int | None = None,
         wlan_enabled: bool = True,
         control_pin: int | None = None,
@@ -42,14 +41,16 @@ class MCUDevice(CollectionEntry):
         """Set up the base device values.
 
         Args:
-            uuid: Universally unique identifier.
-            name: Human readable name, also the hostname, used to store/reference in collections.
+            uuid: Universally unique identifier used to store/reference in collections.
+            name: Human readable name.
+            hostname: Hostname the device will request on networks.
             port: TCP Port the device should listen to incoming API requests on to control the hardware/software.
             wlan_enabled: Whether the WLAN hardware is allowed to be used for control requests.
             control_pin: Pin that should listen to button presses to control the hardware/software.
         """
         uuid = uuid or gen_uuid()
         super().__init__(uuid=uuid, name=name or f"uhuereka-mcu-{uuid[:8]}")
+        self._hostname = hostname or re.sub(r"[^A-Za-z0-9-.]", "", re.sub(r"\s+", "-", self.name))
         self._port: int | None = None
         self._wlan_enabled: bool = True
         self._control_pin: int | None = None
@@ -70,29 +71,30 @@ class MCUDevice(CollectionEntry):
         """Safely set the Pin that should listen to button presses to control the hardware/software."""
         self._control_pin = control_pin
 
-    @staticmethod
-    @override
-    def _name_validator(name: str) -> bool:
+    @property
+    def hostname(self) -> str:
+        """The current hostname the device will request on networks."""
+        return self._hostname
+
+    @data_property(
+        str,
         # N.B. MicroPython has limited regex support. Perform as much hostname validation as possible.
-        if not len(name) < 64 or not re.match(r"^[A-Za-z0-9][A-Za-z0-9-.]+[A-Za-z0-9]$", name):
-            raise CollectionValueError(
-                "invalid-choice",
-                data={
-                    "key": KEY_NAME,
-                    "value": name,
-                    "msg": "Valid names only contain letters/numbers/dashes, and are < 64 characters",
-                },
-            )
-        return True
+        validator=lambda value: len(value) < 64 and re.match(r"^[A-Za-z0-9][A-Za-z0-9-.]+[A-Za-z0-9]$", value),
+        message="Valid hostnames only contain letters/numbers/dashes, and are < 64 characters",
+    )
+    @hostname.setter
+    def hostname(self, hostname: str) -> None:
+        """Safely set the hostname the device will request on networks."""
+        self._hostname = hostname
 
     @property
-    def port(self) -> int:
+    def port(self) -> int | None:
         """The current port the device is listening to API requests on."""
         return self._port
 
     @data_property(int)
     @port.setter
-    def port(self, port: int) -> None:
+    def port(self, port: int | None) -> None:
         """Safely set the port the device is listening to API requests on."""
         self._port = port
 
