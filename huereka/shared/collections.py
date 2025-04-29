@@ -415,7 +415,15 @@ class CollectionEntry(abc.ABC):
 
         If a custom error message is required, then the function should raise a `CollectionValueError` manually.
         """
-        # Default to no extra validation by default.
+        if not len(name) < 256:
+            raise CollectionValueError(
+                "invalid-choice",
+                data={
+                    "key": KEY_NAME,
+                    "value": name,
+                    "msg": "Valid names are <= 255 characters",
+                },
+            )
         return True
 
     def to_json(
