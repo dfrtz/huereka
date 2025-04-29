@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import pathlib
 import time
 from typing import Any
 from typing import override
@@ -300,3 +301,6 @@ def load_config(path: str = DEFAULT_CONFIG_PATH) -> None:
             logger.error(
                 f"Skipping save of generated values for {len(generated)} power manager(s) due to {len(errors)} error(s), they will be regenerated on each load until errors are resolved"
             )
+    elif not pathlib.Path(path).exists():
+        PowerManagers.save()
+        logger.info(f"Auto generated power manager config: {path}")
