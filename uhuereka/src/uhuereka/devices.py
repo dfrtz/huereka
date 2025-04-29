@@ -155,8 +155,12 @@ def load_config(
     pending_save = not bool(config.get(KEY_ID)) or not bool(config.get(KEY_NAME))
     loaded = MCUDevice.from_json(config)
     if pending_save:
+        exists = pathlib.Path(overrides_path).exists()
         save_config(loaded, path=overrides_path)
-        logger.info(f"Saved updated device configuration: {loaded.to_json()}")
+        if not exists:
+            logger.info(f"Auto generated device configuration: {overrides_path} {loaded.to_json()}")
+        else:
+            logger.info(f"Saved updated device configuration: {loaded.to_json()}")
     return loaded
 
 
