@@ -23,7 +23,7 @@ class DataProperty:  # pylint: disable=too-few-public-methods
     def __init__(  # pylint: disable=too-many-arguments
         self,
         key: str,
-        expected_type: type | tuple[type],
+        expected_type: type | tuple[type | None, ...],
         *,
         default: Any = None,
         choices: list | tuple | None = None,
@@ -82,7 +82,7 @@ class DataProperty:  # pylint: disable=too-few-public-methods
 
 
 def data_property(  # pylint: disable=too-many-arguments
-    expected_type: type | tuple[type],
+    expected_type: type | tuple[type | None, ...],
     *,
     key: str | None = None,
     default: Any = None,
@@ -126,7 +126,7 @@ def data_property(  # pylint: disable=too-many-arguments
                     value,
                     expected_type=expected_type,
                     expected_choices=choices,
-                    nullable=nullable,
+                    nullable=False,
                     validator=validator,
                     validation_error=error,
                     validation_message=message,
@@ -143,7 +143,7 @@ def get_and_validate(  # Allow complex combinations to validate values consisten
     data: dict,
     key: str,
     *,
-    expected_type: type | tuple[type] | None = None,
+    expected_type: type | tuple[type | None, ...] | None = None,
     expected_choices: list | tuple | None = None,
     nullable: bool = True,
     default: Any = None,
@@ -173,7 +173,7 @@ def validate(  # pylint: disable=too-many-arguments
     key: str,
     value: Any,
     *,
-    expected_type: type | tuple[type] = None,
+    expected_type: type | tuple[type | None, ...] = None,
     expected_choices: list | tuple | None = None,
     nullable: bool = True,
     validator: Callable | None = None,
@@ -184,7 +184,7 @@ def validate(  # pylint: disable=too-many-arguments
 
     Refer to `huereka.shared.properties.DataProperty` for argument details.
     """
-    if value is None and nullable:
+    if value is None and (nullable or (isinstance(expected_type, tuple) and None in expected_type)):
         return
     if value is None:
         raise responses.APIError(
