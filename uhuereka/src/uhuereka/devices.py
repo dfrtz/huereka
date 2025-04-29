@@ -61,11 +61,11 @@ class MCUDevice(CollectionEntry):
         self.control_pin = control_pin
 
     @property
-    def control_pin(self) -> int:
+    def control_pin(self) -> int | None:
         """Pin that should listen to button presses to control the hardware/software."""
         return self._control_pin
 
-    @data_property(int)
+    @data_property((int, None))
     @control_pin.setter
     def control_pin(self, control_pin: int) -> None:
         """Safely set the Pin that should listen to button presses to control the hardware/software."""
@@ -92,7 +92,7 @@ class MCUDevice(CollectionEntry):
         """The current port the device is listening to API requests on."""
         return self._port
 
-    @data_property(int)
+    @data_property((int, None))
     @port.setter
     def port(self, port: int | None) -> None:
         """Safely set the port the device is listening to API requests on."""
@@ -103,7 +103,7 @@ class MCUDevice(CollectionEntry):
         """Whether the WLAN hardware is allowed to be used for control requests."""
         return self._wlan_enabled
 
-    @data_property(bool)
+    @data_property(bool, default=False)
     @wlan_enabled.setter
     def wlan_enabled(self, wlan_enabled: bool) -> None:
         """Safely set whether the WLAN hardware is allowed to be used for control requests."""
