@@ -73,6 +73,7 @@ if [ "${install_dependencies}" == "true" ]; then
     curl 'https://raw.githubusercontent.com/miguelgrinberg/microdot/refs/tags/v2.1.0/src/microdot/microdot.py' -o "$microdot_src"
     mpy-cross "$microdot_src" -o "$microdot_compiled" -O3
   fi
+  $cmd_prefix $mpremote_bin mkdir lib || true
   $cmd_prefix $mpremote_bin cp "$microdot_compiled" :lib/microdot.mpy
   $cmd_prefix $mpremote_bin connect ${device} mip install logging
   $cmd_prefix $mpremote_bin connect ${device} mip install pathlib
@@ -98,6 +99,7 @@ fi
 
 if [ "${install_src}" == "true" ]; then
   # Sync with folders only works to existing folders, must create tree manually first for nested sync.
+  $cmd_prefix $mpremote_bin mkdir lib || true
   $cmd_prefix $mpremote_bin mkdir uhuereka || true
   $cmd_prefix $mpremote_bin mkdir uhuereka/static || true
   if [ "${compile}" == "true" ]; then
