@@ -451,8 +451,8 @@ class CollectionEntry(abc.ABC):
                     value = [val.to_json() for val in value] if value else None
                 else:
                     value = value.to_json()
-            if value != (config.default if not callable(config.default) else config.default()):
-                if config.save or not save_only:
+            if not save_only or value != (config.default() if callable(config.default) else config.default):
+                if config.save:
                     data[config.key] = value
         return data
 
