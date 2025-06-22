@@ -100,13 +100,14 @@ class WLANConfigurationApp(microdot_utils.Microdot):
         ssid = form.get("ssid")
         password = form.get("password")
         hostname = form.get("hostname") or self.hostname or network.hostname()
-        logger.info(f"Received network setup request for {ssid} {bssid} as {hostname}")
+        logger.info(f"Received network setup request for SSID {ssid} BSSID {bssid} as {hostname}")
 
         if not password or not ssid:
             return json.dumps({"error": f"Missing ssid or password"}), 422, {"Content-Type": "application/json"}
 
         wait = 10
-        if await connect(self.wlan, ssid, password, hostname=hostname, bssid=bssid, wait=wait):
+        connected, status = await connect(self.wlan, ssid, password, hostname=hostname, bssid=bssid, wait=wait)
+        if connected:
             config = {
                 "ssid": ssid,
                 "bssid": bssid,
@@ -141,7 +142,11 @@ class WLANConfigurationApp(microdot_utils.Microdot):
             )
         else:
             return (
-                json.dumps({"error": f"Unable to establish connection to {ssid} after {wait} seconds"}),
+                json.dumps(
+                    {
+                        "error": f"Unable to establish connection to {ssid}. Error: {ERROR_MSGS.get(status, 'unknown error')}"
+                    }
+                ),
                 200,
                 {"Content-Type": "application/json"},
             )
@@ -171,7 +176,7 @@ async def connect(
     hostname: str | None = None,
     bssid: bytes | str | None = None,
     wait: int = 10,
-) -> bool:
+) -> tuple[bool, int | None]:
     """Connect a wireless interface to a network.
 
     Args:
@@ -219,7 +224,7 @@ async def connect(
         logger.warning(
             f"WLAN connection failed to {ssid} as {hostname} with code {status} {ERROR_MSGS.get(status, 'unknown error')}"
         )
-    return connected
+    return connected, status
 
 
 async def connect_from_profiles(
